@@ -79,18 +79,22 @@ instance
   => TensorProduct (CoPair du dv) (Pair u v) b where
     CoPair da db ⊗ Pair a b = (da ⊗ a) ^+^ (db ⊗ b)
 
-data GetFirst b u v = GetFirst
-data GetSecond b u v = GetSecond
-
-instance BVector b u => TensorProduct (Dual b (u, v)) (u, v) b where
-    DualPair du _ ⊗ (u, _) = du ⊗ u
 instance BVector b u => BVector b (u, v) where
     data Dual b (u, v) = DualPair (Dual b u) (Dual b v)
+instance BVector b u => TensorProduct (Dual b (u, v)) (u, v) b where
+    DualPair du _ ⊗ (u, _) = du ⊗ u
 
+data GetFirst b u v = GetFirst
 instance TensorProduct (GetFirst b u v) (u, v) u where
     GetFirst ⊗ (u, _) = u
 instance AdditiveGroup (Dual b v) => TensorProduct (Dual b u) (GetFirst b u v) (Dual b (u, v)) where
     du ⊗ GetFirst = DualPair du zeroV
+
+data SetFirst b u v = SetFirst
+instance AdditiveGroup v => TensorProduct (SetFirst b u v) u (u, v) where
+    SetFirst ⊗ u = (u, zeroV)
+instance TensorProduct (Dual b (u, v)) (SetFirst b u v) (Dual b u) where
+    DualPair du _ ⊗ SetFirst = du
 
 --  (TensorProduct f u v, TensorProduct (Dual b v) f (Dual b u)) 
 -- instance LinearFunction b (GetFirst b u v) (u, v) v where
