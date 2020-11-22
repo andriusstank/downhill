@@ -12,7 +12,9 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 module Tensor (
     TensorProduct(..),
-    PairFunc(..)
+    LinearFunction(..),
+    PairFunc(..),
+    Flip
 )
 where
 import Data.Kind (Type)
@@ -33,12 +35,26 @@ class TensorProduct dv v b => BVector b v dv where
 --  f ⊗ u ::  v
 -- dv ⊗ f :: du
 -- (dv ⊗ f) ⊗ u == dv ⊗ (f ⊗ u)
-class (TensorProduct f u v, TensorProduct dv f du) => LinearFunction b f u v du dv | f -> b where
+class (AdditiveGroup u, TensorProduct f u v, TensorProduct dv f du) => LinearFunction b f u v du dv | f -> b where
+
+-- Idea
+-- data LinearFunction f = LeftMul f | RightMul f
+-- (LeftMul f) ⊗ x = f ⊗ x
+-- (RightMul f) ⊗ x = x ⊗ f
+-- Now we can nicely flip and flip again
 
 _testLinearFunction :: forall b f u v du dv. (Eq b, BVector b u du, BVector b v dv) => LinearFunction b f u v du dv => f -> dv -> u -> Bool
 _testLinearFunction f dv u = lhs == rhs
     where lhs = (dv ⊗ f :: du) ⊗ u :: b
           rhs = dv ⊗ (f ⊗ u) :: b
+
+newtype Flip f u v = Flip f
+
+instance TensorProduct du f dv => TensorProduct (Flip f du dv) du dv where
+    (Flip f) ⊗ x = x ⊗ f
+
+instance TensorProduct f u v => TensorProduct u (Flip f u v) v where
+    x ⊗ (Flip f) = f ⊗ x
 
 type family CommonType a b :: Type where
     CommonType a a = a
