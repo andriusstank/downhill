@@ -25,9 +25,7 @@ class TensorProduct u v w | u v -> w where
 class TensorProduct u v (u⊗v) => TensorProduct' u v where
   type u ⊗ v :: Type
 
-class TensorProduct (Dual b v) v b => BVector b v where
-    data Dual b v :: Type
-
+class TensorProduct dv v b => BVector b v dv where
 
 -- f: u -> v
 -- dv ~ Dual b v
@@ -35,11 +33,11 @@ class TensorProduct (Dual b v) v b => BVector b v where
 --  f ⊗ u ::  v
 -- dv ⊗ f :: du
 -- (dv ⊗ f) ⊗ u == dv ⊗ (f ⊗ u)
-class (TensorProduct f u v, TensorProduct (Dual b v) f (Dual b u)) => LinearFunction b f u v | f -> b where
+class (TensorProduct f u v, TensorProduct dv f du) => LinearFunction b f u v du dv | f -> b where
 
-_testLinearFunction :: forall b f u v dv. (Eq b, dv ~ Dual b v, BVector b u, BVector b v) => LinearFunction b f u v => f -> dv -> u -> Bool
+_testLinearFunction :: forall b f u v du dv. (Eq b, BVector b u du, BVector b v dv) => LinearFunction b f u v du dv => f -> dv -> u -> Bool
 _testLinearFunction f dv u = lhs == rhs
-    where lhs = (dv ⊗ f :: Dual b u) ⊗ u :: b
+    where lhs = (dv ⊗ f :: du) ⊗ u :: b
           rhs = dv ⊗ (f ⊗ u) :: b
 
 type family CommonType a b :: Type where
@@ -79,22 +77,23 @@ instance
   => TensorProduct (CoPair du dv) (Pair u v) b where
     CoPair da db ⊗ Pair a b = (da ⊗ a) ^+^ (db ⊗ b)
 
-instance BVector b u => BVector b (u, v) where
-    data Dual b (u, v) = DualPair (Dual b u) (Dual b v)
-instance BVector b u => TensorProduct (Dual b (u, v)) (u, v) b where
-    DualPair du _ ⊗ (u, _) = du ⊗ u
+instance BVector b u du => BVector b (u, v) (du, dv) where
 
-data GetFirst b u v = GetFirst
-instance TensorProduct (GetFirst b u v) (u, v) u where
+instance BVector b u du => TensorProduct (du, dv) (u, v) b where
+    (du, _) ⊗ (u, _) = du ⊗ u
+
+data GetFirst b u v du dv = GetFirst
+instance TensorProduct (GetFirst b u v du dv) (u, v) u where
     GetFirst ⊗ (u, _) = u
-instance AdditiveGroup (Dual b v) => TensorProduct (Dual b u) (GetFirst b u v) (Dual b (u, v)) where
-    du ⊗ GetFirst = DualPair du zeroV
+instance AdditiveGroup dv => TensorProduct du (GetFirst b u v du dv) (du, dv) where
+    du ⊗ GetFirst = (du, zeroV)
 
-data SetFirst b u v = SetFirst
-instance AdditiveGroup v => TensorProduct (SetFirst b u v) u (u, v) where
+data SetFirst b u v du dv = SetFirst
+instance AdditiveGroup v => TensorProduct (SetFirst b u v du dv) u (u, v) where
     SetFirst ⊗ u = (u, zeroV)
-instance TensorProduct (Dual b (u, v)) (SetFirst b u v) (Dual b u) where
-    DualPair du _ ⊗ SetFirst = du
+instance TensorProduct (du, dv) (SetFirst b u v du dv) du where
+    (du, _) ⊗ SetFirst = du
+
 
 --  (TensorProduct f u v, TensorProduct (Dual b v) f (Dual b u)) 
 -- instance LinearFunction b (GetFirst b u v) (u, v) v where
