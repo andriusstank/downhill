@@ -12,9 +12,9 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 module Tensor (
     TensorProduct(..),
-    LinearFunction(..),
+    LinearFunction,
     PairFunc(..),
-    Flip
+    AFunction, transposeFunc
 )
 where
 import Data.Kind (Type)
@@ -36,7 +36,7 @@ class TensorProduct dv v b => BVector b v dv where
 -- dv ⊗ f :: du
 -- (dv ⊗ f) ⊗ u == dv ⊗ (f ⊗ u)
 class (AdditiveGroup u, TensorProduct f u v, TensorProduct dv f du) => LinearFunction b f u v du dv | f -> b where
-
+    --transpose :: 
 -- Idea
 -- data LinearFunction f = LeftMul f | RightMul f
 -- (LeftMul f) ⊗ x = f ⊗ x
@@ -48,13 +48,19 @@ _testLinearFunction f dv u = lhs == rhs
     where lhs = (dv ⊗ f :: du) ⊗ u :: b
           rhs = dv ⊗ (f ⊗ u) :: b
 
-newtype Flip f u v = Flip f
+data AFunction b u v du dv = AFunction
+    { funcFwd  :: u -> v
+    , funcBack :: dv -> du
+    }
 
-instance TensorProduct du f dv => TensorProduct (Flip f du dv) du dv where
-    (Flip f) ⊗ x = x ⊗ f
+instance TensorProduct (AFunction b u v du dv) u v where
+    f ⊗ x = funcFwd f x
 
-instance TensorProduct f u v => TensorProduct u (Flip f u v) v where
-    x ⊗ (Flip f) = f ⊗ x
+instance TensorProduct dv (AFunction b u v du dv) du where
+    x ⊗ f = funcBack f x
+
+transposeFunc :: AFunction b u v du dv -> AFunction b dv du v u
+transposeFunc (AFunction f g) = AFunction g f
 
 type family CommonType a b :: Type where
     CommonType a a = a
