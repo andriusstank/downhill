@@ -9,12 +9,17 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# language ScopedTypeVariables #-}
+{-# language QuantifiedConstraints #-}
+{-# language AllowAmbiguousTypes #-}
+
 {-# OPTIONS_GHC -Wno-unused-imports #-}
+
 module Tensor (
     TensorProduct(..),
     LinearFunction,
     PairFunc(..),
-    AFunction, transposeFunc
+    AFunction, transposeFunc,
+    LinearFunction'(..)
 )
 where
 import Data.Kind (Type)
@@ -36,6 +41,12 @@ class TensorProduct dv v b => BVector b v dv where
 -- dv ⊗ f :: du
 -- (dv ⊗ f) ⊗ u == dv ⊗ (f ⊗ u)
 class (AdditiveGroup u, TensorProduct f u v, TensorProduct dv f du) => LinearFunction b f u v du dv | f -> b where
+
+class
+  ( forall u v du dv. AdditiveGroup u => LinearFunction b (f u v du dv) u v du dv
+  ) => LinearFunction' b f where
+    transpose :: f u v du dv -> f dv du v u
+
     --transpose :: 
 -- Idea
 -- data LinearFunction f = LeftMul f | RightMul f
@@ -61,6 +72,11 @@ instance TensorProduct dv (AFunction b u v du dv) du where
 
 transposeFunc :: AFunction b u v du dv -> AFunction b dv du v u
 transposeFunc (AFunction f g) = AFunction g f
+
+instance AdditiveGroup u => LinearFunction b (AFunction b u v du dv) u v du dv
+
+instance LinearFunction' b (AFunction b) where
+    transpose = transposeFunc
 
 type family CommonType a b :: Type where
     CommonType a a = a
