@@ -22,6 +22,7 @@ module Tensor (
     LinearFunction'(..)
 )
 where
+import Data.Constraint
 import Data.Kind (Type)
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
 import GHC.Generics (Generic)
@@ -40,12 +41,20 @@ class TensorProduct dv v b => BVector b v dv where
 --  f ⊗ u ::  v
 -- dv ⊗ f :: du
 -- (dv ⊗ f) ⊗ u == dv ⊗ (f ⊗ u)
-class (AdditiveGroup u, TensorProduct f u v, TensorProduct dv f du) => LinearFunction b f u v du dv | f -> b where
+class
+  ( AdditiveGroup u
+  , AdditiveGroup v
+  , AdditiveGroup du
+  , AdditiveGroup dv
+  , TensorProduct f u v
+  , TensorProduct dv f du
+  ) => LinearFunction b f u v du dv | f -> b where
 
 class
-  ( forall u v du dv. AdditiveGroup u => LinearFunction b (f u v du dv) u v du dv
-  ) => LinearFunction' b f where
-    transpose :: f u v du dv -> f dv du v u
+  ( 
+  ) => LinearFunction' b f  where
+    transpose :: LinearFunction b (f u v du dv) u v du dv => f u v du dv -> f dv du v u
+    transposeC :: LinearFunction b (f u v du dv) u v du dv :- LinearFunction b (f dv du v u) dv du v u
 
     --transpose :: 
 -- Idea
@@ -73,10 +82,11 @@ instance TensorProduct dv (AFunction b u v du dv) du where
 transposeFunc :: AFunction b u v du dv -> AFunction b dv du v u
 transposeFunc (AFunction f g) = AFunction g f
 
-instance AdditiveGroup u => LinearFunction b (AFunction b u v du dv) u v du dv
+instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction b (AFunction b u v du dv) u v du dv
 
 instance LinearFunction' b (AFunction b) where
     transpose = transposeFunc
+    transposeC = Sub Dict
 
 type family CommonType a b :: Type where
     CommonType a a = a
