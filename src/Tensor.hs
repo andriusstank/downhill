@@ -53,29 +53,29 @@ class
 class
   ( 
   ) => LinearFunction' b f  where
-    transpose :: LinearFunction b (f u v du dv) u v du dv => f u v du dv -> f dv du v u
-    transposeC :: LinearFunction b (f u v du dv) u v du dv :- LinearFunction b (f dv du v u) dv du v u
+    transpose :: LinearFunction b (f u du v dv) u v du dv => f u du v dv -> f dv v du u
+    transposeC :: LinearFunction b (f u du v dv) u v du dv :- LinearFunction b (f dv v du u) dv du v u
 
 _testLinearFunction :: forall b f u v du dv. (Eq b, BVector b u du, BVector b v dv) => LinearFunction b f u v du dv => f -> dv -> u -> Bool
 _testLinearFunction f dv u = lhs == rhs
     where lhs = (dv ⊗ f :: du) ⊗ u :: b
           rhs = dv ⊗ (f ⊗ u) :: b
 
-data AFunction b u v du dv = AFunction
+data AFunction b u du v dv = AFunction
     { funcFwd  :: u -> v
     , funcBack :: dv -> du
     }
 
-instance TensorProduct (AFunction b u v du dv) u v where
+instance TensorProduct (AFunction b u du v dv) u v where
     f ⊗ x = funcFwd f x
 
-instance TensorProduct dv (AFunction b u v du dv) du where
+instance TensorProduct dv (AFunction b u du v dv) du where
     x ⊗ f = funcBack f x
 
 transposeFunc :: AFunction b u v du dv -> AFunction b dv du v u
 transposeFunc (AFunction f g) = AFunction g f
 
-instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction b (AFunction b u v du dv) u v du dv
+instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction b (AFunction b u du v dv) u v du dv
 
 instance LinearFunction' b (AFunction b) where
     transpose = transposeFunc
