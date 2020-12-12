@@ -30,31 +30,31 @@ import Control.Monad.Trans.Class
 
 newtype ExprRef b a da v dv = ExprRef (StableName Any)
 
-newtype ExprMap f a da = ExprMap { unExprMap :: HashMap (StableName Any) (SomeExpr f a da) }
+newtype ExprMap f = ExprMap { unExprMap :: HashMap (StableName Any) (SomeExpr f) }
 
-mapmap :: forall f g a da. (forall v dv. f a da v dv -> g a da v dv) -> ExprMap f a da -> ExprMap g a da
+mapmap :: forall f g a da. (forall v dv. f a da v dv -> g a da v dv) -> ExprMap (f a da) -> ExprMap (g a da)
 mapmap f (ExprMap x) = ExprMap (go <$> x)
     where go (SomeExpr y) = SomeExpr (f y)
 
-data SomeExpr f a da = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExpr (f a da v dv)
+data SomeExpr f = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExpr (f v dv)
 
 debugShow :: ExprRef b a v da dv -> String
 debugShow (ExprRef ref) = show (hashStableName ref)
 
-unsafeCastType''' :: SomeExpr f a da -> f a da v dv
+unsafeCastType''' :: SomeExpr (f a da) -> f a da v dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCoerce x -- !!!
 
-lookupExprRef :: ExprMap f a da -> ExprRef b a da v dv -> Maybe (f a da v dv)
+lookupExprRef :: ExprMap (f a da) -> ExprRef b a da v dv -> Maybe (f a da v dv)
 lookupExprRef (ExprMap m) (ExprRef ref) =
     case Map.lookup ref m of
         Just x -> Just (unsafeCastType''' x)
         Nothing -> Nothing
 
-insertExprRef :: (AdditiveGroup v, AdditiveGroup dv) => ExprMap f a da -> ExprRef b a da v dv -> f a da v dv -> ExprMap f a da
+insertExprRef :: (AdditiveGroup v, AdditiveGroup dv) => ExprMap (f a da) -> ExprRef b a da v dv -> f a da v dv -> ExprMap (f a da)
 insertExprRef (ExprMap cache') (ExprRef name) y  = ExprMap (Map.insert name (SomeExpr y) cache')
 
-newtype TreeBuilder f a da r = TreeCache { unTreeCache :: StateT (ExprMap f a da) IO r }
+newtype TreeBuilder f a da r = TreeCache { unTreeCache :: StateT (ExprMap (f a da)) IO r }
     deriving (Functor, Applicative, Monad)
 
 
