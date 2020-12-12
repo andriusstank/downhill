@@ -33,7 +33,7 @@ data SExpr b a v da dv where
 
 --newtype TreeCache b a da r = TreeCache { unTreeCache :: StateT (HashMap (StableName Any) (SomeExpr SExpr b a da)) IO r }
 
-type TreeCache = TreeBuilder SExpr
+--type TreeCache = TreeBuilder SExpr
 
 data SExpr' b a v da dv = SExpr' (HashMap (StableName Any) (SomeExpr (SExpr b) a da)) (SExpr b a v da dv)
 
@@ -94,7 +94,7 @@ forgetSharing (SExpr' m e) =
           goSum :: forall x dx. ExprRef b a x da dx -> Expr b a x da dx
           goSum x =  lookup' x
 
-goSharing :: forall a b v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a v da dv -> TreeCache b a da (SExpr b a v da dv)
+goSharing :: forall a b v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a v da dv -> TreeBuilder (SExpr b) a da (SExpr b a v da dv)
 goSharing expr = case expr of
     Variable -> return SVariable -- TODO: recover sharing for variables or not?
     Func f x -> do
@@ -108,7 +108,7 @@ goSharing expr = case expr of
 sharingAction :: BuildAction (Expr b) SExpr b
 sharingAction = BuildAction goSharing
 
-recoverSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a v da dv -> TreeCache b a da (SExpr b a v da dv)
+recoverSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a v da dv -> TreeBuilder (SExpr b) a da (SExpr b a v da dv)
 recoverSharing expr'' = snd <$> lookupTree expr'' sharingAction
 
 runRecoverSharing :: (AdditiveGroup v, AdditiveGroup dv) => Expr b a v da dv -> IO (SExpr' b a v da dv)
