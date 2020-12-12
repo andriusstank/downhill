@@ -30,7 +30,8 @@ data SExpr b a v da dv where
     SFunc :: (AdditiveGroup u, AdditiveGroup v, AdditiveGroup du, AdditiveGroup dv) => AFunction b u v du dv -> ExprRef b a u da du -> SExpr b a v da dv
     SSum :: AdditiveGroup v => [ExprRef b a v da dv] -> SExpr b a v da dv
 
-newtype TreeCache b a da r = TreeCache { unTreeCache :: StateT (HashMap (StableName Any) (SomeExpr SExpr b a da)) IO r }
+--newtype TreeCache b a da r = TreeCache { unTreeCache :: StateT (HashMap (StableName Any) (SomeExpr SExpr b a da)) IO r }
+newtype TreeCache b a da r = TreeCache { unTreeCache :: StateT (ExprMap SExpr b a da) IO r }
     deriving Functor
     deriving Applicative
     deriving Monad
@@ -92,6 +93,17 @@ forgetSharing (SExpr' m e) =
           goSum :: forall x dx. ExprRef b a x da dx -> Expr b a x da dx
           goSum x =  lookup' x
 
+lookupTreeCache :: ExprRef b a v da dv -> TreeCache b a da _
+lookupTreeCache name = do
+    cache <- TreeCache get
+    return (lookupExprRef cache name)
+
+insertTreeCache :: (AdditiveGroup v, AdditiveGroup dv) => ExprRef b a v da dv -> _ -> TreeCache b a da _
+insertTreeCache name value = do
+    cache' <- TreeCache get
+    let newCache = insertExprRef cache' name value
+    TreeCache (put newCache)
+
 lookupTree
   :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv)
   => Expr b a v da dv
@@ -101,17 +113,11 @@ lookupTree expr value = do
     name <- TreeCache (lift (makeStableName (eraseType expr)))
     TreeCache . lift $ putStrLn ("lookup" <> show (hashStableName name))
     cache <- TreeCache get
-    case Map.lookup name cache of
-        Just x -> case x of
-            SomeExpr x' -> return (ExprRef name, unsafeCastType x')
+    case lookupExprRef cache (ExprRef name) of
+        Just x -> return (ExprRef name, x)
         Nothing -> do
             y <- value
-            cache' <- TreeCache get
-            let newCache = Map.insert name (SomeExpr y) cache'
-            TreeCache (lift (putStrLn ("before " <> show (hashStableName <$> Map.keys cache'))))
-            TreeCache (put newCache)
-            TreeCache (lift (putStrLn ("insert " <> show (hashStableName name))))
-            TreeCache (lift (putStrLn ("now got " <> show (hashStableName <$> Map.keys newCache))))
+            insertTreeCache (ExprRef name) y
             return (ExprRef name, y)
 
 eraseType :: Expr b a v da dv -> Any
@@ -132,9 +138,8 @@ recoverSharing expr = snd <$> lookupTree expr go
 
 runRecoverSharing :: (AdditiveGroup v, AdditiveGroup dv) => Expr b a v da dv -> IO (SExpr' b a v da dv)
 runRecoverSharing x = do
-    (y, z) <- runStateT (unTreeCache $ recoverSharing x) Map.empty
-    return (SExpr' z y)
-
+    (y, z) <- runStateT (unTreeCache $ recoverSharing x) (ExprMap Map.empty)
+    return (SExpr' (unExprMap z) y)
 
 newtype TreeCache' r = TreeCache' { unTreeCache' :: IO r }
     deriving Functor

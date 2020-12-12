@@ -51,11 +51,11 @@ testExpr () = x4
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-x :: () -> IO (SExpr' R R R R R)
-x () = runRecoverSharing (testExpr ())
+_x :: () -> IO (SExpr' R R R R R)
+_x () = runRecoverSharing (testExpr ())
 
-y :: IO R
-y = do
-    x' <- x()
+_y :: IO R
+_y = do
+    x' <- _x()
     let y' = forgetSharing x' :: Expr R R R R R
     return (y' ⊗ (R 1))
