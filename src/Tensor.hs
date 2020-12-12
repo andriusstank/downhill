@@ -18,7 +18,7 @@ module Tensor (
     TensorProduct(..),
     LinearFunction,
     PairFunc(..),
-    AFunction, transposeFunc,
+    AFunction(..), transposeFunc,
     LinearFunction'(..)
 )
 where
@@ -55,13 +55,6 @@ class
   ) => LinearFunction' b f  where
     transpose :: LinearFunction b (f u v du dv) u v du dv => f u v du dv -> f dv du v u
     transposeC :: LinearFunction b (f u v du dv) u v du dv :- LinearFunction b (f dv du v u) dv du v u
-
-    --transpose :: 
--- Idea
--- data LinearFunction f = LeftMul f | RightMul f
--- (LeftMul f) ⊗ x = f ⊗ x
--- (RightMul f) ⊗ x = x ⊗ f
--- Now we can nicely flip and flip again
 
 _testLinearFunction :: forall b f u v du dv. (Eq b, BVector b u du, BVector b v dv) => LinearFunction b f u v du dv => f -> dv -> u -> Bool
 _testLinearFunction f dv u = lhs == rhs

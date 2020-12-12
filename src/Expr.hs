@@ -2,8 +2,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GADTs #-}
-{-# language TypeApplications #-}
-{-# language ExplicitForAll #-}
 {-# language ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
