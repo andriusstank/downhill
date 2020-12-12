@@ -37,7 +37,6 @@ newtype TreeCache b a da r = TreeCache { unTreeCache :: StateT (HashMap (StableN
 
 data SExpr' b a v da dv = SExpr' (HashMap (StableName Any) (SomeExpr SExpr b a da)) (SExpr b a v da dv)
 
-data SomeExpr' b a da = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExpr' (Expr b a v da dv)
 
 unsafeCastType :: SExpr b a x da dx -> SExpr b a v da dv
 unsafeCastType = unsafeCoerce
@@ -45,9 +44,11 @@ unsafeCastType = unsafeCoerce
 unsafeCastType' :: Expr b a x da dx -> Expr b a v da dv
 unsafeCastType' = unsafeCoerce
 
+{-
 unsafeCastType'' :: SomeExpr' b a da -> Expr b a v da dv
 unsafeCastType'' = \case
     SomeExpr' x -> unsafeCastType' x
+-}
 
 unsafeCastType''' :: SomeExpr SExpr b a da -> SExpr b a v da dv
 unsafeCastType''' = \case
@@ -73,23 +74,23 @@ instance TensorProduct (SExpr' b a v da dv) a v where
 forgetSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => SExpr' b a v da dv -> Expr b a v da dv
 forgetSharing (SExpr' m e) =
     case go (SomeExpr e) of
-        SomeExpr' e' -> unsafeCastType' e'
-    where lookup' :: ExprRef b a _ da _ -> SomeExpr' b a da
-          lookup' (ExprRef ref) = case Map.lookup ref m' of
+        SomeExpr e' -> unsafeCastType' e'
+    where lookup' :: forall x dx. ExprRef b a x da dx -> Expr b a x da dx -- SomeExpr' b a da
+          lookup' ref = case lookupExprRef m' ref of
               Just x -> x
-              Nothing -> error ("bug: incomplete map in forgetSharing (" <> show (hashStableName ref) <> ")")
-          m' :: HashMap (StableName Any) (SomeExpr' b a da)
-          m' = go <$> m
-          go :: SomeExpr SExpr b a da -> SomeExpr' b a da
+              Nothing -> error ("bug: incomplete map in forgetSharing (" <> debugShow ref <> ")")
+          m' :: ExprMap Expr b a da --HashMap (StableName Any) (SomeExpr Expr b a da)
+          m' = mapmap go' (ExprMap m) --go <$> m
+          go :: SomeExpr SExpr b a da -> SomeExpr Expr b a da
           go = \case
-            SomeExpr e' -> SomeExpr' (go' e')
+            SomeExpr e' -> SomeExpr (go' e')
           go' :: SExpr b a x da dx -> Expr b a x da dx
           go' = \case
             SVariable -> Variable
-            SFunc f x -> Func f (unsafeCastType'' (lookup' x))
+            SFunc f x -> Func f (lookup' x)
             SSum xs -> Sum (goSum <$> xs)
           goSum :: forall x dx. ExprRef b a x da dx -> Expr b a x da dx
-          goSum x = unsafeCastType'' . lookup' $ x
+          goSum x =  lookup' x
 
 lookupTree
   :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv)
