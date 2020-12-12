@@ -1,3 +1,4 @@
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
@@ -20,25 +21,21 @@ import Data.HashMap.Strict (HashMap)
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Monad.Trans.Class ( MonadTrans(lift) )
 import Control.Monad.Trans.State.Lazy
+import Control.Monad.IO.Class (MonadIO(..))
+import ExprRef
 import qualified Data.HashMap.Strict as Map
-
-data SomeExpr b a da = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExpr (SExpr b a v da dv)
-
-newtype ExprRef b a da = ExprRef (StableName Any)
-
-newtype ExprMap b a da = ExprMap (HashMap (StableName Any) (SomeExpr b a da))
 
 data SExpr b a v da dv where
     SVariable :: SExpr b a a da da
-    SFunc :: (AdditiveGroup u, AdditiveGroup v, AdditiveGroup du, AdditiveGroup dv) => AFunction b u v du dv -> ExprRef b a da -> SExpr b a v da dv
-    SSum :: AdditiveGroup v => [ExprRef b a da] -> SExpr b a v da dv
+    SFunc :: (AdditiveGroup u, AdditiveGroup v, AdditiveGroup du, AdditiveGroup dv) => AFunction b u v du dv -> ExprRef b a u da du -> SExpr b a v da dv
+    SSum :: AdditiveGroup v => [ExprRef b a v da dv] -> SExpr b a v da dv
 
-newtype TreeCache b a da r = TreeCache { unTreeCache :: StateT (HashMap (StableName Any) (SomeExpr b a da)) IO r }
+newtype TreeCache b a da r = TreeCache { unTreeCache :: StateT (HashMap (StableName Any) (SomeExpr SExpr b a da)) IO r }
     deriving Functor
     deriving Applicative
     deriving Monad
 
-data SExpr' b a v da dv = SExpr' (HashMap (StableName Any) (SomeExpr b a da)) (SExpr b a v da dv)
+data SExpr' b a v da dv = SExpr' (HashMap (StableName Any) (SomeExpr SExpr b a da)) (SExpr b a v da dv)
 
 data SomeExpr' b a da = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExpr' (Expr b a v da dv)
 
@@ -52,11 +49,11 @@ unsafeCastType'' :: SomeExpr' b a da -> Expr b a v da dv
 unsafeCastType'' = \case
     SomeExpr' x -> unsafeCastType' x
 
-unsafeCastType''' :: SomeExpr b a da -> SExpr b a v da dv
+unsafeCastType''' :: SomeExpr SExpr b a da -> SExpr b a v da dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCastType x
 
-unsafeLookup :: HashMap (StableName Any) (SomeExpr b a da) -> ExprRef b a da -> SExpr b a v da dv
+unsafeLookup :: HashMap (StableName Any) (SomeExpr SExpr b a da) -> ExprRef b a v da dv -> SExpr b a v da dv
 unsafeLookup m (ExprRef ref) = case Map.lookup ref m of
     Just x -> unsafeCastType''' x
     Nothing -> error ("bug: incomplete map in forgetSharing (" <> show (hashStableName ref) <> ")")
@@ -77,13 +74,13 @@ forgetSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => SExp
 forgetSharing (SExpr' m e) =
     case go (SomeExpr e) of
         SomeExpr' e' -> unsafeCastType' e'
-    where lookup' :: ExprRef b a da -> SomeExpr' b a da
+    where lookup' :: ExprRef b a _ da _ -> SomeExpr' b a da
           lookup' (ExprRef ref) = case Map.lookup ref m' of
               Just x -> x
               Nothing -> error ("bug: incomplete map in forgetSharing (" <> show (hashStableName ref) <> ")")
           m' :: HashMap (StableName Any) (SomeExpr' b a da)
           m' = go <$> m
-          go :: SomeExpr b a da -> SomeExpr' b a da
+          go :: SomeExpr SExpr b a da -> SomeExpr' b a da
           go = \case
             SomeExpr e' -> SomeExpr' (go' e')
           go' :: SExpr b a x da dx -> Expr b a x da dx
@@ -91,14 +88,14 @@ forgetSharing (SExpr' m e) =
             SVariable -> Variable
             SFunc f x -> Func f (unsafeCastType'' (lookup' x))
             SSum xs -> Sum (goSum <$> xs)
-          goSum :: forall x dx. ExprRef b a da -> Expr b a x da dx
+          goSum :: forall x dx. ExprRef b a x da dx -> Expr b a x da dx
           goSum x = unsafeCastType'' . lookup' $ x
 
 lookupTree
   :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv)
   => Expr b a v da dv
   -> TreeCache b a da (SExpr b a v da dv) -- this will be executed only if needed
-  -> TreeCache b a da (ExprRef b a da, SExpr b a v da dv)
+  -> TreeCache b a da (ExprRef b a v da dv, SExpr b a v da dv)
 lookupTree expr value = do
     name <- TreeCache (lift (makeStableName (eraseType expr)))
     TreeCache . lift $ putStrLn ("lookup" <> show (hashStableName name))
