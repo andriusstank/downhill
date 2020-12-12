@@ -7,7 +7,6 @@ module ExprRef (
     ExprRef(..),
     ExprMap(..),
     SomeExpr(..),
-    ExprMapBuilder(..),
     lookupExprRef,
     debugShow,
     mapmap,
@@ -24,14 +23,7 @@ import Unsafe.Coerce (unsafeCoerce)
 
 newtype ExprRef b a v da dv = ExprRef (StableName Any)
 
--- Key is stable name of the stored value
-newtype ExprMapBuilder f b a da = ExprMapBuilder (HashMap (StableName Any) (SomeExpr f b a da))
-
--- Key is meaningless here
-newtype ExprMap f b a da = ExprMap { unExprMap :: (HashMap (StableName Any) (SomeExpr f b a da)) }
-
-fromBuilder :: ExprMapBuilder f b a da -> ExprMap f b a da
-fromBuilder (ExprMapBuilder x) = ExprMap x
+newtype ExprMap f b a da = ExprMap { unExprMap :: HashMap (StableName Any) (SomeExpr f b a da) }
 
 mapmap :: forall f g b a da. (forall v dv. f b a v da dv -> g b a v da dv) -> ExprMap f b a da -> ExprMap g b a da
 mapmap f (ExprMap x) = ExprMap (go <$> x)
