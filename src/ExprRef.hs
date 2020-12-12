@@ -6,16 +6,20 @@
 
 module ExprRef (
     ExprName,
-    ExprMap(..),
+    ExprMap,
     SomeExpr(..),
-    TreeBuilder(..),
+    TreeBuilder,
+    BuildAction(..),
+    SExpr'(..),
     lookupExprName,
     debugShow,
     mapmap,
+    runRecoverSharing',
+    lookupTree
+    {-
     insertExprName,
     insertTreeBuilder',
-    lookupTree,
-    BuildAction(..)
+    -}
 )
 where
 import GHC.StableName
@@ -38,7 +42,7 @@ mapmap f (ExprMap x) = ExprMap (go <$> x)
 
 data SomeExpr f = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExpr (f v dv)
 
-debugShow :: ExprName da dv -> String
+debugShow :: ExprName v dv -> String
 debugShow (ExprName ref) = show (hashStableName ref)
 
 unsafeCastType''' :: SomeExpr f -> f v dv
@@ -98,3 +102,10 @@ lookupTree expr (BuildAction value) = do
 
 eraseType :: a -> Any
 eraseType = unsafeCoerce
+
+data SExpr' f v dv = SExpr' (ExprMap f) (f v dv)
+
+runRecoverSharing' :: (AdditiveGroup v, AdditiveGroup dv) => BuildAction f g -> f v dv -> IO (SExpr' g v dv)
+runRecoverSharing' (BuildAction rs) x = do
+    (y, z) <- runStateT (unTreeCache $ rs x) (ExprMap Map.empty)
+    return (SExpr' z y)

@@ -35,8 +35,7 @@ data SExpr b a da v dv where
 
 --type TreeCache = TreeBuilder SExpr
 
-data SExpr' b a da v dv = SExpr' (HashMap (StableName Any) (SomeExpr (SExpr b a da))) (SExpr b a da v dv)
-
+-- data SExpr' b a da v dv = SExpr' (HashMap (StableName Any) (SomeExpr (SExpr b a da))) (SExpr b a da v dv)
 
 unsafeCastType :: SExpr b a da x dx -> SExpr b a da v dv
 unsafeCastType = unsafeCoerce
@@ -49,11 +48,11 @@ unsafeCastType'' :: SomeExpr' b a da -> Expr b a v da dv
 unsafeCastType'' = \case
     SomeExpr' x -> unsafeCastType' x
 -}
-
+{-
 unsafeCastType''' :: SomeExpr (SExpr b a da) -> SExpr b a da v dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCastType x
-
+-}
 {-
 unsafeLookup :: HashMap (StableName Any) (SomeExpr SExpr b a da) -> ExprName b a v da dv -> SExpr b a v da dv
 unsafeLookup m (ExprName ref) = case Map.lookup ref m of
@@ -73,7 +72,7 @@ instance TensorProduct (SExpr' b a v da dv) a v where
         SSum xs -> sumV [x ⊗ a | x <- xs]
 -}
 
-forgetSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => SExpr' b a da v dv -> Expr b a da v dv
+forgetSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => SExpr' (SExpr b a da) v dv -> Expr b a da v dv
 forgetSharing (SExpr' m e) =
     case go (SomeExpr e) of
         SomeExpr e' -> unsafeCastType' e'
@@ -82,7 +81,7 @@ forgetSharing (SExpr' m e) =
               Just x -> x
               Nothing -> error ("bug: incomplete map in forgetSharing (" <> debugShow ref <> ")")
           m' :: ExprMap (Expr b a da) --HashMap (StableName Any) (SomeExpr Expr b a da)
-          m' = mapmap go' (ExprMap m) --go <$> m
+          m' = mapmap go' m --go <$> m
           go :: SomeExpr (SExpr b a da) -> SomeExpr (Expr b a da)
           go = \case
             SomeExpr e' -> SomeExpr (go' e')
@@ -111,8 +110,6 @@ sharingAction = BuildAction goSharing
 recoverSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> TreeBuilder (SExpr b a da) (SExpr b a da v dv)
 recoverSharing expr'' = snd <$> lookupTree expr'' sharingAction
 
-runRecoverSharing :: (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> IO (SExpr' b a da v dv)
-runRecoverSharing x = do
-    (y, z) <- runStateT (unTreeCache $ recoverSharing x) (ExprMap Map.empty)
-    return (SExpr' (unExprMap z) y)
 
+runRecoverSharing :: (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> IO ((SExpr' (SExpr b a da)) v dv)
+runRecoverSharing = runRecoverSharing' sharingAction

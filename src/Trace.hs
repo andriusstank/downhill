@@ -5,6 +5,7 @@ import Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
 import Sharing
+import ExprRef
 import qualified Debug.Trace
 
 newtype R = R Integer
@@ -51,7 +52,7 @@ testExpr () = x4
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-_x :: () -> IO (SExpr' R R R R R)
+_x :: () -> IO (SExpr' (SExpr R R R) R R)
 _x () = runRecoverSharing (testExpr ())
 
 _y :: IO R
