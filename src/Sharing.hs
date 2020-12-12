@@ -20,7 +20,7 @@ import GHC.Exts (Any)
 import Data.HashMap.Strict (HashMap)
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Monad.Trans.Class ( MonadTrans(lift) )
-import Control.Monad.Trans.State.Lazy
+import Control.Monad.Trans.State.Strict
 import Control.Monad.IO.Class (MonadIO(..))
 import ExprRef
 import qualified Data.HashMap.Strict as Map
@@ -31,10 +31,6 @@ data SExpr b a v da dv where
     SSum :: AdditiveGroup v => [ExprRef b a v da dv] -> SExpr b a v da dv
 
 --newtype TreeCache b a da r = TreeCache { unTreeCache :: StateT (HashMap (StableName Any) (SomeExpr SExpr b a da)) IO r }
-newtype TreeBuilder f b a da r = TreeCache { unTreeCache :: StateT (ExprMap f b a da) IO r }
-    deriving Functor
-    deriving Applicative
-    deriving Monad
 
 type TreeCache = TreeBuilder SExpr
 
@@ -57,10 +53,12 @@ unsafeCastType''' :: SomeExpr SExpr b a da -> SExpr b a v da dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCastType x
 
+{-
 unsafeLookup :: HashMap (StableName Any) (SomeExpr SExpr b a da) -> ExprRef b a v da dv -> SExpr b a v da dv
 unsafeLookup m (ExprRef ref) = case Map.lookup ref m of
     Just x -> unsafeCastType''' x
     Nothing -> error ("bug: incomplete map in forgetSharing (" <> show (hashStableName ref) <> ")")
+-}
 
 {-
 unsafeApply :: forall b a u v da du dv. AFunction b u v du dv -> SomeExpr b a da -> v
@@ -95,55 +93,28 @@ forgetSharing (SExpr' m e) =
           goSum :: forall x dx. ExprRef b a x da dx -> Expr b a x da dx
           goSum x =  lookup' x
 
-insertTreeCache :: (AdditiveGroup v, AdditiveGroup dv) => ExprRef b a v da dv -> f b a v da dv -> TreeBuilder f b a da ()
-insertTreeCache name value = do
-    cache' <- TreeCache get
-    let newCache = insertExprRef cache' name value
-    TreeCache (put newCache)
-
-insertTreeBuilder
-    :: (AdditiveGroup v, AdditiveGroup dv)
-    => ExprRef b a v da dv
-    -> TreeBuilder f b a da (f b a v da dv)
-    -> TreeBuilder f b a da (ExprRef b a v da dv, f b a v da dv)
-insertTreeBuilder name value = do
-    y <- value
-    insertTreeCache name y
-    return (name, y)
-
-insertTreeBuilder'
-    :: (AdditiveGroup v, AdditiveGroup dv)
-    => ExprRef b a v da dv
-    -> TreeBuilder f b a da (f b a v da dv)
-    -> TreeBuilder f b a da (ExprRef b a v da dv, f b a v da dv)
-insertTreeBuilder' name value = do
-    cache <- TreeCache get
-    case lookupExprRef cache name of
-        Just x -> return (name, x)
-        Nothing -> insertTreeBuilder name value
-
 lookupTree
-  :: forall f b a v da dv. (AdditiveGroup v, AdditiveGroup dv)
-  => Expr b a v da dv
-  -> TreeBuilder f b a da (f b a v da dv) -- this will be executed only if needed
+  :: forall x f b a v da dv. (AdditiveGroup v, AdditiveGroup dv)
+  => x
+  -> (x -> TreeBuilder f b a da (f b a v da dv)) -- this will be executed only if needed
   -> TreeBuilder f b a da (ExprRef b a v da dv, f b a v da dv)
 lookupTree expr value = do
     name <- TreeCache (lift (makeStableName (eraseType expr)))
-    insertTreeBuilder' (ExprRef name) value
+    insertTreeBuilder' (ExprRef name) (value expr)
 
-eraseType :: f b a v da dv -> Any
+eraseType :: a -> Any
 eraseType = unsafeCoerce
 
 recoverSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a v da dv -> TreeCache b a da (SExpr b a v da dv)
-recoverSharing expr = snd <$> lookupTree expr go
-  where go :: TreeCache b a da (SExpr b a v da dv)
-        go = case expr of
+recoverSharing expr'' = snd <$> lookupTree expr'' go
+  where go :: _ -> TreeCache b a da (SExpr b a v da dv)
+        go expr = case expr of
           Variable -> return SVariable -- TODO: recover sharing for variables or not?
           Func f x -> do
-              (xRef, _sx) <- lookupTree x (recoverSharing x)
+              (xRef, _sx) <- lookupTree x recoverSharing
               return (SFunc f xRef)
           Sum xs -> do
-              let go' x = lookupTree x (recoverSharing x)
+              let go' x = lookupTree x recoverSharing
               xs' <- traverse go' xs
               return $ SSum (fst <$> xs')
 

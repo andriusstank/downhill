@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
@@ -7,10 +8,13 @@ module ExprRef (
     ExprRef(..),
     ExprMap(..),
     SomeExpr(..),
+    TreeBuilder(..),
+    unTreeCache,
     lookupExprRef,
     debugShow,
     mapmap,
-    insertExprRef
+    insertExprRef,
+    insertTreeBuilder'
 )
 where
 import GHC.StableName
@@ -20,6 +24,7 @@ import qualified Data.HashMap.Strict as Map
 import Data.VectorSpace (AdditiveGroup)
 
 import Unsafe.Coerce (unsafeCoerce)
+import Control.Monad.Trans.State.Strict
 
 newtype ExprRef b a v da dv = ExprRef (StableName Any)
 
@@ -46,3 +51,35 @@ lookupExprRef (ExprMap m) (ExprRef ref) =
 
 insertExprRef :: (AdditiveGroup v, AdditiveGroup dv) => ExprMap f b a da -> ExprRef b a v da dv -> f b a v da dv -> ExprMap f b a da
 insertExprRef (ExprMap cache') (ExprRef name) y  = ExprMap (Map.insert name (SomeExpr y) cache')
+
+newtype TreeBuilder f b a da r = TreeCache { unTreeCache :: StateT (ExprMap f b a da) IO r }
+    deriving (Functor, Applicative, Monad)
+
+
+insertTreeCache :: (AdditiveGroup v, AdditiveGroup dv) => ExprRef b a v da dv -> f b a v da dv -> TreeBuilder f b a da ()
+insertTreeCache name value = do
+    cache' <- TreeCache get
+    let newCache = insertExprRef cache' name value
+    TreeCache (put newCache)
+
+insertTreeBuilder
+    :: (AdditiveGroup v, AdditiveGroup dv)
+    => ExprRef b a v da dv
+    -> TreeBuilder f b a da (f b a v da dv)
+    -> TreeBuilder f b a da (ExprRef b a v da dv, f b a v da dv)
+insertTreeBuilder name value = do
+    y <- value
+    insertTreeCache name y
+    return (name, y)
+
+insertTreeBuilder'
+    :: (AdditiveGroup v, AdditiveGroup dv)
+    => ExprRef b a v da dv
+    -> TreeBuilder f b a da (f b a v da dv) -- ^ blah
+    -> TreeBuilder f b a da (ExprRef b a v da dv, f b a v da dv)
+insertTreeBuilder' name computeAction = do
+    cache <- TreeCache get
+    case lookupExprRef cache name of
+        Just x -> return (name, x)
+        Nothing -> insertTreeBuilder name computeAction
+
