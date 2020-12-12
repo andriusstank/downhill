@@ -94,7 +94,7 @@ forgetSharing (SExpr' m e) =
           goSum :: forall x dx. ExprRef b a da x dx -> Expr b a da x dx
           goSum x =  lookup' x
 
-goSharing :: forall a b v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> TreeBuilder (SExpr b) a da (SExpr b a da v dv)
+goSharing :: forall a b v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> TreeBuilder (SExpr b a da) (SExpr b a da v dv)
 goSharing expr = case expr of
     Variable -> return SVariable -- TODO: recover sharing for variables or not?
     Func f x -> do
@@ -108,7 +108,7 @@ goSharing expr = case expr of
 sharingAction :: BuildAction (Expr b) (SExpr b)
 sharingAction = BuildAction goSharing
 
-recoverSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> TreeBuilder (SExpr b) a da (SExpr b a da v dv)
+recoverSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> TreeBuilder (SExpr b a da) (SExpr b a da v dv)
 recoverSharing expr'' = snd <$> lookupTree expr'' sharingAction
 
 runRecoverSharing :: (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> IO (SExpr' b a da v dv)
