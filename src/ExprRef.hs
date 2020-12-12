@@ -5,14 +5,14 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module ExprRef (
-    ExprRef(..),
+    ExprName,
     ExprMap(..),
     SomeExpr(..),
     TreeBuilder(..),
-    lookupExprRef,
+    lookupExprName,
     debugShow,
     mapmap,
-    insertExprRef,
+    insertExprName,
     insertTreeBuilder',
     lookupTree,
     BuildAction(..)
@@ -28,7 +28,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Class
 
-newtype ExprRef v dv = ExprRef (StableName Any)
+newtype ExprName v dv = ExprName (StableName Any)
 
 newtype ExprMap f = ExprMap { unExprMap :: HashMap (StableName Any) (SomeExpr f) }
 
@@ -38,37 +38,37 @@ mapmap f (ExprMap x) = ExprMap (go <$> x)
 
 data SomeExpr f = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExpr (f v dv)
 
-debugShow :: ExprRef da dv -> String
-debugShow (ExprRef ref) = show (hashStableName ref)
+debugShow :: ExprName da dv -> String
+debugShow (ExprName ref) = show (hashStableName ref)
 
 unsafeCastType''' :: SomeExpr f -> f v dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCoerce x -- !!!
 
-lookupExprRef :: ExprMap f -> ExprRef v dv -> Maybe (f v dv)
-lookupExprRef (ExprMap m) (ExprRef ref) =
+lookupExprName :: ExprMap f -> ExprName v dv -> Maybe (f v dv)
+lookupExprName (ExprMap m) (ExprName ref) =
     case Map.lookup ref m of
         Just x -> Just (unsafeCastType''' x)
         Nothing -> Nothing
 
-insertExprRef :: (AdditiveGroup v, AdditiveGroup dv) => ExprMap f -> ExprRef v dv -> f v dv -> ExprMap f
-insertExprRef (ExprMap cache') (ExprRef name) y  = ExprMap (Map.insert name (SomeExpr y) cache')
+insertExprName :: (AdditiveGroup v, AdditiveGroup dv) => ExprMap f -> ExprName v dv -> f v dv -> ExprMap f
+insertExprName (ExprMap cache') (ExprName name) y  = ExprMap (Map.insert name (SomeExpr y) cache')
 
 newtype TreeBuilder f r = TreeCache { unTreeCache :: StateT (ExprMap f) IO r }
     deriving (Functor, Applicative, Monad)
 
 
-insertTreeCache :: (AdditiveGroup v, AdditiveGroup dv) => ExprRef v dv -> f v dv -> TreeBuilder f ()
+insertTreeCache :: (AdditiveGroup v, AdditiveGroup dv) => ExprName v dv -> f v dv -> TreeBuilder f ()
 insertTreeCache name value = do
     cache' <- TreeCache get
-    let newCache = insertExprRef cache' name value
+    let newCache = insertExprName cache' name value
     TreeCache (put newCache)
 
 insertTreeBuilder
     :: (AdditiveGroup v, AdditiveGroup dv)
-    => ExprRef v dv
+    => ExprName v dv
     -> TreeBuilder f (f v dv)
-    -> TreeBuilder f (ExprRef v dv, f v dv)
+    -> TreeBuilder f (ExprName v dv, f v dv)
 insertTreeBuilder name value = do
     y <- value
     insertTreeCache name y
@@ -76,12 +76,12 @@ insertTreeBuilder name value = do
 
 insertTreeBuilder'
     :: (AdditiveGroup v, AdditiveGroup dv)
-    => ExprRef v dv
+    => ExprName v dv
     -> TreeBuilder f (f v dv) -- ^ blah
-    -> TreeBuilder f (ExprRef v dv, f v dv)
+    -> TreeBuilder f (ExprName v dv, f v dv)
 insertTreeBuilder' name computeAction = do
     cache <- TreeCache get
-    case lookupExprRef cache name of
+    case lookupExprName cache name of
         Just x -> return (name, x)
         Nothing -> insertTreeBuilder name computeAction
 
@@ -91,10 +91,10 @@ lookupTree
   :: forall f g v dv. (AdditiveGroup v, AdditiveGroup dv)
   => f v dv
   -> BuildAction f g
-  -> TreeBuilder g (ExprRef v dv, g v dv)
+  -> TreeBuilder g (ExprName v dv, g v dv)
 lookupTree expr (BuildAction value) = do
     name <- TreeCache (lift (makeStableName (eraseType expr)))
-    insertTreeBuilder' (ExprRef name) (value expr)
+    insertTreeBuilder' (ExprName name) (value expr)
 
 eraseType :: a -> Any
 eraseType = unsafeCoerce
