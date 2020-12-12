@@ -105,7 +105,7 @@ goSharing expr = case expr of
         xs' <- traverse go' xs
         return $ SSum (fst <$> xs')
 
-sharingAction :: BuildAction (Expr b) (SExpr b)
+sharingAction :: BuildAction (Expr b a da) (SExpr b a da)
 sharingAction = BuildAction goSharing
 
 recoverSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> TreeBuilder (SExpr b a da) (SExpr b a da v dv)
