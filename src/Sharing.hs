@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -93,32 +94,25 @@ forgetSharing (SExpr' m e) =
           goSum :: forall x dx. ExprRef b a x da dx -> Expr b a x da dx
           goSum x =  lookup' x
 
-lookupTree
-  :: forall x f b a v da dv. (AdditiveGroup v, AdditiveGroup dv)
-  => x
-  -> (x -> TreeBuilder f b a da (f b a v da dv)) -- this will be executed only if needed
-  -> TreeBuilder f b a da (ExprRef b a v da dv, f b a v da dv)
-lookupTree expr value = do
-    name <- TreeCache (lift (makeStableName (eraseType expr)))
-    insertTreeBuilder' (ExprRef name) (value expr)
+goSharing :: forall a b v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a v da dv -> TreeCache b a da (SExpr b a v da dv)
+goSharing expr = case expr of
+    Variable -> return SVariable -- TODO: recover sharing for variables or not?
+    Func f x -> do
+        (xRef, _sx) <- lookupTree x (BuildAction recoverSharing)
+        return (SFunc f xRef)
+    Sum xs -> do
+        let go' x = lookupTree x (BuildAction recoverSharing)
+        xs' <- traverse go' xs
+        return $ SSum (fst <$> xs')
 
-eraseType :: a -> Any
-eraseType = unsafeCoerce
+sharingAction :: BuildAction (Expr b) SExpr b
+sharingAction = BuildAction goSharing
 
 recoverSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a v da dv -> TreeCache b a da (SExpr b a v da dv)
-recoverSharing expr'' = snd <$> lookupTree expr'' go
-  where go :: _ -> TreeCache b a da (SExpr b a v da dv)
-        go expr = case expr of
-          Variable -> return SVariable -- TODO: recover sharing for variables or not?
-          Func f x -> do
-              (xRef, _sx) <- lookupTree x recoverSharing
-              return (SFunc f xRef)
-          Sum xs -> do
-              let go' x = lookupTree x recoverSharing
-              xs' <- traverse go' xs
-              return $ SSum (fst <$> xs')
+recoverSharing expr'' = snd <$> lookupTree expr'' sharingAction
 
 runRecoverSharing :: (AdditiveGroup v, AdditiveGroup dv) => Expr b a v da dv -> IO (SExpr' b a v da dv)
 runRecoverSharing x = do
     (y, z) <- runStateT (unTreeCache $ recoverSharing x) (ExprMap Map.empty)
     return (SExpr' (unExprMap z) y)
+

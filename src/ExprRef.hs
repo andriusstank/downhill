@@ -14,7 +14,9 @@ module ExprRef (
     debugShow,
     mapmap,
     insertExprRef,
-    insertTreeBuilder'
+    insertTreeBuilder',
+    lookupTree,
+    BuildAction(..)
 )
 where
 import GHC.StableName
@@ -25,6 +27,7 @@ import Data.VectorSpace (AdditiveGroup)
 
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Monad.Trans.State.Strict
+import Control.Monad.Trans.Class
 
 newtype ExprRef b a v da dv = ExprRef (StableName Any)
 
@@ -83,3 +86,16 @@ insertTreeBuilder' name computeAction = do
         Just x -> return (name, x)
         Nothing -> insertTreeBuilder name computeAction
 
+newtype BuildAction f g b = BuildAction (forall a v da dv. (AdditiveGroup v, AdditiveGroup dv) => f a v da dv -> TreeBuilder g b a da (g b a v da dv))
+
+lookupTree
+  :: forall g f b a v da dv. (AdditiveGroup v, AdditiveGroup dv)
+  => g a v da dv
+  -> BuildAction g f b
+  -> TreeBuilder f b a da (ExprRef b a v da dv, f b a v da dv)
+lookupTree expr (BuildAction value) = do
+    name <- TreeCache (lift (makeStableName (eraseType expr)))
+    insertTreeBuilder' (ExprRef name) (value expr)
+
+eraseType :: a -> Any
+eraseType = unsafeCoerce
