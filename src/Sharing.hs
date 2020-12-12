@@ -28,8 +28,8 @@ import qualified Data.HashMap.Strict as Map
 
 data SExpr b a da v dv where
     SVariable :: SExpr b a da a da
-    SFunc :: (AdditiveGroup u, AdditiveGroup v, AdditiveGroup du, AdditiveGroup dv) => AFunction b u du v dv -> ExprRef b a da u du -> SExpr b a da v dv
-    SSum :: AdditiveGroup v => [ExprRef b a da v dv] -> SExpr b a da v dv
+    SFunc :: (AdditiveGroup u, AdditiveGroup v, AdditiveGroup du, AdditiveGroup dv) => AFunction b u du v dv -> ExprRef u du -> SExpr b a da v dv
+    SSum :: AdditiveGroup v => [ExprRef v dv] -> SExpr b a da v dv
 
 --newtype TreeCache b a da r = TreeCache { unTreeCache :: StateT (HashMap (StableName Any) (SomeExpr SExpr b a da)) IO r }
 
@@ -77,7 +77,7 @@ forgetSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => SExp
 forgetSharing (SExpr' m e) =
     case go (SomeExpr e) of
         SomeExpr e' -> unsafeCastType' e'
-    where lookup' :: forall x dx. ExprRef b a da x dx -> Expr b a da x dx -- SomeExpr' b a da
+    where lookup' :: forall x dx. ExprRef x dx -> Expr b a da x dx -- SomeExpr' b a da
           lookup' ref = case lookupExprRef m' ref of
               Just x -> x
               Nothing -> error ("bug: incomplete map in forgetSharing (" <> debugShow ref <> ")")
@@ -91,7 +91,7 @@ forgetSharing (SExpr' m e) =
             SVariable -> Variable
             SFunc f x -> Func f (lookup' x)
             SSum xs -> Sum (goSum <$> xs)
-          goSum :: forall x dx. ExprRef b a da x dx -> Expr b a da x dx
+          goSum :: forall x dx. ExprRef x dx -> Expr b a da x dx
           goSum x =  lookup' x
 
 goSharing :: forall a b v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> TreeBuilder (SExpr b a da) (SExpr b a da v dv)
