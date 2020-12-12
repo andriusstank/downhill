@@ -46,7 +46,7 @@ unsafeCastType''' :: SomeExpr f a da -> f a v da dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCoerce x -- !!!
 
-lookupExprRef :: ExprMap (f b) a da -> ExprRef b a v da dv -> Maybe (f b a v da dv)
+lookupExprRef :: ExprMap f a da -> ExprRef b a v da dv -> Maybe (f a v da dv)
 lookupExprRef (ExprMap m) (ExprRef ref) =
     case Map.lookup ref m of
         Just x -> Just (unsafeCastType''' x)
@@ -59,7 +59,7 @@ newtype TreeBuilder f a da r = TreeCache { unTreeCache :: StateT (ExprMap f a da
     deriving (Functor, Applicative, Monad)
 
 
-insertTreeCache :: (AdditiveGroup v, AdditiveGroup dv) => ExprRef b a v da dv -> f b a v da dv -> TreeBuilder (f b) a da ()
+insertTreeCache :: (AdditiveGroup v, AdditiveGroup dv) => ExprRef b a v da dv -> f a v da dv -> TreeBuilder f a da ()
 insertTreeCache name value = do
     cache' <- TreeCache get
     let newCache = insertExprRef cache' name value
@@ -68,8 +68,8 @@ insertTreeCache name value = do
 insertTreeBuilder
     :: (AdditiveGroup v, AdditiveGroup dv)
     => ExprRef b a v da dv
-    -> TreeBuilder (f b) a da (f b a v da dv)
-    -> TreeBuilder (f b) a da (ExprRef b a v da dv, f b a v da dv)
+    -> TreeBuilder f a da (f a v da dv)
+    -> TreeBuilder f a da (ExprRef b a v da dv, f a v da dv)
 insertTreeBuilder name value = do
     y <- value
     insertTreeCache name y
@@ -78,21 +78,21 @@ insertTreeBuilder name value = do
 insertTreeBuilder'
     :: (AdditiveGroup v, AdditiveGroup dv)
     => ExprRef b a v da dv
-    -> TreeBuilder (f b) a da (f b a v da dv) -- ^ blah
-    -> TreeBuilder (f b) a da (ExprRef b a v da dv, f b a v da dv)
+    -> TreeBuilder f a da (f a v da dv) -- ^ blah
+    -> TreeBuilder f a da (ExprRef b a v da dv, f a v da dv)
 insertTreeBuilder' name computeAction = do
     cache <- TreeCache get
     case lookupExprRef cache name of
         Just x -> return (name, x)
         Nothing -> insertTreeBuilder name computeAction
 
-newtype BuildAction f g b = BuildAction (forall a v da dv. (AdditiveGroup v, AdditiveGroup dv) => f a v da dv -> TreeBuilder (g b) a da (g b a v da dv))
+newtype BuildAction f g = BuildAction (forall a v da dv. (AdditiveGroup v, AdditiveGroup dv) => f a v da dv -> TreeBuilder g a da (g a v da dv))
 
 lookupTree
-  :: forall g f b a v da dv. (AdditiveGroup v, AdditiveGroup dv)
-  => g a v da dv
-  -> BuildAction g f b
-  -> TreeBuilder (f b) a da (ExprRef b a v da dv, f b a v da dv)
+  :: forall f g b a v da dv. (AdditiveGroup v, AdditiveGroup dv)
+  => f a v da dv
+  -> BuildAction f g
+  -> TreeBuilder g a da (ExprRef b a v da dv, g a v da dv)
 lookupTree expr (BuildAction value) = do
     name <- TreeCache (lift (makeStableName (eraseType expr)))
     insertTreeBuilder' (ExprRef name) (value expr)
