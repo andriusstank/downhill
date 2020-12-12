@@ -5,18 +5,21 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module ExprRef (
+    SomeExpr(..),
+    debugShow,
+
+    -- * Map
     ExprName,
     ExprMap,
-    SomeExpr(..),
+    lookupExprName,
+    mapmap,
+    
+    -- * Tree
     TreeBuilder,
     BuildAction(..),
-    SExpr'(..),
-    lookupExprName,
-    debugShow,
-    mapmap,
-    runRecoverSharing',
-    lookupTree
-    {-
+    insertExpr,
+    runTreeBuilder,
+   {-
     insertExprName,
     insertTreeBuilder',
     -}
@@ -36,7 +39,7 @@ newtype ExprName v dv = ExprName (StableName Any)
 
 newtype ExprMap f = ExprMap { unExprMap :: HashMap (StableName Any) (SomeExpr f) }
 
-mapmap :: forall f g a da. (forall v dv. f a da v dv -> g a da v dv) -> ExprMap (f a da) -> ExprMap (g a da)
+mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> ExprMap f -> ExprMap g
 mapmap f (ExprMap x) = ExprMap (go <$> x)
     where go (SomeExpr y) = SomeExpr (f y)
 
@@ -91,21 +94,17 @@ insertTreeBuilder' name computeAction = do
 
 newtype BuildAction f g = BuildAction (forall v dv. (AdditiveGroup v, AdditiveGroup dv) => f v dv -> TreeBuilder g (g v dv))
 
-lookupTree
+insertExpr
   :: forall f g v dv. (AdditiveGroup v, AdditiveGroup dv)
-  => f v dv
-  -> BuildAction f g
+  => BuildAction f g
+  -> f v dv
   -> TreeBuilder g (ExprName v dv, g v dv)
-lookupTree expr (BuildAction value) = do
+insertExpr (BuildAction value) expr = do
     name <- TreeCache (lift (makeStableName (eraseType expr)))
     insertTreeBuilder' (ExprName name) (value expr)
 
 eraseType :: a -> Any
 eraseType = unsafeCoerce
 
-data SExpr' f v dv = SExpr' (ExprMap f) (f v dv)
-
-runRecoverSharing' :: (AdditiveGroup v, AdditiveGroup dv) => BuildAction f g -> f v dv -> IO (SExpr' g v dv)
-runRecoverSharing' (BuildAction rs) x = do
-    (y, z) <- runStateT (unTreeCache $ rs x) (ExprMap Map.empty)
-    return (SExpr' z y)
+runTreeBuilder :: (AdditiveGroup v, AdditiveGroup dv) => TreeBuilder f (g v dv) -> IO (g v dv, ExprMap f)
+runTreeBuilder rs_x = runStateT (unTreeCache rs_x) (ExprMap Map.empty)

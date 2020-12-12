@@ -72,35 +72,28 @@ instance TensorProduct (SExpr' b a v da dv) a v where
         SSum xs -> sumV [x ⊗ a | x <- xs]
 -}
 
-forgetSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => SExpr' (SExpr b a da) v dv -> Expr b a da v dv
-forgetSharing (SExpr' m e) =
-    case go (SomeExpr e) of
-        SomeExpr e' -> unsafeCastType' e'
+forgetSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => (SExpr b a da v dv, ExprMap (SExpr b a da)) -> Expr b a da v dv
+forgetSharing (e, m) = go' e
     where lookup' :: forall x dx. ExprName x dx -> Expr b a da x dx -- SomeExpr' b a da
           lookup' ref = case lookupExprName m' ref of
               Just x -> x
               Nothing -> error ("bug: incomplete map in forgetSharing (" <> debugShow ref <> ")")
-          m' :: ExprMap (Expr b a da) --HashMap (StableName Any) (SomeExpr Expr b a da)
-          m' = mapmap go' m --go <$> m
-          go :: SomeExpr (SExpr b a da) -> SomeExpr (Expr b a da)
-          go = \case
-            SomeExpr e' -> SomeExpr (go' e')
+          m' :: ExprMap (Expr b a da)
+          m' = mapmap go' m
           go' :: SExpr b a da x dx -> Expr b a da x dx
           go' = \case
             SVariable -> Variable
             SFunc f x -> Func f (lookup' x)
-            SSum xs -> Sum (goSum <$> xs)
-          goSum :: forall x dx. ExprName x dx -> Expr b a da x dx
-          goSum x =  lookup' x
+            SSum xs -> Sum (lookup' <$> xs)
 
 goSharing :: forall a b v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> TreeBuilder (SExpr b a da) (SExpr b a da v dv)
 goSharing expr = case expr of
     Variable -> return SVariable -- TODO: recover sharing for variables or not?
     Func f x -> do
-        (xRef, _sx) <- lookupTree x (BuildAction recoverSharing)
+        (xRef, _sx) <- insertExpr sharingAction x
         return (SFunc f xRef)
     Sum xs -> do
-        let go' x = lookupTree x (BuildAction recoverSharing)
+        let go' x = insertExpr sharingAction x
         xs' <- traverse go' xs
         return $ SSum (fst <$> xs')
 
@@ -108,8 +101,8 @@ sharingAction :: BuildAction (Expr b a da) (SExpr b a da)
 sharingAction = BuildAction goSharing
 
 recoverSharing :: forall b a v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> TreeBuilder (SExpr b a da) (SExpr b a da v dv)
-recoverSharing expr'' = snd <$> lookupTree expr'' sharingAction
+recoverSharing expr'' = snd <$> insertExpr sharingAction expr''
 
 
-runRecoverSharing :: (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> IO ((SExpr' (SExpr b a da)) v dv)
-runRecoverSharing = runRecoverSharing' sharingAction
+runRecoverSharing :: (AdditiveGroup v, AdditiveGroup dv) => Expr b a da v dv -> IO (SExpr b a da v dv, ExprMap (SExpr b a da))
+runRecoverSharing = runTreeBuilder . goSharing

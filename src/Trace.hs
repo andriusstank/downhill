@@ -52,7 +52,7 @@ testExpr () = x4
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-_x :: () -> IO (SExpr' (SExpr R R R) R R)
+_x :: () -> IO (SExpr R R R R R, ExprMap (SExpr R R R))
 _x () = runRecoverSharing (testExpr ())
 
 _y :: IO R
