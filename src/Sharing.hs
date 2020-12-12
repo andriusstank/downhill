@@ -35,7 +35,7 @@ data SExpr b a v da dv where
 
 type TreeCache = TreeBuilder SExpr
 
-data SExpr' b a v da dv = SExpr' (HashMap (StableName Any) (SomeExpr SExpr b a da)) (SExpr b a v da dv)
+data SExpr' b a v da dv = SExpr' (HashMap (StableName Any) (SomeExpr (SExpr b) a da)) (SExpr b a v da dv)
 
 
 unsafeCastType :: SExpr b a x da dx -> SExpr b a v da dv
@@ -50,7 +50,7 @@ unsafeCastType'' = \case
     SomeExpr' x -> unsafeCastType' x
 -}
 
-unsafeCastType''' :: SomeExpr SExpr b a da -> SExpr b a v da dv
+unsafeCastType''' :: SomeExpr (SExpr b) a da -> SExpr b a v da dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCastType x
 
@@ -81,9 +81,9 @@ forgetSharing (SExpr' m e) =
           lookup' ref = case lookupExprRef m' ref of
               Just x -> x
               Nothing -> error ("bug: incomplete map in forgetSharing (" <> debugShow ref <> ")")
-          m' :: ExprMap Expr b a da --HashMap (StableName Any) (SomeExpr Expr b a da)
+          m' :: ExprMap (Expr b) a da --HashMap (StableName Any) (SomeExpr Expr b a da)
           m' = mapmap go' (ExprMap m) --go <$> m
-          go :: SomeExpr SExpr b a da -> SomeExpr Expr b a da
+          go :: SomeExpr (SExpr b) a da -> SomeExpr (Expr b) a da
           go = \case
             SomeExpr e' -> SomeExpr (go' e')
           go' :: SExpr b a x da dx -> Expr b a x da dx
