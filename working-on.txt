@@ -1,0 +1,7 @@
+Graph.hs: transpose graph on new expression representation of expr, term, arg.
+
+transposing edges flips ExprName v dv <-> ExprName dv v.
+  keep originial ExprName v dv everywhere and have different type for tranposed graph/edges? though symmetry would be nice
+  transpose whole ExprMap somehow, including ExprName? is it type safe?
+  ditch v dv from ExprName?
+  bidirectional SharedExpr, with both ingoing and outgoing edges?

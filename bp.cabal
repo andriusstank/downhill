@@ -16,7 +16,12 @@ category:            Math
 extra-source-files:  CHANGELOG.md
 
 library
-  -- exposed-modules:
+  exposed-modules:     Expr,
+                       ExprRef,
+                       Grad,
+                       Sharing,
+                       Tensor,
+                       Graph
   -- other-modules:
   -- other-extensions:
   build-depends:       base ^>=4.12.0.0,
@@ -26,7 +31,7 @@ library
                        transformers
 
   hs-source-dirs:      src
-  other-modules:       Tensor, Expr, Sharing
+  other-modules:       Trace
   default-language:    Haskell2010
   ghc-options:         -Wall
 
@@ -34,6 +39,7 @@ executable bp
   main-is:             Main.hs
   -- other-modules:
   -- other-extensions:
-  build-depends:       base ^>=4.12.0.0
+  build-depends:       base ^>=4.12.0.0,
+                       graphviz
   hs-source-dirs:      src
   default-language:    Haskell2010

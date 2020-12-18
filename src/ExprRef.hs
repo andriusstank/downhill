@@ -11,6 +11,8 @@ module ExprRef (
     -- * Map
     ExprName,
     ExprMap,
+    SomeExprWithName(..),
+    toList,
     lookupExprName,
     mapmap,
     
@@ -37,6 +39,7 @@ import Control.Monad.Trans.Class
 
 newtype ExprName v dv = ExprName (StableName Any)
 
+-- idea: use StableName for tree builder only, use plain Int as ExprName and flat vector as ExprMap
 newtype ExprMap f = ExprMap { unExprMap :: HashMap (StableName Any) (SomeExpr f) }
 
 mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> ExprMap f -> ExprMap g
@@ -44,6 +47,14 @@ mapmap f (ExprMap x) = ExprMap (go <$> x)
     where go (SomeExpr y) = SomeExpr (f y)
 
 data SomeExpr f = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExpr (f v dv)
+
+data SomeExprWithName f = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExprWithName (ExprName v dv) (f v dv)
+
+toList :: ExprMap f -> [SomeExprWithName f]
+toList = fmap wrap . Map.toList . unExprMap
+    where wrap (key, someValue) = case someValue of
+            SomeExpr value -> SomeExprWithName (ExprName key) value
+
 
 debugShow :: ExprName v dv -> String
 debugShow (ExprName ref) = show (hashStableName ref)

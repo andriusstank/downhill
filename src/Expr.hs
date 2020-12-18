@@ -17,12 +17,18 @@ import Data.Constraint
 --    SomeLinearFunc :: LinearFunction b f u v du dv => SomeLinearFunc b v dv
 
 data Expr b a da v dv where
-    Variable :: Expr' b a a da da
-    -- Func :: LinearFunction b f u v du dv => f -> Expr' a da b u du -> Expr' a da b v dv
+    Variable :: Expr b a da a da
     Func :: (AdditiveGroup u, AdditiveGroup v, AdditiveGroup du, AdditiveGroup dv) => AFunction b u du v dv -> Expr b a da u du -> Expr b a da v dv
     Sum :: AdditiveGroup v => [Expr b a da v dv] -> Expr b a da v dv
 
-type Expr' b a v da dv = Expr b a da v dv
+data ExprArg b a da v dv where
+    ArgVar :: ExprArg b a da a da
+    ArgExpr :: Expr2  b a da v dv -> ExprArg b a da v dv
+
+data Term2 b a da v dv where
+    Func2 :: AFunction b u du v dv -> ExprArg b a da u du -> Term2 b a da v dv
+
+data Expr2 b a da v dv = (AdditiveGroup v, AdditiveGroup dv) => ExprSum [Term2 b a da v dv]
 
 -- Evaluate
 instance TensorProduct (Expr b a da v dv) a v where
@@ -31,21 +37,39 @@ instance TensorProduct (Expr b a da v dv) a v where
         Func f x -> f ⊗ (x ⊗ a)
         Sum xs -> sumV [x ⊗ a | x <- xs]
 
+instance TensorProduct (Term2 b a da v dv) a v where
+    expr ⊗ a = case expr of
+        Func2 f x -> case x of
+            ArgVar -> f ⊗ a
+            ArgExpr x' -> f ⊗ (x' ⊗ a)
+
+instance TensorProduct (Expr2 b a da v dv) a v where
+    ExprSum xs ⊗ a = sumV [x ⊗ a | x <- xs]
+
+
 -- Substitute
-instance TensorProduct (Expr' b x v dx dv) (Expr' b a x da dx) (Expr' b a v da dv) where
+instance TensorProduct (Expr b x dx v dv) (Expr b a da x dx) (Expr b a da v dv) where
     expr ⊗ x = case expr of
         Variable -> x
         Func f y -> Func f (y ⊗ x)
         Sum ys -> Sum [y ⊗ x | y <- ys]
 
 -- Reverse mode evaluation
-instance AdditiveGroup da => TensorProduct dv (Expr' b a v da dv) da where
+instance AdditiveGroup da => TensorProduct dv (Expr b a da v dv) da where
     dv ⊗ expr = case expr of
         Variable -> dv
         Func f x -> (dv ⊗ f) ⊗ x
         Sum xs -> sumV [dv ⊗ x | x <- xs]
 
-instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction b (Expr' b u v du dv) u v du dv
+instance AdditiveGroup da => TensorProduct dv (Term2 b a da v dv) da where
+    dv ⊗ expr = case expr of
+        Func2 f x -> case x of
+            ArgVar -> dv ⊗ f
+            ArgExpr x' -> (dv ⊗ f) ⊗ x'
+instance AdditiveGroup da => TensorProduct dv (Expr2 b a da v dv) da where
+    dv ⊗ ExprSum xs = sumV [dv ⊗ x | x <- xs]
+
+instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction b (Expr b u du v dv) u v du dv
 
 instance LinearFunction' b (Expr b) where
     transpose = \case
