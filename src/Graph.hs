@@ -37,11 +37,11 @@ ff :: (TensorProduct f x w, TensorProduct g a x) => (f :⊗ g) -> a -> w
 
 data RightEndpoint b a da z dz v dv where
     RightVar :: RightEndpoint b a da z dz a da
-    RightExpr :: SharedBiExpr b a da z dz v dv -> RightEndpoint b a da z dz v dv
+    RightExpr :: SharedBiNode b a da z dz v dv -> RightEndpoint b a da z dz v dv
 
 data LeftEndpoint b a da z dz v dv where
     LeftVar :: LeftEndpoint b a da z dz z dz
-    LeftExpr :: SharedBiExpr b a da z dz v dv -> LeftEndpoint b a da z dz v dv
+    LeftExpr :: SharedBiNode b a da z dz v dv -> LeftEndpoint b a da z dz v dv
 
 data FwdEdge b a da z dz v dv where
     FwdEdge :: AFunction b u du v dv -> RightEndpoint b a da z dz u du -> FwdEdge b a da z dz v dv
