@@ -35,6 +35,10 @@ data SharedTerm b a da v dv where
 
 data SharedExpr b a da v dv = (AdditiveGroup v, AdditiveGroup dv) => SharedExprSum [SharedTerm b a da v dv]
 
+data SharedBiExpr b a da v dv = (AdditiveGroup v, AdditiveGroup dv) => SharedBiExpr
+    { shInEdges :: [SharedTerm b a da v dv]
+    }
+
 --data ExprWithEnv b a da v dv = ExprWithEnv (SharedExpr b a da v dv) (ExprMap (SharedExpr b a da))
 
 data SExpr b a da v dv where

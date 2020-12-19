@@ -1,48 +1,87 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# language ScopedTypeVariables #-}
+
 module Graph where
 import ExprRef (ExprMap, ExprName, SomeExprWithName(..))
 import Sharing(SharedTerm(..), SharedExpr(..), SharedArg(..))
-import Tensor(AFunction(..))
+import Tensor(TensorProduct(..), AFunction(..))
 
 import qualified ExprRef as ExprMap
+import Data.VectorSpace (sumV, AdditiveGroup)
+import Data.Kind (Type)
 
-data EdgeFrom u du = FromVariable | FromExpr (ExprName u du)
-data EdgeTo v dv = ToFinal | ToExpr (ExprName v dv)
-data Edge b u du v dv = Edge (EdgeFrom u du) (EdgeTo v dv) (AFunction b u du v dv)
-data SomeEdge b = forall u du v dv. SomeEdge (Edge b u du v dv)
+class TensorProduct' x y where
+    type ProductType x y :: Type
 
---data EdgeOut v dv = forall u du. EdgeOut (ExprName v dv) 
+newtype WrapX x y xy = WrapX { unWrapX :: x }
+newtype WrapY x y xy = WrapY { unWrapY :: y }
 
-edgeSource :: SharedArg b a da v dv -> EdgeFrom v dv
-edgeSource = \case
-    SharedArgVar -> FromVariable
-    SharedArgExpr xname -> FromExpr xname
+instance TensorProduct x y xy => TensorProduct' (WrapX x y xy) (WrapY x y xy) where
+    type ProductType (WrapX x y xy) (WrapY x y xy) = xy
 
-inEdges :: SharedExpr b a da v dv -> EdgeTo v dv -> [SomeEdge b]
-inEdges x dst = case x of SharedExprSum xs -> map makeEdge xs
-    where makeEdge = \case
-            SharedFunAp f arg -> SomeEdge (Edge (edgeSource arg) dst f)
+data f :⊗ g = f :⊗ g
 
-allEdges :: forall b a v da dv. (SharedExpr b a da v dv, ExprMap (SharedExpr b a da)) -> [SomeEdge b]
-allEdges (y, env) = inEdges y ToFinal ++ concatMap internalEdges nodes
-    where nodes :: [SomeExprWithName (SharedExpr b a da)]
-          nodes = ExprMap.toList env
-          internalEdges :: SomeExprWithName (SharedExpr b a da) -> [SomeEdge b]
-          internalEdges = \case
-            SomeExprWithName xname expr -> inEdges expr (ToExpr xname)
+instance (TensorProduct f x dv, TensorProduct g a x) => TensorProduct (f :⊗ g) a dv where
+-- (f :⊗ g) ⊗ x = f ⊗ (g ⊗ x)
 
-flipFrom :: EdgeFrom u du -> EdgeTo du u
-flipFrom = \case
-    FromVariable -> ToFinal
-    FromExpr x -> ToExpr x
-flipTo :: EdgeTo u du -> EdgeFrom u du
-flipTo = \case
-    ToFinal -> FromVariable
-    ToExpr x -> FromExpr x
+ff :: (TensorProduct f x w, TensorProduct g a x) => (f :⊗ g) -> a -> w
+(f :⊗ g) `ff` x = f ⊗ (g ⊗ x)
 
-flipEdge :: Edge b u du v dv -> Edge b dv v du u
-flipEdge (Edge from to f) = Edge (_flipTo to) (_flipFrom from) (transposeFunc f)
---forgetSharing2 :: 
+data RightEndpoint b a da z dz v dv where
+    RightVar :: RightEndpoint b a da z dz a da
+    RightExpr :: SharedBiExpr b a da z dz v dv -> RightEndpoint b a da z dz v dv
+
+data LeftEndpoint b a da z dz v dv where
+    LeftVar :: LeftEndpoint b a da z dz z dz
+    LeftExpr :: SharedBiExpr b a da z dz v dv -> LeftEndpoint b a da z dz v dv
+
+data FwdEdge b a da z dz v dv where
+    FwdEdge :: AFunction b u du v dv -> RightEndpoint b a da z dz u du -> FwdEdge b a da z dz v dv
+
+data BackEdge b a da z dz u du where
+    BackEdge :: LeftEndpoint b a da z dz v dv -> AFunction b u du v dv -> BackEdge b a da z dz u du
+
+data InEdges b a da z dz v dv = (AdditiveGroup v, AdditiveGroup dv) => InEdges
+    { shInEdges :: [FwdEdge b a da z dz v dv]
+    }
+
+data OutEdges b a da z dz v dv = (AdditiveGroup v, AdditiveGroup dv) => OutEdges
+    { shOutEdges :: [BackEdge b a da z dz v dv]
+    }
+
+data SharedBiExpr b a da z dz v dv = SharedBiExpr (InEdges b a da z dz v dv) (OutEdges b a da z dz v dv)
+
+instance TensorProduct (RightEndpoint b a da z dz v dv) a v where
+    f ⊗ x = case f of
+        RightVar -> x
+        RightExpr f' -> _ -- f' ⊗ x
+
+instance TensorProduct dz (LeftEndpoint b a da z dz v dv) dv where
+    x ⊗ f = case f of
+        LeftVar -> x
+        LeftExpr f' -> _ --x ⊗ f'
+
+instance TensorProduct (FwdEdge b a da z dz v dv) a v where
+    FwdEdge f g ⊗ x = f ⊗ (g ⊗ x)
+
+instance TensorProduct dz (BackEdge b a da z dz u du) du where
+    dx ⊗ BackEdge f g = (dx ⊗ f) ⊗ g
+
+instance TensorProduct (InEdges b a da z dz v dv) a v where
+    e ⊗ x = case e of
+        InEdges fs -> sumV [ f ⊗ x | f <- fs]
+
+instance TensorProduct dz (OutEdges b a da z dz v dv) dv where
+    x ⊗ e = case e of
+        OutEdges fs -> sumV [x ⊗ f | f <- fs ]
+
+--meetInTheMiddle :: TensorProduct dv v b => dz -> SharedBiExpr b a da z dz v dv -> a -> b
+--meetInTheMiddle dz (SharedBiExpr f g) a = (dz ⊗ f) ⊗ (g ⊗ a)

@@ -5,3 +5,4 @@ transposing edges flips ExprName v dv <-> ExprName dv v.
   transpose whole ExprMap somehow, including ExprName? is it type safe?
   ditch v dv from ExprName?
   bidirectional SharedExpr, with both ingoing and outgoing edges?
+  construct bidirectional SharedExpr right in builder, no need to rebuild graph later. and NonEmpty edges possible
