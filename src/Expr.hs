@@ -69,9 +69,9 @@ instance AdditiveGroup da => TensorProduct dv (Term2 b a da v dv) da where
 instance AdditiveGroup da => TensorProduct dv (Expr2 b a da v dv) da where
     dv ⊗ ExprSum xs = sumV [dv ⊗ x | x <- xs]
 
-instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction b (Expr b u du v dv) u v du dv
+instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction (Expr b u du v dv) u v du dv
 
-instance LinearFunction' b (Expr b) where
+instance LinearFunction' (Expr b) where
     transpose = \case
         Variable -> Variable
         Func f x -> x' ⊗ f'

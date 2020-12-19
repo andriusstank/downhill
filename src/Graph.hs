@@ -8,33 +8,40 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# language ScopedTypeVariables #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Graph where
 import ExprRef (ExprMap, ExprName, SomeExprWithName(..))
 import Sharing(SharedTerm(..), SharedExpr(..), SharedArg(..))
-import Tensor(TensorProduct(..), AFunction(..))
+import Tensor(LinearFunction, TensorProduct(..), AFunction(..))
 
 import qualified ExprRef as ExprMap
 import Data.VectorSpace (sumV, AdditiveGroup)
 import Data.Kind (Type)
 
-class TensorProduct' x y where
-    type ProductType x y :: Type
+data f :⊗ g :: Type -> Type -> Type -> Type -> Type where
+    (:⊗) :: (LinearFunction (f x v dx dv) x v dx dv, LinearFunction (g u x du dx) u x du dx) => f x v dx dv -> g u x du dx -> (f :⊗ g) u v du dv
 
-newtype WrapX x y xy = WrapX { unWrapX :: x }
-newtype WrapY x y xy = WrapY { unWrapY :: y }
+instance TensorProduct ((f :⊗ g) u v du dv) u v where
+    (f :⊗ g) ⊗ x = f ⊗ (g ⊗ x)
 
-instance TensorProduct x y xy => TensorProduct' (WrapX x y xy) (WrapY x y xy) where
-    type ProductType (WrapX x y xy) (WrapY x y xy) = xy
+instance TensorProduct dv ((f :⊗ g) u v du dv) du where
+    x ⊗ (f :⊗ g) = (x ⊗ f) ⊗ g
 
-data f :⊗ g = f :⊗ g
-
-instance (TensorProduct f x dv, TensorProduct g a x) => TensorProduct (f :⊗ g) a dv where
+instance
+  ( AdditiveGroup u
+  , AdditiveGroup v
+  , AdditiveGroup du
+  , AdditiveGroup dv
+  ) => LinearFunction ((f :⊗ g) u v du dv) u v du dv where
+    
+--instance (TensorProduct f x dv, TensorProduct g a x) => TensorProduct (f :⊗ g) a dv where
 -- (f :⊗ g) ⊗ x = f ⊗ (g ⊗ x)
 
-ff :: (TensorProduct f x w, TensorProduct g a x) => (f :⊗ g) -> a -> w
-(f :⊗ g) `ff` x = f ⊗ (g ⊗ x)
+--ff :: (TensorProduct f x w, TensorProduct g a x) => (f :⊗ g) -> a -> w
+--(f :⊗ g) `ff` x = f ⊗ (g ⊗ x)
 
+{-
 data RightEndpoint b a da z dz v dv where
     RightVar :: RightEndpoint b a da z dz a da
     RightExpr :: SharedBiNode b a da z dz v dv -> RightEndpoint b a da z dz v dv
@@ -82,6 +89,7 @@ instance TensorProduct (InEdges b a da z dz v dv) a v where
 instance TensorProduct dz (OutEdges b a da z dz v dv) dv where
     x ⊗ e = case e of
         OutEdges fs -> sumV [x ⊗ f | f <- fs ]
+-}
 
 --meetInTheMiddle :: TensorProduct dv v b => dz -> SharedBiExpr b a da z dz v dv -> a -> b
 --meetInTheMiddle dz (SharedBiExpr f g) a = (dz ⊗ f) ⊗ (g ⊗ a)
