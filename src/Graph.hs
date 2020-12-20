@@ -34,27 +34,25 @@ instance
   , AdditiveGroup du
   , AdditiveGroup dv
   ) => LinearFunction ((f :⊗ g) u v du dv) u v du dv where
-    
---instance (TensorProduct f x dv, TensorProduct g a x) => TensorProduct (f :⊗ g) a dv where
--- (f :⊗ g) ⊗ x = f ⊗ (g ⊗ x)
+   
+data LeftEndpoint a da z dz v dv where
+    LeftVar :: LeftEndpoint a da z dz z dz
+    LeftExpr :: BackNode a da z dz v dv -> LeftEndpoint a da z dz v dv
 
---ff :: (TensorProduct f x w, TensorProduct g a x) => (f :⊗ g) -> a -> w
---(f :⊗ g) `ff` x = f ⊗ (g ⊗ x)
+data LeftEdge a da z dz u du where
+    BackEdge :: LeftEndpoint a da z dz v dv -> AFunction u du v dv -> LeftEdge a da z dz u du
+
+data BackNode a da z dz v dv = BackNode [LeftEdge a da z dz v dv]
 
 {-
 data RightEndpoint b a da z dz v dv where
     RightVar :: RightEndpoint b a da z dz a da
     RightExpr :: SharedBiNode b a da z dz v dv -> RightEndpoint b a da z dz v dv
 
-data LeftEndpoint b a da z dz v dv where
-    LeftVar :: LeftEndpoint b a da z dz z dz
-    LeftExpr :: SharedBiNode b a da z dz v dv -> LeftEndpoint b a da z dz v dv
 
 data FwdEdge b a da z dz v dv where
     FwdEdge :: AFunction b u du v dv -> RightEndpoint b a da z dz u du -> FwdEdge b a da z dz v dv
 
-data BackEdge b a da z dz u du where
-    BackEdge :: LeftEndpoint b a da z dz v dv -> AFunction b u du v dv -> BackEdge b a da z dz u du
 
 data InEdges b a da z dz v dv = (AdditiveGroup v, AdditiveGroup dv) => InEdges
     { shInEdges :: [FwdEdge b a da z dz v dv]

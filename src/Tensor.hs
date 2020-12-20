@@ -61,23 +61,23 @@ _testLinearFunction f dv u = lhs == rhs
     where lhs = (dv ⊗ f :: du) ⊗ u :: b
           rhs = dv ⊗ (f ⊗ u) :: b
 
-data AFunction b u du v dv = AFunction
+data AFunction u du v dv = AFunction
     { funcFwd  :: u -> v
     , funcBack :: dv -> du
     }
 
-instance TensorProduct (AFunction b u du v dv) u v where
+instance TensorProduct (AFunction u du v dv) u v where
     f ⊗ x = funcFwd f x
 
-instance TensorProduct dv (AFunction b u du v dv) du where
+instance TensorProduct dv (AFunction u du v dv) du where
     x ⊗ f = funcBack f x
 
-transposeFunc :: AFunction b u v du dv -> AFunction b dv du v u
+transposeFunc :: AFunction u v du dv -> AFunction dv du v u
 transposeFunc (AFunction f g) = AFunction g f
 
-instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction (AFunction b u du v dv) u v du dv
+instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction (AFunction u du v dv) u v du dv
 
-instance LinearFunction' (AFunction b) where
+instance LinearFunction' AFunction where
     transpose = transposeFunc
     transposeC = Sub Dict
 

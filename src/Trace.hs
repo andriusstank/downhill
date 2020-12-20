@@ -26,7 +26,7 @@ instance AdditiveGroup R where
         hPutStrLn stderr (show x' ++ "+" ++ show y' ++ " -> " ++ show z)
         return (R z)
 
-tracingFunc :: String -> Integer -> AFunction R R R R R
+tracingFunc :: String -> Integer -> AFunction R R R R
 tracingFunc name value = AFunction fwd back
     where fwd (R x) = unsafePerformIO $ do
             x' <- evaluate x
@@ -40,7 +40,7 @@ tracingFunc name value = AFunction fwd back
             return (R (value*x'))
 
 
-testExpr :: () -> Expr R R R R R
+testExpr :: () -> Expr R R R R
 testExpr () = x4
     where f = tracingFunc "f" 2
           g = tracingFunc "g" 3
@@ -52,11 +52,11 @@ testExpr () = x4
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-_x :: () -> IO (SExpr R R R R R, ExprMap (SExpr R R R))
+_x :: () -> IO (SExpr R R R R, ExprMap (SExpr R R))
 _x () = runRecoverSharing (testExpr ())
 
 _y :: IO R
 _y = do
     x' <- _x()
-    let y' = forgetSharing x' :: Expr R R R R R
+    let y' = forgetSharing x' :: Expr R R R R
     return (y' ⊗ (R 1))
