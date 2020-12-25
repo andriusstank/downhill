@@ -27,7 +27,7 @@ import ExprRef
     ( debugShow,
       insertExpr,
       lookupExprName,
-      mapmap,
+      mapmap, mapmapWithKey,
       runTreeBuilder,
       BuildAction(..),
       ExprMap,
@@ -125,7 +125,7 @@ forgetSharing2 (x, env) = goSum x
                 Nothing -> error ("bug: incomplete map in forgetSharing (" <> debugShow xname <> ")")
           
 
-goSharing :: forall a b v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr a da v dv -> TreeBuilder (SExpr a da) (SExpr a da v dv)
+goSharing :: forall a v da dv. (AdditiveGroup v, AdditiveGroup dv) => Expr a da v dv -> TreeBuilder (SExpr a da) (SExpr a da v dv)
 goSharing expr = case expr of
     Variable -> return SVariable -- TODO: recover sharing for variables or not?
     Func f x -> do

@@ -12,9 +12,9 @@ module ExprRef (
     ExprName,
     ExprMap,
     SomeExprWithName(..),
-    toList,
+    toList, fromListWith,
     lookupExprName,
-    mapmap,
+    mapmap, mapmapWithKey,
     
     -- * Tree
     TreeBuilder,
@@ -31,7 +31,7 @@ import GHC.StableName
 import GHC.Exts (Any)
 import Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as Map
-import Data.VectorSpace (AdditiveGroup)
+import Data.VectorSpace (AdditiveGroup(..))
 
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Monad.Trans.State.Strict
@@ -40,11 +40,17 @@ import Control.Monad.Trans.Class
 newtype ExprName v dv = ExprName (StableName Any)
 
 -- idea: use StableName for tree builder only, use plain Int as ExprName and flat vector as ExprMap
+-- idea: ExprMap is representable functor, make use of that
 newtype ExprMap f = ExprMap { unExprMap :: HashMap (StableName Any) (SomeExpr f) }
 
 mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> ExprMap f -> ExprMap g
 mapmap f (ExprMap x) = ExprMap (go <$> x)
     where go (SomeExpr y) = SomeExpr (f y)
+
+mapmapWithKey :: forall f g. (forall v dv. ExprName v dv -> f v dv -> g v dv) -> ExprMap f -> ExprMap g
+mapmapWithKey f (ExprMap x) = ExprMap (Map.mapWithKey go x)
+    where go key (SomeExpr y) = SomeExpr (f (ExprName key) y)
+
 
 data SomeExpr f = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExpr (f v dv)
 
@@ -55,6 +61,10 @@ toList = fmap wrap . Map.toList . unExprMap
     where wrap (key, someValue) = case someValue of
             SomeExpr value -> SomeExprWithName (ExprName key) value
 
+fromListWith :: forall f. [SomeExprWithName f] -> (SomeExpr f -> SomeExpr f -> SomeExpr f) -> ExprMap f
+fromListWith xs f = ExprMap (Map.fromListWith f (go <$> xs))
+    where go :: SomeExprWithName f -> (StableName Any, SomeExpr f)
+          go (SomeExprWithName (ExprName xname) x) = (xname, SomeExpr x)
 
 debugShow :: ExprName v dv -> String
 debugShow (ExprName ref) = show (hashStableName ref)
