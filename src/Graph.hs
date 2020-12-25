@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -13,7 +14,7 @@
 
 module Graph where
 import Prelude hiding (head, tail)
-import ExprRef (ExprMap, ExprName, SomeExprWithName(..))
+import ExprRef (ExprMap, ExprName, SomeExprWithName(..), SomeExpr(..))
 import Sharing(SharedTerm(..), SharedExpr(..), SharedArg(..))
 import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
 
@@ -21,6 +22,7 @@ import qualified ExprRef as ExprMap
 import Data.VectorSpace (sumV, AdditiveGroup)
 import Data.Kind (Type)
 import GHC.Generics (Generic)
+import Data.Either (partitionEithers)
 
 {-
 data PassthroughEdge a da z dz = AFunction a da z dz
@@ -88,7 +90,9 @@ classifyBackwardInitialEdge (Edge tail f head) = case tail of
 data SomeForwardInnerEdge a da z dz v dv = forall u du. SomeForwardInnerEdge (Edge AnyHead InnerNode a da z dz u du v dv)
 data SomeForwardFinalEdge a da z dz = forall u du. SomeForwardFinalEdge (Edge AnyHead SinkNode a da z dz u du z dz)
 
-newtype ForwardInnerNode a da z dz x dx = ForwardInnerNode [SomeForwardInnerEdge a da z dz x dx]
+data ForwardInnerNode a da z dz x dx where
+    ForwardInnerNode :: (AdditiveGroup x, AdditiveGroup dx) => [SomeForwardInnerEdge a da z dz x dx] -> ForwardInnerNode a da z dz x dx
+
 data ForwardFinalNode a da z dz = ForwardFinalNode (SinkNode a da z dz z dz) [SomeForwardFinalEdge a da z dz]
 data SomeForwardInnerNode a da z dz = forall x dx. SomeForwardInnerNode [SomeForwardInnerEdge a da z dz x dx]
 
@@ -98,10 +102,14 @@ data ForwardGraph a da z dz = ForwardGraph (ExprMap (ForwardInnerNode a da z dz)
 data SomeBackwardInnerEdge a da z dz u du = forall v dv. SomeBackwardInnerEdge (Edge InnerNode AnyTail a da z dz u du v dv)
 data SomeBackwardInitialEdge a da z dz = forall v dv. SomeBackwardInitialEdge (Edge SourceNode AnyTail a da z dz a da v dv)
 
-data BackwardInnerNode a da z dz = forall x dx. BackwardInnerNode (ExprName x dx) [SomeBackwardInnerEdge a da z dz x dx]
-data BackwardInitialNode a da z dz = forall x dx. BackwardInitialNode (ExprName x dx) [SomeBackwardInitialEdge a da z dz]
+data BackwardInnerNode a da z dz x dx where
+    BackwardInnerNode :: AdditiveGroup dx => [SomeBackwardInnerEdge a da z dz x dx] -> BackwardInnerNode a da z dz x dx
 
-data BackwardGraph a da z dz = BackwardGraph (ExprMap (SomeBackwardInnerEdge a da z dz)) (BackwardInitialNode a da z dz)
+data BackwardInitialNode a da z dz = forall x dx. BackwardInitialNode [SomeBackwardInitialEdge a da z dz]
+
+data BackwardGraph a da z dz = BackwardGraph (ExprMap (BackwardInnerNode a da z dz)) (BackwardInitialNode a da z dz)
+
+data AnyEdge a da z dz = forall u du v dv. AnyEdge (Edge AnyHead AnyTail a da z dz u du v dv)
 
 convertGraph :: forall a da z dz. ExprMap (SharedExpr a da) -> SharedExpr a da z dz -> ForwardGraph a da z dz
 convertGraph env (SharedExprSum zs) = ForwardGraph (ExprMap.mapmapWithKey convertInnerNode env) (ForwardFinalNode SinkNode (convertFinalEdge <$> zs))
@@ -120,8 +128,11 @@ convertGraph env (SharedExprSum zs) = ForwardGraph (ExprMap.mapmapWithKey conver
 
 newtype FwdValue x dx = FwdValue x
     deriving Generic
+newtype BackValue x dx = BackValue dx
+    deriving Generic
 
 instance AdditiveGroup x => AdditiveGroup (FwdValue x dx)
+instance AdditiveGroup dx => AdditiveGroup (BackValue x dx)
 
 goEdge' :: forall tail a da z dz u du v dv. ExprMap FwdValue -> a -> Edge AnyHead tail a da z dz u du v dv -> v
 goEdge' ys a (Edge _tail f head) = f ⊗ goHead head
@@ -137,14 +148,31 @@ goEdge' ys a (Edge _tail f head) = f ⊗ goHead head
 evalFwdMap :: forall a da z dz. ExprMap (ForwardInnerNode a da z dz) -> a -> ExprMap FwdValue
 evalFwdMap xs a = ys
     where ys = ExprMap.mapmap go xs
-          go :: forall x dx. AdditiveGroup x => ForwardInnerNode a da z dz x dx -> FwdValue x dx
+          go :: forall x dx. ForwardInnerNode a da z dz x dx -> FwdValue x dx
           go (ForwardInnerNode xs') = sumV (goEdge <$> xs')
           goEdge :: SomeForwardInnerEdge a da z dz x dx -> FwdValue x dx
           goEdge = \case
             SomeForwardInnerEdge e -> FwdValue (goEdge' ys a e)
 
--- data SomeForwardInnerNode a da z dz = forall x dx. SomeForwardInnerNode [SomeForwardInnerEdge a da z dz x dx]
--- ForwardGraph (ExprMap (ForwardInnerNode a da z dz)) (ForwardFinalNode a da z dz)
+goBackEdge' :: forall head a da z dz u du v dv. ExprMap BackValue -> dz -> Edge head AnyTail a da z dz u du v dv -> du
+goBackEdge' ys dz (Edge tail f _head) = goTail tail ⊗ f
+    where goTail :: AnyTail a da z dz x dx -> dx
+          goTail = \case
+            SinkTail tail' -> case tail' of
+                SinkNode -> dz
+            InnerTail tail' -> case tail' of
+                InnerNode nodeName -> case ExprMap.lookupExprName ys nodeName of
+                    Nothing -> error "oh fuck"
+                    Just (BackValue x) -> x
+
+evalBackMap :: forall a da z dz. ExprMap (BackwardInnerNode a da z dz) -> dz -> ExprMap BackValue
+evalBackMap dxs dz = ys
+    where ys = ExprMap.mapmap go dxs
+          go :: forall x dx. BackwardInnerNode a da z dz x dx -> BackValue x dx
+          go (BackwardInnerNode xs') = sumV (goEdge <$> xs')
+          goEdge :: SomeBackwardInnerEdge a da z dz x dx -> BackValue x dx
+          goEdge = \case
+            SomeBackwardInnerEdge e -> BackValue (goBackEdge' ys dz e)
 
 instance AdditiveGroup z => TensorProduct (ForwardGraph a da z dz) a z where
     ForwardGraph env (ForwardFinalNode _sink edges) ⊗ x = sumV (go <$> edges)
@@ -152,6 +180,55 @@ instance AdditiveGroup z => TensorProduct (ForwardGraph a da z dz) a z where
               go (SomeForwardFinalEdge edge) = goEdge' env' x edge
               env' = evalFwdMap env x
 
+instance AdditiveGroup da => TensorProduct dz (BackwardGraph a da z dz) da where
+    dx ⊗ BackwardGraph env (BackwardInitialNode edges) = sumV (go <$> edges)
+        where go :: SomeBackwardInitialEdge a da z dz -> da
+              go (SomeBackwardInitialEdge edge) = goBackEdge' env' dx edge
+              env' = evalBackMap env dx
+
+allFwdEdges :: forall a da z dz. ForwardGraph a da z dz -> [AnyEdge a da z dz]
+allFwdEdges (ForwardGraph env (ForwardFinalNode _ es)) = finalEdges ++ innerEdges
+    where innerEdges :: [AnyEdge a da z dz]
+          innerEdges = concatMap nodeEdges (ExprMap.toList env)
+            where nodeEdges (SomeExprWithName _name (ForwardInnerNode xs)) = go <$> xs
+                    where go :: SomeForwardInnerEdge a da z dz v dv -> AnyEdge a da z dz
+                          go (SomeForwardInnerEdge (Edge tail f head)) = AnyEdge (Edge (InnerTail tail) f head)
+          finalEdges :: [AnyEdge a da z dz]
+          finalEdges = go <$> es
+            where go :: SomeForwardFinalEdge a da z dz -> AnyEdge a da z dz
+                  go (SomeForwardFinalEdge (Edge tail f head)) = AnyEdge (Edge (SinkTail tail) f head)
+
+classifyBackEdge
+  :: forall a da z dz.
+     AnyEdge a da z dz
+  -> Either (SomeBackwardInitialEdge a da z dz) (SomeExprWithName (SomeBackwardInnerEdge a da z dz))
+classifyBackEdge (AnyEdge (Edge tail f head)) = case head of
+    SourceHead x -> case x of
+        SourceNode -> Left (SomeBackwardInitialEdge (Edge tail f SourceNode))
+    InnerHead node@(InnerNode x) -> Right (SomeExprWithName x (SomeBackwardInnerEdge (Edge tail f node)))
+
+data NodeDict x dx = (AdditiveGroup x, AdditiveGroup dx) => NodeDict
+
+backFromEdges :: forall a da z dz. ExprMap NodeDict -> [AnyEdge a da z dz] -> BackwardGraph a da z dz
+backFromEdges dictmap edges = BackwardGraph edgeMap (BackwardInitialNode initial)
+    where (initial, inner) = partitionEithers (classifyBackEdge <$> edges)
+          edgeMap :: ExprMap (BackwardInnerNode a da z dz)
+          edgeMap = ExprMap.fromListWith [SomeExprWithName xname (mkNode xname x) | (SomeExprWithName xname x) <- inner] addb
+            where mkNode :: ExprName v dv -> SomeBackwardInnerEdge a da z dz v dv -> BackwardInnerNode a da z dz v dv
+                  mkNode xname x = case (ExprMap.lookupExprName dictmap xname) of
+                      Nothing -> error "oh fuck"
+                      Just NodeDict -> BackwardInnerNode [x]
+          addb :: BackwardInnerNode a da z dz x dx -> BackwardInnerNode a da z dz x dx -> BackwardInnerNode a da z dz x dx
+          addb (BackwardInnerNode xs) (BackwardInnerNode ys) = BackwardInnerNode (xs ++ ys)
+
+mkdict :: ForwardGraph a da z dz -> ExprMap NodeDict
+mkdict (ForwardGraph env _) = ExprMap.mapmap go env
+    where go :: ForwardInnerNode a da z dz v dv -> NodeDict v dv
+          go = \case
+            ForwardInnerNode _ -> NodeDict
+
+flipGraph :: ForwardGraph a da z dz -> BackwardGraph a da z dz
+flipGraph fwd = backFromEdges (mkdict fwd) (allFwdEdges fwd)
 -- data ForwardNode v dv = ForwardNode (ExprName v dv) 
 
 --data Edge a da z dz head tail where

@@ -61,7 +61,7 @@ testExpr = do
         x5 = ExprSum [exprToTerm x3, exprToTerm x4]
         x6 = ExprSum [exprToTerm x4, exprToTerm x5]
         x7 = ExprSum [exprToTerm x5, exprToTerm x6]
-        xs = [x0, x1, x2, x3, x4, x5, x6, x7]
+    --    xs = [x0, x1, x2, x3, x4, x5, x6, x7]
     --traverse_ evaluate xs
     --names <- traverse makeStableName  xs
     --forM_ (zip [0..] names) $ \(i, name) -> putStrLn ("x" ++ show i ++ " " ++ show (hashStableName name))
@@ -78,8 +78,14 @@ _y = do
     let y' = forgetSharing2 x' :: Expr2 R R R R
     return (y' ⊗ R 1)
 
-_z :: IO R
+_z :: IO ()
 _z = do
     (expr, smap) <- _x ()
     let y' = convertGraph smap expr :: ForwardGraph R R R R
-    return (y' ⊗ R 2)
+    putStrLn "fwd"
+    ans1 <- evaluate (y' ⊗ R 2)
+    let dy' = flipGraph y'
+    putStrLn "back"
+    ans2 <- evaluate (R 2 ⊗ dy')
+    print (ans1, ans2)
+    return ()

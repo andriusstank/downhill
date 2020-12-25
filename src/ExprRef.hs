@@ -45,27 +45,28 @@ newtype ExprName v dv = ExprName (StableName Any)
 -- idea: ExprMap is representable functor, make use of that
 newtype ExprMap f = ExprMap { unExprMap :: HashMap (StableName Any) (SomeExpr f) }
 
-mapmap :: forall f g. (forall v dv. (AdditiveGroup v, AdditiveGroup dv) => f v dv -> g v dv) -> ExprMap f -> ExprMap g
+mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> ExprMap f -> ExprMap g
 mapmap f (ExprMap x) = ExprMap (go <$> x)
     where go (SomeExpr y) = SomeExpr (f y)
 
-mapmapWithKey :: forall f g. (forall v dv. (AdditiveGroup v, AdditiveGroup dv) => ExprName v dv -> f v dv -> g v dv) -> ExprMap f -> ExprMap g
+mapmapWithKey :: forall f g. (forall v dv. ExprName v dv -> f v dv -> g v dv) -> ExprMap f -> ExprMap g
 mapmapWithKey f (ExprMap x) = ExprMap (Map.mapWithKey go x)
     where go key (SomeExpr y) = SomeExpr (f (ExprName key) y)
 
-data SomeExpr f = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExpr (f v dv)
+data SomeExpr f = forall v dv. SomeExpr (f v dv)
 
-data SomeExprWithName f = forall v dv. (AdditiveGroup v, AdditiveGroup dv) => SomeExprWithName (ExprName v dv) (f v dv)
+data SomeExprWithName f = forall v dv. SomeExprWithName (ExprName v dv) (f v dv)
 
 toList :: ExprMap f -> [SomeExprWithName f]
 toList = fmap wrap . Map.toList . unExprMap
     where wrap (key, someValue) = case someValue of
             SomeExpr value -> SomeExprWithName (ExprName key) value
 
-fromListWith :: forall f. [SomeExprWithName f] -> (SomeExpr f -> SomeExpr f -> SomeExpr f) -> ExprMap f
-fromListWith xs f = ExprMap (Map.fromListWith f (go <$> xs))
+fromListWith :: forall f. [SomeExprWithName f] -> (forall x dx. f x dx -> f x dx -> f x dx) -> ExprMap f
+fromListWith xs f = ExprMap (Map.fromListWith f' (go <$> xs))
     where go :: SomeExprWithName f -> (StableName Any, SomeExpr f)
           go (SomeExprWithName (ExprName xname) x) = (xname, SomeExpr x)
+          f' (SomeExpr x) (SomeExpr y) = SomeExpr (f x (unsafeCoerce y))
 
 debugShow :: ExprName v dv -> String
 debugShow (ExprName ref) = show (hashStableName ref)
