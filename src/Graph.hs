@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -19,6 +20,7 @@ import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
 import qualified ExprRef as ExprMap
 import Data.VectorSpace (sumV, AdditiveGroup)
 import Data.Kind (Type)
+import GHC.Generics (Generic)
 
 {-
 data PassthroughEdge a da z dz = AFunction a da z dz
@@ -115,6 +117,39 @@ convertGraph env (SharedExprSum zs) = ForwardGraph (ExprMap.mapmapWithKey conver
           convertFinalEdge :: SharedTerm a da z dz -> SomeForwardFinalEdge a da z dz
           convertFinalEdge = \case
             SharedFunAp f x -> SomeForwardFinalEdge (Edge SinkNode f (convertArg x))
+
+newtype FwdValue x dx = FwdValue x
+    deriving Generic
+
+instance AdditiveGroup x => AdditiveGroup (FwdValue x dx)
+
+goEdge' :: forall tail a da z dz u du v dv. ExprMap FwdValue -> a -> Edge AnyHead tail a da z dz u du v dv -> v
+goEdge' ys a (Edge _tail f head) = f ⊗ goHead head
+    where goHead :: AnyHead a da z dz x dx -> x
+          goHead = \case
+            SourceHead head' -> case head' of
+                SourceNode -> a
+            InnerHead head' -> case head' of
+                InnerNode nodeName -> case ExprMap.lookupExprName ys nodeName of
+                    Nothing -> error "oh fuck"
+                    Just (FwdValue x) -> x
+
+evalFwdMap :: forall a da z dz. ExprMap (ForwardInnerNode a da z dz) -> a -> ExprMap FwdValue
+evalFwdMap xs a = ys
+    where ys = ExprMap.mapmap go xs
+          go :: forall x dx. AdditiveGroup x => ForwardInnerNode a da z dz x dx -> FwdValue x dx
+          go (ForwardInnerNode xs') = sumV (goEdge <$> xs')
+          goEdge :: SomeForwardInnerEdge a da z dz x dx -> FwdValue x dx
+          goEdge = \case
+            SomeForwardInnerEdge e -> FwdValue (goEdge' ys a e)
+
+-- data SomeForwardInnerNode a da z dz = forall x dx. SomeForwardInnerNode [SomeForwardInnerEdge a da z dz x dx]
+-- ForwardGraph (ExprMap (ForwardInnerNode a da z dz)) (ForwardFinalNode a da z dz)
+
+instance AdditiveGroup z => TensorProduct (ForwardGraph a da z dz) a z where
+    ForwardGraph env (ForwardFinalNode _sink edges) ⊗ x = sumV (go <$> edges)
+        where go :: SomeForwardFinalEdge a da z dz -> z
+              go (SomeForwardFinalEdge edge) = goEdge' (evalFwdMap env x) x edge
 
 -- data ForwardNode v dv = ForwardNode (ExprName v dv) 
 
