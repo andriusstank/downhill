@@ -149,7 +149,8 @@ evalFwdMap xs a = ys
 instance AdditiveGroup z => TensorProduct (ForwardGraph a da z dz) a z where
     ForwardGraph env (ForwardFinalNode _sink edges) ⊗ x = sumV (go <$> edges)
         where go :: SomeForwardFinalEdge a da z dz -> z
-              go (SomeForwardFinalEdge edge) = goEdge' (evalFwdMap env x) x edge
+              go (SomeForwardFinalEdge edge) = goEdge' env' x edge
+              env' = evalFwdMap env x
 
 -- data ForwardNode v dv = ForwardNode (ExprName v dv) 
 

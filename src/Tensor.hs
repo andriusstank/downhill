@@ -18,7 +18,7 @@ module Tensor (
     TensorProduct(..),
     LinearFunction,
     PairFunc(..),
-    AFunction(..), transposeFunc,
+    AFunction(..), indentityFunc, transposeFunc,
     LinearFunction'(..)
 )
 where
@@ -65,6 +65,9 @@ data AFunction u du v dv = AFunction
     { funcFwd  :: u -> v
     , funcBack :: dv -> du
     }
+
+indentityFunc :: AFunction x dx x dx
+indentityFunc = AFunction id id
 
 instance TensorProduct (AFunction u du v dv) u v where
     f ⊗ x = funcFwd f x
