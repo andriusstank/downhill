@@ -18,12 +18,14 @@ import ExprRef (ExprMap, ExprName, SomeExprWithName(..), SomeExpr(..))
 import Sharing(SharedTerm(..), SharedExpr(..), SharedArg(..))
 import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
 
-import NodeMap
+import NodeMap ( NodeMap, unsafeFromExprMap, toExprMap )
 import qualified ExprRef as ExprMap
 import Data.VectorSpace (sumV, AdditiveGroup)
 import Data.Kind (Type)
 import GHC.Generics (Generic)
 import Data.Either (partitionEithers)
+
+import qualified NodeMap
 
 {-
 data PassthroughEdge a da z dz = AFunction a da z dz
@@ -135,20 +137,20 @@ newtype BackValue x dx = BackValue dx
 instance AdditiveGroup x => AdditiveGroup (FwdValue x dx)
 instance AdditiveGroup dx => AdditiveGroup (BackValue x dx)
 
-goEdge' :: forall tail a da z dz u du v dv. ExprMap FwdValue -> a -> Edge AnyHead tail a da z dz u du v dv -> v
+goEdge' :: forall s tail a da z dz u du v dv. NodeMap s FwdValue -> a -> Edge AnyHead tail a da z dz u du v dv -> v
 goEdge' ys a (Edge _tail f head) = f ⊗ goHead head
     where goHead :: AnyHead a da z dz x dx -> x
           goHead = \case
             SourceHead head' -> case head' of
                 SourceNode -> a
             InnerHead head' -> case head' of
-                InnerNode nodeName -> case ExprMap.lookupExprName ys nodeName of
+                InnerNode nodeName -> case NodeMap.lookupExprName ys nodeName of
                     Nothing -> error "oh fuck"
                     Just (FwdValue x) -> x
 
-evalFwdMap :: forall a da z dz. ExprMap (ForwardInnerNode a da z dz) -> a -> ExprMap FwdValue
+evalFwdMap :: forall s a da z dz. NodeMap s (ForwardInnerNode a da z dz) -> a -> NodeMap s FwdValue
 evalFwdMap xs a = ys
-    where ys = ExprMap.mapmap go xs
+    where ys = NodeMap.mapmap go xs
           go :: forall x dx. ForwardInnerNode a da z dz x dx -> FwdValue x dx
           go (ForwardInnerNode xs') = sumV (goEdge <$> xs')
           goEdge :: SomeForwardInnerEdge a da z dz x dx -> FwdValue x dx
@@ -179,7 +181,7 @@ instance AdditiveGroup z => TensorProduct (ForwardGraph s a da z dz) a z where
     ForwardGraph env (ForwardFinalNode _sink edges) ⊗ x = sumV (go <$> edges)
         where go :: SomeForwardFinalEdge a da z dz -> z
               go (SomeForwardFinalEdge edge) = goEdge' env' x edge
-              env' = evalFwdMap (toExprMap env) x
+              env' = evalFwdMap env x
 
 instance AdditiveGroup da => TensorProduct dz (BackwardGraph s a da z dz) da where
     dx ⊗ BackwardGraph env (BackwardInitialNode edges) = sumV (go <$> edges)
