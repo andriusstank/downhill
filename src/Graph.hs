@@ -157,20 +157,20 @@ evalFwdMap xs a = ys
           goEdge = \case
             SomeForwardInnerEdge e -> FwdValue (goEdge' ys a e)
 
-goBackEdge' :: forall head a da z dz u du v dv. ExprMap BackValue -> dz -> Edge head AnyTail a da z dz u du v dv -> du
+goBackEdge' :: forall s head a da z dz u du v dv. NodeMap s BackValue -> dz -> Edge head AnyTail a da z dz u du v dv -> du
 goBackEdge' ys dz (Edge tail f _head) = goTail tail ⊗ f
     where goTail :: AnyTail a da z dz x dx -> dx
           goTail = \case
             SinkTail tail' -> case tail' of
                 SinkNode -> dz
             InnerTail tail' -> case tail' of
-                InnerNode nodeName -> case ExprMap.lookupExprName ys nodeName of
+                InnerNode nodeName -> case NodeMap.lookupExprName ys nodeName of
                     Nothing -> error "oh fuck"
                     Just (BackValue x) -> x
 
-evalBackMap :: forall a da z dz. ExprMap (BackwardInnerNode a da z dz) -> dz -> ExprMap BackValue
+evalBackMap :: forall s a da z dz. NodeMap s (BackwardInnerNode a da z dz) -> dz -> NodeMap s BackValue
 evalBackMap dxs dz = ys
-    where ys = ExprMap.mapmap go dxs
+    where ys = NodeMap.mapmap go dxs
           go :: forall x dx. BackwardInnerNode a da z dz x dx -> BackValue x dx
           go (BackwardInnerNode xs') = sumV (goEdge <$> xs')
           goEdge :: SomeBackwardInnerEdge a da z dz x dx -> BackValue x dx
@@ -187,7 +187,7 @@ instance AdditiveGroup da => TensorProduct dz (BackwardGraph s a da z dz) da whe
     dx ⊗ BackwardGraph env (BackwardInitialNode edges) = sumV (go <$> edges)
         where go :: SomeBackwardInitialEdge a da z dz -> da
               go (SomeBackwardInitialEdge edge) = goBackEdge' env' dx edge
-              env' = evalBackMap (toExprMap env) dx
+              env' = evalBackMap env dx
 
 allFwdEdges :: forall s a da z dz. ForwardGraph s a da z dz -> [AnyEdge a da z dz]
 allFwdEdges (ForwardGraph env (ForwardFinalNode _ es)) = finalEdges ++ innerEdges
