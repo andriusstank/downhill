@@ -39,12 +39,6 @@ toList (NodeMap m) = wrap <$> Map.toList m
 --fromGraph :: ExprMap (ForwardInnerNode a da z dz) ForwardFinalNode a da z dz
 -- data SomeItem f = forall x dx. SomeItem (ExprName x dx) (f x dx)
 
-lookupExprName :: NodeMap s f -> ExprName v dv -> Maybe (f v dv)
-lookupExprName (NodeMap m) (ExprName ref) =
-    case Map.lookup ref m of
-        Just x -> Just (unsafeCastType''' x)
-        Nothing -> Nothing
-
 unsafeCastType''' :: SomeExpr f -> f v dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCoerce x -- !!!
