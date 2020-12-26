@@ -81,7 +81,7 @@ _y = do
 _z :: IO ()
 _z = do
     (expr, smap) <- _x ()
-    let y' = convertGraph smap expr :: ForwardGraph R R R R
+    let y' = convertGraph smap expr :: ForwardGraph () R R R R
     putStrLn "fwd"
     ans1 <- evaluate (y' ⊗ R 2)
     let dy' = flipGraph y'

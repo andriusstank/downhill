@@ -9,8 +9,8 @@ module ExprRef (
     debugShow,
 
     -- * Map
-    ExprName,
-    ExprMap,
+    ExprName(..),
+    ExprMap(..),
     SomeExprWithName(..),
     toList, fromListWith,
     lookupExprName,
