@@ -18,7 +18,7 @@ import ExprRef (ExprMap, ExprName, SomeExprWithName(..), SomeExpr(..))
 import Sharing(SharedTerm(..), SharedExpr(..), SharedArg(..))
 import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
 
-import NodeMap ( NodeMap, unsafeFromExprMap, toExprMap )
+import NodeMap ( NodeMap, unsafeFromExprMap, toExprMap, NodeKey )
 import qualified ExprRef as ExprMap
 import Data.VectorSpace (sumV, AdditiveGroup)
 import Data.Kind (Type)
@@ -192,8 +192,8 @@ instance AdditiveGroup da => TensorProduct dz (BackwardGraph s a da z dz) da whe
 allFwdEdges :: forall s a da z dz. ForwardGraph s a da z dz -> [AnyEdge a da z dz]
 allFwdEdges (ForwardGraph env (ForwardFinalNode _ es)) = finalEdges ++ innerEdges
     where innerEdges :: [AnyEdge a da z dz]
-          innerEdges = concatMap nodeEdges (ExprMap.toList (toExprMap env))
-            where nodeEdges (SomeExprWithName _name (ForwardInnerNode xs)) = go <$> xs
+          innerEdges = concatMap nodeEdges (NodeMap.toList env)
+            where nodeEdges (NodeMap.SomeItem _name (ForwardInnerNode xs)) = go <$> xs
                     where go :: SomeForwardInnerEdge a da z dz v dv -> AnyEdge a da z dz
                           go (SomeForwardInnerEdge (Edge tail f head)) = AnyEdge (Edge (InnerTail tail) f head)
           finalEdges :: [AnyEdge a da z dz]
@@ -212,20 +212,19 @@ classifyBackEdge (AnyEdge (Edge tail f head)) = case head of
 
 data NodeDict x dx = (AdditiveGroup x, AdditiveGroup dx) => NodeDict
 
-backFromEdges :: forall s a da z dz. ExprMap NodeDict -> [AnyEdge a da z dz] -> BackwardGraph s a da z dz
-backFromEdges dictmap edges = BackwardGraph (unsafeFromExprMap edgeMap) (BackwardInitialNode initial)
+backFromEdges :: forall s a da z dz. NodeMap s NodeDict -> [AnyEdge a da z dz] -> BackwardGraph s a da z dz
+backFromEdges dictmap edges = BackwardGraph edgeMap (BackwardInitialNode initial)
     where (initial, inner) = partitionEithers (classifyBackEdge <$> edges)
-          edgeMap :: ExprMap (BackwardInnerNode a da z dz)
-          edgeMap = ExprMap.fromListWith [SomeExprWithName xname (mkNode xname x) | (SomeExprWithName xname x) <- inner] addb
-            where mkNode :: ExprName v dv -> SomeBackwardInnerEdge a da z dz v dv -> BackwardInnerNode a da z dz v dv
-                  mkNode xname x = case (ExprMap.lookupExprName dictmap xname) of
-                      Nothing -> error "oh fuck"
-                      Just NodeDict -> BackwardInnerNode [x]
+          edgeMap :: NodeMap s (BackwardInnerNode a da z dz)
+          edgeMap = NodeMap.fromListWith [NodeMap.SomeItem xname (mkNode xname x) | (NodeMap.SomeItem xname x) <- (NodeMap.cvItem <$> inner)] addb
+            where mkNode :: NodeKey s v dv -> SomeBackwardInnerEdge a da z dz v dv -> BackwardInnerNode a da z dz v dv
+                  mkNode xname x = case (NodeMap.lookup dictmap xname) of
+                      NodeDict -> BackwardInnerNode [x]
           addb :: BackwardInnerNode a da z dz x dx -> BackwardInnerNode a da z dz x dx -> BackwardInnerNode a da z dz x dx
           addb (BackwardInnerNode xs) (BackwardInnerNode ys) = BackwardInnerNode (xs ++ ys)
 
-mkdict :: ForwardGraph s a da z dz -> ExprMap NodeDict
-mkdict (ForwardGraph env _) = ExprMap.mapmap go (toExprMap env)
+mkdict :: ForwardGraph s a da z dz -> NodeMap s NodeDict
+mkdict (ForwardGraph env _) = NodeMap.mapmap go env
     where go :: ForwardInnerNode a da z dz v dv -> NodeDict v dv
           go = \case
             ForwardInnerNode _ -> NodeDict

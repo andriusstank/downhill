@@ -37,7 +37,6 @@ import Unsafe.Coerce (unsafeCoerce)
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Class
 import Control.Exception (evaluate)
-import Data.Coerce (coerce)
 
 newtype ExprName v dv = ExprName (StableName Any)
 
