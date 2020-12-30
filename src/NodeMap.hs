@@ -23,6 +23,8 @@ unsafeFromExprMap (ExprMap x) = NodeMap x
 
 unsafeNodeKey :: ExprName x dx -> NodeKey s x dx
 unsafeNodeKey (ExprName x) = NodeKey x
+toExprName :: NodeKey s x dx -> ExprName x dx
+toExprName (NodeKey x) = ExprName x
 
 {-# DEPRECATED toExprMap "transitionary" #-}
 toExprMap :: NodeMap s f -> ExprMap f
@@ -30,6 +32,11 @@ toExprMap (NodeMap x) = ExprMap x
 
 mapmap :: forall s f g. (forall v dv. f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
 mapmap f = unsafeFromExprMap . ExprMap.mapmap f . toExprMap
+
+mapmapWithKey :: forall s f g. (forall v dv. NodeKey s v dv -> f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
+mapmapWithKey f (NodeMap x) = NodeMap (Map.mapWithKey go x)
+    where go key (SomeExpr y) = SomeExpr (f (NodeKey key) y)
+
 
 toList :: NodeMap s f -> [SomeItem s f]
 toList (NodeMap m) = wrap <$> Map.toList m

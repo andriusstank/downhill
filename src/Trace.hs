@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 module Trace where
 import Tensor
 import Data.VectorSpace (AdditiveGroup(..))
@@ -12,6 +13,7 @@ import Graph
 import Control.Monad (forM_, forM, when)
 import System.Mem.StableName (makeStableName, hashStableName)
 import Data.Foldable (traverse_)
+import NodeMap (unsafeFromExprMap)
 
 newtype R = R Integer
     deriving Show
@@ -81,7 +83,7 @@ _y = do
 _z :: IO ()
 _z = do
     (expr, smap) <- _x ()
-    let y' = convertGraph smap expr :: ForwardGraph () R R R R
+    let y' = convertGraph (unsafeFromExprMap smap) expr :: ForwardGraph () R R R R
     putStrLn "fwd"
     ans1 <- evaluate (y' ⊗ R 2)
     let dy' = flipGraph y'
