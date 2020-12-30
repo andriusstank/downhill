@@ -1,4 +1,6 @@
+{-# language PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
+
 module Trace where
 import Tensor
 import Data.VectorSpace (AdditiveGroup(..))
@@ -13,7 +15,7 @@ import Graph
 import Control.Monad (forM_, forM, when)
 import System.Mem.StableName (makeStableName, hashStableName)
 import Data.Foldable (traverse_)
-import NodeMap (unsafeFromExprMap)
+import NodeMap (unsafeFromExprMap, SomeNodeMap(..))
 
 newtype R = R Integer
     deriving Show
@@ -71,19 +73,19 @@ testExpr = do
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-_x :: () -> IO (SharedExpr R R R R, ExprMap (SharedExpr R R))
+_x :: () -> IO (SharedExpr R R R R, SomeNodeMap (SharedExpr R R))
 _x () = runRecoverSharing2 =<< testExpr
 
 _y :: IO R
 _y = do
-    x' <- _x()
-    let y' = forgetSharing2 x' :: Expr2 R R R R
+    (x, SomeNodeMap m') <- _x()
+    let y' = forgetSharing2 (x, m') :: Expr2 R R R R
     return (y' ⊗ R 1)
 
 _z :: IO ()
 _z = do
-    (expr, smap) <- _x ()
-    let y' = convertGraph (unsafeFromExprMap smap) expr :: ForwardGraph () R R R R
+    (expr, SomeNodeMap smap) <- _x ()
+    let y' = convertGraph smap expr :: ForwardGraph _ R R R R
     putStrLn "fwd"
     ans1 <- evaluate (y' ⊗ R 2)
     let dy' = flipGraph y'

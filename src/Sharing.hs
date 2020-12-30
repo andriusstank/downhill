@@ -34,6 +34,8 @@ import ExprRef
       ExprName,
       TreeBuilder )
 import qualified Data.HashMap.Strict as Map
+import NodeMap (NodeMap, SomeNodeMap(SomeNodeMap))
+import qualified NodeMap
 
 data SharedArg a da v dv where
     SharedArgVar :: SharedArg a da a da
@@ -44,7 +46,7 @@ data SharedTerm a da v dv where
 
 data SharedExpr a da v dv = (AdditiveGroup v, AdditiveGroup dv) => SharedExprSum [SharedTerm a da v dv]
 
-forgetSharing2 :: forall a v da dv. (SharedExpr a da v dv, ExprMap (SharedExpr a da)) -> Expr2 a da v dv
+forgetSharing2 :: forall s a v da dv. (SharedExpr a da v dv, NodeMap s (SharedExpr a da)) -> Expr2 a da v dv
 forgetSharing2 (x, env) = goSum x
     where goSum :: forall x dx. SharedExpr a da x dx -> Expr2 a da x dx
           goSum = \case
@@ -55,9 +57,8 @@ forgetSharing2 (x, env) = goSum x
           goArg :: forall x dx. SharedArg a da x dx -> ExprArg a da x dx
           goArg = \case
             SharedArgVar -> ArgVar
-            SharedArgExpr xname -> case lookupExprName env xname of
-                Just y -> ArgExpr (goSum y)
-                Nothing -> error ("bug: incomplete map in forgetSharing (" <> debugShow xname <> ")")
+            SharedArgExpr xname -> case NodeMap.lookup env (NodeMap.unsafeNodeKey xname) of
+                y -> ArgExpr (goSum y)
 
 goSharing2 :: forall a da v dv. Expr2 a da v dv -> TreeBuilder (SharedExpr a da) (SharedExpr a da v dv)
 goSharing2 (ExprSum xs) = do
@@ -88,6 +89,6 @@ goSharing2term = \case
 sharingAction2 :: BuildAction (Expr2 a da) (SharedExpr a da)
 sharingAction2 = BuildAction goSharing2
 
-runRecoverSharing2 :: forall a da v dv. Expr2 a da v dv -> IO (SharedExpr a da v dv, ExprMap (SharedExpr a da))
+runRecoverSharing2 :: forall a da v dv. Expr2 a da v dv -> IO (SharedExpr a da v dv, SomeNodeMap (SharedExpr a da))
 runRecoverSharing2 x = case x of
-    ExprSum _ -> runTreeBuilder @v @dv (goSharing2 x)
+    ExprSum _ -> NodeMap.runTreeBuilder @v @dv (goSharing2 x)

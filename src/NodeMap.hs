@@ -9,6 +9,7 @@ import GHC.Exts (Any)
 import qualified ExprRef as ExprMap
 import qualified Data.HashMap.Strict as Map
 import Unsafe.Coerce (unsafeCoerce)
+import Data.VectorSpace (AdditiveGroup)
 
 newtype NodeKey s x dx = NodeKey (StableName Any)
 newtype NodeMap s f = NodeMap { unNodeMap :: HashMap (StableName Any) (SomeExpr f) }
@@ -64,3 +65,8 @@ fromListWith xs f = NodeMap (Map.fromListWith f' (go <$> xs))
 
 cvItem :: SomeExprWithName f -> SomeItem s f
 cvItem (SomeExprWithName (ExprName x) y) = SomeItem (NodeKey x) y
+
+runTreeBuilder :: (AdditiveGroup v, AdditiveGroup dv) => TreeBuilder f (g v dv) -> IO (g v dv, SomeNodeMap f)
+runTreeBuilder rs_x = do
+    (x, m) <- ExprMap.runTreeBuilder rs_x
+    return (x, SomeNodeMap (unsafeFromExprMap m))
