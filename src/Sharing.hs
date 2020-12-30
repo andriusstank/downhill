@@ -34,7 +34,7 @@ import ExprRef
       ExprName,
       TreeBuilder )
 import qualified Data.HashMap.Strict as Map
-import NodeMap (NodeMap, SomeNodeMap(SomeNodeMap))
+import NodeMap (NodeMap, SomeNodeMap(SomeNodeMap), SomeValueWithNodeMap(..))
 import qualified NodeMap
 
 data SharedArg a da v dv where
@@ -45,6 +45,8 @@ data SharedTerm a da v dv where
     SharedFunAp :: AFunction u du v dv -> SharedArg a da u du -> SharedTerm a da v dv
 
 data SharedExpr a da v dv = (AdditiveGroup v, AdditiveGroup dv) => SharedExprSum [SharedTerm a da v dv]
+
+data SharedExprS a da s v dv = SharedExprS (SharedExpr a da v dv)
 
 forgetSharing2 :: forall s a v da dv. (SharedExpr a da v dv, NodeMap s (SharedExpr a da)) -> Expr2 a da v dv
 forgetSharing2 (x, env) = goSum x
@@ -89,6 +91,11 @@ goSharing2term = \case
 sharingAction2 :: BuildAction (Expr2 a da) (SharedExpr a da)
 sharingAction2 = BuildAction goSharing2
 
-runRecoverSharing2 :: forall a da v dv. Expr2 a da v dv -> IO (SharedExpr a da v dv, SomeNodeMap (SharedExpr a da))
+runRecoverSharing2 :: forall a da v dv. Expr2 a da v dv -> IO (SomeValueWithNodeMap (SharedExprS a da) (SharedExpr a da) v dv)
+-- (SharedExpr a da v dv, SomeNodeMap (SharedExpr a da))
 runRecoverSharing2 x = case x of
-    ExprSum _ -> NodeMap.runTreeBuilder @v @dv (goSharing2 x)
+    ExprSum _ -> do
+      let z = goSharing2 x :: (TreeBuilder (SharedExpr a da) (SharedExpr a da v dv))
+          z' =  SharedExprS <$> z :: TreeBuilder (SharedExpr a da) (SharedExprS a da s0 v dv)
+      SomeValueWithNodeMap x' y <- NodeMap.runTreeBuilder z' :: (IO (SomeValueWithNodeMap (SharedExprS a da) (SharedExpr a da) v dv))
+      return (SomeValueWithNodeMap x' y)

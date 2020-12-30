@@ -18,6 +18,8 @@ data SomeNodeMap f = forall s. SomeNodeMap (NodeMap s f)
 
 data SomeItem s f = forall x dx. SomeItem (NodeKey s x dx) (f x dx)
 
+data SomeValueWithNodeMap g f v dv = forall s. SomeValueWithNodeMap (g s v dv) (NodeMap s f)
+
 {-# DEPRECATED unsafeFromExprMap, unsafeNodeKey "transitionary" #-}
 unsafeFromExprMap :: ExprMap f -> NodeMap s f
 unsafeFromExprMap (ExprMap x) = NodeMap x
@@ -66,7 +68,7 @@ fromListWith xs f = NodeMap (Map.fromListWith f' (go <$> xs))
 cvItem :: SomeExprWithName f -> SomeItem s f
 cvItem (SomeExprWithName (ExprName x) y) = SomeItem (NodeKey x) y
 
-runTreeBuilder :: (AdditiveGroup v, AdditiveGroup dv) => TreeBuilder f (g v dv) -> IO (g v dv, SomeNodeMap f)
+runTreeBuilder :: forall v dv s f g. (AdditiveGroup v, AdditiveGroup dv) => TreeBuilder f (g s v dv) -> IO (SomeValueWithNodeMap g f v dv)
 runTreeBuilder rs_x = do
     (x, m) <- ExprMap.runTreeBuilder rs_x
-    return (x, SomeNodeMap (unsafeFromExprMap m))
+    return $ SomeValueWithNodeMap x (unsafeFromExprMap m)

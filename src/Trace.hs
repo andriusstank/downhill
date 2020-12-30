@@ -15,7 +15,8 @@ import Graph
 import Control.Monad (forM_, forM, when)
 import System.Mem.StableName (makeStableName, hashStableName)
 import Data.Foldable (traverse_)
-import NodeMap (unsafeFromExprMap, SomeNodeMap(..))
+import qualified NodeMap
+import NodeMap (unsafeFromExprMap, SomeNodeMap(..), SomeValueWithNodeMap(..))
 
 newtype R = R Integer
     deriving Show
@@ -73,18 +74,18 @@ testExpr = do
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-_x :: () -> IO (SharedExpr R R R R, SomeNodeMap (SharedExpr R R))
+_x :: () -> IO (NodeMap.SomeValueWithNodeMap (SharedExprS R R) (SharedExpr R R) R R)
 _x () = runRecoverSharing2 =<< testExpr
 
 _y :: IO R
 _y = do
-    (x, SomeNodeMap m') <- _x()
+    SomeValueWithNodeMap (SharedExprS x) m' <- _x()
     let y' = forgetSharing2 (x, m') :: Expr2 R R R R
     return (y' ⊗ R 1)
 
 _z :: IO ()
 _z = do
-    (expr, SomeNodeMap smap) <- _x ()
+    SomeValueWithNodeMap (SharedExprS expr) smap <- _x ()
     let y' = convertGraph smap expr :: ForwardGraph _ R R R R
     putStrLn "fwd"
     ans1 <- evaluate (y' ⊗ R 2)
