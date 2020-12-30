@@ -74,18 +74,18 @@ testExpr = do
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-_x :: () -> IO (NodeMap.SomeValueWithNodeMap (SharedExprS R R) (SharedExpr R R) R R)
+_x :: () -> IO (SharedExprWithMap R R R R)
 _x () = runRecoverSharing2 =<< testExpr
 
 _y :: IO R
 _y = do
-    SomeValueWithNodeMap (SharedExprS x) m' <- _x()
+    SharedExprWithMap m' x <- _x()
     let y' = forgetSharing2 (x, m') :: Expr2 R R R R
     return (y' ⊗ R 1)
 
 _z :: IO ()
 _z = do
-    SomeValueWithNodeMap (SharedExprS expr) smap <- _x ()
+    SharedExprWithMap smap expr <- _x ()
     let y' = convertGraph smap expr :: ForwardGraph _ R R R R
     putStrLn "fwd"
     ans1 <- evaluate (y' ⊗ R 2)

@@ -1,3 +1,5 @@
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes #-}
@@ -11,12 +13,14 @@ import qualified Data.HashMap.Strict as Map
 import Unsafe.Coerce (unsafeCoerce)
 import Data.VectorSpace (AdditiveGroup)
 
-newtype NodeKey s x dx = NodeKey (StableName Any)
-newtype NodeMap s f = NodeMap { unNodeMap :: HashMap (StableName Any) (SomeExpr f) }
+data KeySet
+
+newtype NodeKey (s :: KeySet) x dx = NodeKey (StableName Any)
+newtype NodeMap (s :: KeySet) f = NodeMap { unNodeMap :: HashMap (StableName Any) (SomeExpr f) }
 
 data SomeNodeMap f = forall s. SomeNodeMap (NodeMap s f)
 
-data SomeItem s f = forall x dx. SomeItem (NodeKey s x dx) (f x dx)
+data SomeItem (s :: KeySet) f = forall x dx. SomeItem (NodeKey s x dx) (f x dx)
 
 data SomeValueWithNodeMap g f v dv = forall s. SomeValueWithNodeMap (g s v dv) (NodeMap s f)
 
