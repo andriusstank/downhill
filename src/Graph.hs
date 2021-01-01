@@ -15,8 +15,7 @@
 
 module Graph where
 import Prelude hiding (head, tail)
-import ExprRef (ExprMap, ExprName, SomeExprWithName(..), SomeExpr(..))
-import Sharing()
+import Sharing(ExprMap)
 import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
 
 import NodeMap (unsafeCastNode, toExprName, unsafeNodeKey,  NodeMap, unsafeFromExprMap, toExprMap, NodeKey )

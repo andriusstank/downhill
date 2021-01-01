@@ -3,6 +3,7 @@
 
 module Trace where
 import Tensor
+    ( indentityFunc, AFunction(AFunction), TensorProduct((⊗)) )
 import Data.VectorSpace (AdditiveGroup(..))
 import Expr
 import System.IO (hPutStrLn, stderr)
@@ -93,7 +94,7 @@ _y = do
 _z :: IO ()
 _z = do
     NodeMap.SomeSharedExprWithMap smap expr <- _x ()
-    let y' = convertGraph smap expr :: ForwardGraph _ R R R R
+    let y' = convertGraph smap expr
     putStrLn "fwd"
     ans1 <- evaluate (y' ⊗ R 2)
     let dy' = flipGraph y'
