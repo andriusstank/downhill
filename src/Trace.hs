@@ -8,7 +8,7 @@ import Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
 import NodeMap
-    ( forgetSharing2,
+    (runRecoverSharing3,  forgetSharing2,
       runRecoverSharing2,
       SharedExprS,
       SharedExprWithMap(..) )
@@ -80,18 +80,20 @@ testExpr = do
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-_x :: () -> IO (SharedExprWithMap R R R R)
-_x () = runRecoverSharing2 =<< testExpr
+_x :: () -> IO (NodeMap.SomeSharedExprWithMap R R R R)
+_x () = runRecoverSharing3 =<< testExpr
 
+{-
 _y :: IO R
 _y = do
     SharedExprWithMap m' x <- _x()
     let y' = forgetSharing2 (x, m') :: Expr2 R R R R
     return (y' ⊗ R 1)
+-}
 
 _z :: IO ()
 _z = do
-    SharedExprWithMap smap expr <- _x ()
+    NodeMap.SomeSharedExprWithMap smap expr <- _x ()
     let y' = convertGraph smap expr :: ForwardGraph _ R R R R
     putStrLn "fwd"
     ans1 <- evaluate (y' ⊗ R 2)

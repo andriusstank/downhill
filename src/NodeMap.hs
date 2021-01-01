@@ -133,3 +133,44 @@ runRecoverSharing2 x = case x of
       return (SharedExprWithMap (NodeMap.unsafeFromExprMap (ExprMap.mapmap toS  m)) x)
       --SomeValueWithNodeMap x' y <- NodeMap.runTreeBuilder z' :: (IO (SomeValueWithNodeMap (SharedExprS a da) (SharedExpr a da) v dv))
       --return (SharedExprWithMap y x')
+
+goSharing3 :: forall s a da v dv. Expr2 a da v dv -> TreeBuilder (SharedExprS s a da) (SharedExprS s a da v dv)
+goSharing3 (ExprSum xs) = do
+    let go' :: Term2 a da v dv -> TreeBuilder (SharedExprS s a da) (SharedTermS s a da v dv)
+        go' = goSharing3term
+    xs' <- traverse go' xs
+    return $ SharedExprSumS xs'
+
+insertExpr3
+  :: forall s a da g v dv.
+     BuildAction (Expr2 a da) g
+  -> Expr2 a da v dv
+  -> TreeBuilder g (NodeKey s v dv, g v dv)
+insertExpr3 x y@(ExprSum _) = do
+    (ref, z) <- insertExpr x y
+    return (unsafeNodeKey ref, z)
+
+goSharing3arg :: forall s a da v dv. ExprArg a da v dv -> TreeBuilder (SharedExprS s a da) (SharedArgS s a da v dv)
+goSharing3arg = \case
+    ArgVar -> return SharedArgVarS
+    ArgExpr  x ->  do
+        (xRef, _sx) <- insertExpr3 sharingAction3 x
+        return (SharedArgExprS xRef)
+goSharing3term :: forall s a da v dv. Term2 a da v dv -> TreeBuilder (SharedExprS s a da) (SharedTermS s a da v dv)
+goSharing3term = \case
+    Func2 f arg -> do
+        arg' <- goSharing3arg arg
+        return (SharedFunApS f arg')
+
+sharingAction3 :: BuildAction (Expr2 a da) (SharedExprS s a da)
+sharingAction3 = BuildAction goSharing3
+
+data SomeSharedExprWithMap a da z dz where
+    SomeSharedExprWithMap :: NodeMap s (SharedExprS s a da) -> SharedExprS s a da z dz -> SomeSharedExprWithMap a da z dz
+
+runRecoverSharing3 :: forall a da v dv. Expr2 a da v dv -> IO (SomeSharedExprWithMap a da v dv)
+runRecoverSharing3 x = case x of
+    ExprSum _ -> do
+      let z = goSharing3 x :: (TreeBuilder (SharedExprS s a da) (SharedExprS s a da v dv))
+      (x', m) <- ExprMap.runTreeBuilder z
+      return (SomeSharedExprWithMap (unsafeFromExprMap m) x')

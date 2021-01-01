@@ -16,6 +16,7 @@ import Data.Constraint
 --data SomeLinearFunc b v dv where
 --    SomeLinearFunc :: LinearFunction b f u v du dv => SomeLinearFunc b v dv
 
+
 data Expr a da v dv where
     Variable :: Expr a da a da
     Func :: (AdditiveGroup u, AdditiveGroup v, AdditiveGroup du, AdditiveGroup dv) => AFunction u du v dv -> Expr a da u du -> Expr a da v dv
