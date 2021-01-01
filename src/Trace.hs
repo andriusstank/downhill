@@ -10,7 +10,7 @@ import GHC.IO (evaluate, unsafePerformIO)
 import Sharing
     ( forgetSharing2,
       runRecoverSharing2,
-      SharedExprS',
+      SharedExprS,
       SharedExprWithMap(..) )
 import ExprRef
 import qualified Debug.Trace
@@ -100,6 +100,3 @@ _z = do
     ans2 <- evaluate (R 2 ⊗ dy')
     print (ans1, ans2)
     return ()
-
-_cvt :: Coercible s2 s1 => SharedExprS' s1 a da v dv -> SharedExprS' s2 a da v dv
-_cvt = coerce

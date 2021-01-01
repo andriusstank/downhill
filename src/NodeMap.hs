@@ -1,3 +1,4 @@
+{-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
@@ -16,6 +17,7 @@ import Data.VectorSpace (AdditiveGroup)
 
 data KeySet
 
+type role NodeKey nominal nominal nominal
 newtype NodeKey (s :: KeySet) x dx = NodeKey (StableName Any)
 newtype NodeMap (s :: KeySet) f = NodeMap { unNodeMap :: HashMap (StableName Any) (SomeExpr f) }
 
@@ -34,7 +36,10 @@ unsafeNodeKey (ExprName x) = NodeKey x
 toExprName :: NodeKey s x dx -> ExprName x dx
 toExprName (NodeKey x) = ExprName x
 
-{-# DEPRECATED toExprMap "transitionary" #-}
+unsafeCastNode :: NodeKey s1 x dx -> NodeKey s2 x dx
+unsafeCastNode (NodeKey x) = NodeKey x
+
+{-# DEPRECATED toExprMap, unsafeCastNode "transitionary" #-}
 toExprMap :: NodeMap s f -> ExprMap f
 toExprMap (NodeMap x) = ExprMap x
 
