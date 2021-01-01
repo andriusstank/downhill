@@ -29,11 +29,9 @@ module NodeMap (
     SomeValueWithNodeMap,
     SomeSharedExprWithMap(..)
 ) where
-import ExprRef
 import Data.HashMap.Lazy (HashMap)
 import GHC.StableName (StableName)
 import GHC.Exts (Any)
-import qualified ExprRef as ExprMap
 import qualified Data.HashMap.Strict as Map
 import Unsafe.Coerce (unsafeCoerce)
 import Data.VectorSpace (AdditiveGroup)
@@ -58,19 +56,16 @@ data SomeValueWithNodeMap g f v dv = forall s. SomeValueWithNodeMap (g s v dv) (
 
 {-# DEPRECATED unsafeFromExprMap, unsafeNodeKey "transitionary" #-}
 unsafeFromExprMap :: ExprMap f -> NodeMap s f
-unsafeFromExprMap (ExprMap x) = NodeMap x
+unsafeFromExprMap x = NodeMap x
 
 unsafeNodeKey :: ExprName -> NodeKey s x dx
 unsafeNodeKey x = NodeKey x
 toExprName :: NodeKey s x dx -> ExprName
 toExprName (NodeKey x) = x
 
-unsafeCastNode :: NodeKey s1 x dx -> NodeKey s2 x dx
-unsafeCastNode (NodeKey x) = NodeKey x
-
-{-# DEPRECATED toExprMap, unsafeCastNode "transitionary" #-}
+{-# DEPRECATED toExprMap "transitionary" #-}
 toExprMap :: NodeMap s f -> ExprMap f
-toExprMap (NodeMap x) = ExprMap x
+toExprMap (NodeMap x) = x
 
 mapmap :: forall s f g. (forall v dv. f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
 mapmap f = unsafeFromExprMap . Sharing.mapmap f . toExprMap

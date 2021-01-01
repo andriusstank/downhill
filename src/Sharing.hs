@@ -45,14 +45,14 @@ import Control.Exception (evaluate)
 
 type ExprName = StableName Any
 
-newtype ExprMap f = ExprMap { unExprMap :: HashMap (StableName Any) (SomeExpr f) }
+type ExprMap f = HashMap (StableName Any) (SomeExpr f)
 
 mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> ExprMap f -> ExprMap g
-mapmap f (ExprMap x) = ExprMap (go <$> x)
+mapmap f x = go <$> x
     where go (SomeExpr y) = SomeExpr (f y)
 
 mapmapWithKey :: forall f g. (forall v dv. ExprName -> f v dv -> g v dv) -> ExprMap f -> ExprMap g
-mapmapWithKey f (ExprMap x) = ExprMap (Map.mapWithKey go x)
+mapmapWithKey f x = Map.mapWithKey go x
     where go key (SomeExpr y) = SomeExpr (f key y)
 
 data SomeExpr f = forall v dv. SomeExpr (f v dv)
@@ -60,12 +60,12 @@ data SomeExpr f = forall v dv. SomeExpr (f v dv)
 data SomeExprWithName f = forall v dv. SomeExprWithName ExprName (f v dv)
 
 toList :: ExprMap f -> [SomeExprWithName f]
-toList = fmap wrap . Map.toList . unExprMap
+toList = fmap wrap . Map.toList
     where wrap (key, someValue) = case someValue of
             SomeExpr value -> SomeExprWithName key value
 
 fromListWith :: forall f. [SomeExprWithName f] -> (forall x dx. f x dx -> f x dx -> f x dx) -> ExprMap f
-fromListWith xs f = ExprMap (Map.fromListWith f' (go <$> xs))
+fromListWith xs f = Map.fromListWith f' (go <$> xs)
     where go :: SomeExprWithName f -> (StableName Any, SomeExpr f)
           go (SomeExprWithName xname x) = (xname, SomeExpr x)
           f' (SomeExpr x) (SomeExpr y) = SomeExpr (f x (unsafeCoerce y))
@@ -78,13 +78,13 @@ unsafeCastType''' = \case
     SomeExpr x -> unsafeCoerce x -- !!!
 
 lookupExprName :: ExprMap f -> ExprName -> Maybe (f v dv)
-lookupExprName (ExprMap m) ref =
+lookupExprName m ref =
     case Map.lookup ref m of
         Just x -> Just (unsafeCastType''' x)
         Nothing -> Nothing
 
 insertExprName :: (AdditiveGroup v, AdditiveGroup dv) => ExprMap f -> ExprName -> f v dv -> ExprMap f
-insertExprName (ExprMap cache') name y  = ExprMap (Map.insert name (SomeExpr y) cache')
+insertExprName cache' name y  = Map.insert name (SomeExpr y) cache'
 
 newtype TreeBuilder f r = TreeCache { unTreeCache :: StateT (ExprMap f) IO r }
     deriving (Functor, Applicative, Monad)
@@ -146,4 +146,4 @@ eraseType :: a -> Any
 eraseType = unsafeCoerce
 
 runTreeBuilder :: (AdditiveGroup v, AdditiveGroup dv) => TreeBuilder f (g v dv) -> IO (g v dv, ExprMap f)
-runTreeBuilder rs_x = runStateT (unTreeCache rs_x) (ExprMap Map.empty)
+runTreeBuilder rs_x = runStateT (unTreeCache rs_x) Map.empty

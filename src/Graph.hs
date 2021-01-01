@@ -19,7 +19,6 @@ import Sharing(ExprMap)
 import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
 
 import NodeMap (toExprName, unsafeNodeKey,  NodeMap, unsafeFromExprMap, toExprMap, NodeKey )
-import qualified ExprRef as ExprMap
 import Data.VectorSpace (sumV, AdditiveGroup)
 import Data.Kind (Type)
 import GHC.Generics (Generic)

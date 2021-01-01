@@ -12,7 +12,6 @@ import NodeMap
     (runRecoverSharing3,
       SharedExprS,
       SharedExprWithMap(..) )
-import ExprRef
 import qualified Debug.Trace
 import Sharing ()
 import Graph

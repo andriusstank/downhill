@@ -17,7 +17,6 @@ extra-source-files:  CHANGELOG.md
 
 library
   exposed-modules:     Expr,
-                       ExprRef,
                        Grad,
                        Sharing,
                        Tensor,
