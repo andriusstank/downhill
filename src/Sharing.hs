@@ -17,7 +17,7 @@ module Sharing (
     SharedTerm(..),
     SharedExpr(..),
     SharedArg(..),
-    SharedExprS,
+    SharedExprS',
     SharedExprWithMap(..),
     runRecoverSharing2,
     forgetSharing2,
@@ -60,15 +60,27 @@ data SharedTerm a da v dv where
 
 data SharedExpr a da v dv = (AdditiveGroup v, AdditiveGroup dv) => SharedExprSum { unSharedExprSum :: [SharedTerm a da v dv] }
 
-type role SharedExprS nominal nominal representational nominal nominal
-data SharedExprS a da (s :: KeySet) v dv = SharedExprS (SharedExpr a da v dv)
+{-
+data SharedArgS a da v dv where
+    SharedArgVar :: SharedArg a da a da
+    SharedArgExpr :: ExprName v dv -> SharedArg a da v dv
+
+data SharedTermS a da v dv where
+    SharedFunAp :: AFunction u du v dv -> SharedArg a da u du -> SharedTerm a da v dv
+
+data SharedExpr a da v dv = (AdditiveGroup v, AdditiveGroup dv) => SharedExprSum { unSharedExprSum :: [SharedTerm a da v dv] }
+-}
+
+-- data SharedExprS a da (s :: KeySet) v dv = SharedExprS (SharedExpr a da v dv)
+
+data SharedExprS' (s :: KeySet) a da v dv = SharedExprS (SharedExpr a da v dv)
 
 unSharedExprS (SharedExprS x)= x
 
 
-forgetSharing2 :: forall s a v da dv. (SharedExprS a da s v dv, NodeMap s (SharedExprS a da s)) -> Expr2 a da v dv
+forgetSharing2 :: forall s a v da dv. (SharedExprS' s a da v dv, NodeMap s (SharedExprS' s a da)) -> Expr2 a da v dv
 forgetSharing2 (x, env) = goSum x
-    where goSum :: forall x dx. SharedExprS a da s x dx -> Expr2 a da x dx
+    where goSum :: forall x dx. SharedExprS' s a da x dx -> Expr2 a da x dx
           goSum = \case
             SharedExprS (SharedExprSum xs) -> ExprSum (goTerm <$> xs)
           goTerm :: forall x dx. SharedTerm a da x dx -> Term2 a da x dx
@@ -109,7 +121,7 @@ goSharing2term = \case
 sharingAction2 :: BuildAction (Expr2 a da) (SharedExpr a da)
 sharingAction2 = BuildAction goSharing2
 
-data SharedExprWithMap a da x dx = forall s. SharedExprWithMap (NodeMap s (SharedExprS a da s)) (SharedExprS a da s x dx)
+data SharedExprWithMap a da x dx = forall s. SharedExprWithMap (NodeMap s (SharedExprS' s a da)) (SharedExprS' s a da x dx)
 
 {-
 runTreeBuilder :: forall v dv s f g. (AdditiveGroup v, AdditiveGroup dv) => TreeBuilder f (g s v dv) -> IO (SomeValueWithNodeMap g f v dv)
@@ -122,7 +134,7 @@ runRecoverSharing2 :: forall a da v dv. Expr2 a da v dv -> IO (SharedExprWithMap
 runRecoverSharing2 x = case x of
     ExprSum _ -> do
       let z = goSharing2 x :: (TreeBuilder (SharedExpr a da) (SharedExpr a da v dv))
-          z' =  SharedExprS <$> z :: TreeBuilder (SharedExpr a da) (SharedExprS a da s0 v dv)
+          z' =  SharedExprS <$> z :: TreeBuilder (SharedExpr a da) (SharedExprS' s0 a da v dv)
       (x, m) <- ExprMap.runTreeBuilder z'
       return (SharedExprWithMap (NodeMap.unsafeFromExprMap (ExprMap.mapmap SharedExprS  m)) x)
       --SomeValueWithNodeMap x' y <- NodeMap.runTreeBuilder z' :: (IO (SomeValueWithNodeMap (SharedExprS a da) (SharedExpr a da) v dv))
