@@ -8,10 +8,6 @@ import Data.VectorSpace (AdditiveGroup(..))
 import Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
-import NodeMap
-    (runRecoverSharing3,
-      SharedExprS,
-      SharedExprWithMap(..) )
 import qualified Debug.Trace
 import Sharing ()
 import Graph
@@ -19,7 +15,7 @@ import Control.Monad (forM_, forM, when)
 import System.Mem.StableName (makeStableName, hashStableName)
 import Data.Foldable (traverse_)
 import qualified NodeMap
-import NodeMap (unsafeFromExprMap, SomeNodeMap(..), SomeValueWithNodeMap(..))
+import NodeMap (runRecoverSharing3)
 import Data.Coerce (coerce)
 import Data.Constraint.Unsafe (Coercible)
 

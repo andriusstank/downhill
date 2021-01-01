@@ -18,12 +18,12 @@ import Prelude hiding (head, tail)
 import Sharing(ExprMap)
 import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
 
-import NodeMap (toExprName, unsafeNodeKey,  NodeMap, unsafeFromExprMap, toExprMap, NodeKey )
+import NodeMap (SharedArgS(SharedArgExprS, SharedArgVarS), SharedTermS(SharedFunApS),  SharedExprS(SharedExprSumS),  NodeMap, NodeKey, SomeItem(SomeItem) )
 import Data.VectorSpace (sumV, AdditiveGroup)
 import Data.Kind (Type)
 import GHC.Generics (Generic)
 import Data.Either (partitionEithers)
-import NodeMap (SomeItem(..), NodeKey, SharedArgS(SharedArgExprS, SharedArgVarS), SharedExprS(..), SharedTermS(..))
+import NodeMap ()
 
 import qualified NodeMap
 
@@ -115,7 +115,7 @@ data BackwardGraph s a da z dz = BackwardGraph (NodeMap s (BackwardInnerNode s a
 data AnyEdge s a da z dz = forall u du v dv. AnyEdge (Edge (AnyHead s) (AnyTail s) a da z dz u du v dv)
 
 convertGraph :: forall s a da z dz. NodeMap s (SharedExprS s a da) -> SharedExprS s a da z dz -> ForwardGraph s a da z dz
-convertGraph env zs' = ForwardGraph (NodeMap.mapmapWithKey convertInnerNode env) (ForwardFinalNode SinkNode (convertFinalEdge <$> zs))
+convertGraph env (SharedExprSumS zs) = ForwardGraph (NodeMap.mapmapWithKey convertInnerNode env) (ForwardFinalNode SinkNode (convertFinalEdge <$> zs))
     where convertInnerNode :: forall x dx. NodeKey s x dx -> SharedExprS s a da x dx -> ForwardInnerNode s a da z dz x dx
           convertInnerNode xname (SharedExprSumS xs) = ForwardInnerNode (convertInnerEdge xname <$> xs)
           convertInnerEdge :: forall x dx. NodeKey s x dx -> SharedTermS s a da x dx -> SomeForwardInnerEdge s a da z dz x dx
@@ -128,7 +128,6 @@ convertGraph env zs' = ForwardGraph (NodeMap.mapmapWithKey convertInnerNode env)
           convertFinalEdge :: SharedTermS s a da z dz -> SomeForwardFinalEdge s a da z dz
           convertFinalEdge = \case
             SharedFunApS f x -> SomeForwardFinalEdge (Edge SinkNode f (convertArg x))
-          zs = unSharedExprSumS zs'
 
 newtype FwdValue x dx = FwdValue x
     deriving Generic
@@ -200,14 +199,10 @@ allFwdEdges (ForwardGraph env (ForwardFinalNode _ es)) = finalEdges ++ innerEdge
             where go :: SomeForwardFinalEdge s a da z dz -> AnyEdge s a da z dz
                   go (SomeForwardFinalEdge (Edge tail f head)) = AnyEdge (Edge (SinkTail tail) f head)
 
---data SomeExprWithNameS s f = forall v dv. SomeExprWithNameS (NodeKey s v dv) (f v dv)
-{-# DEPRECATED SomeExprWithNameS "transitionary" #-}
-type SomeExprWithNameS = SomeItem
-
 classifyBackEdge
   :: forall s a da z dz.
      AnyEdge s a da z dz
-  -> Either (SomeBackwardInitialEdge s a da z dz) (SomeExprWithNameS s (SomeBackwardInnerEdge s a da z dz))
+  -> Either (SomeBackwardInitialEdge s a da z dz) (SomeItem s (SomeBackwardInnerEdge s a da z dz))
 classifyBackEdge (AnyEdge (Edge tail f head)) = case head of
     SourceHead x -> case x of
         SourceNode -> Left (SomeBackwardInitialEdge (Edge tail f SourceNode))
@@ -215,7 +210,7 @@ classifyBackEdge (AnyEdge (Edge tail f head)) = case head of
 
 data NodeDict x dx = (AdditiveGroup x, AdditiveGroup dx) => NodeDict
 
-cvItemS :: SomeExprWithNameS s f -> SomeItem s f
+cvItemS :: SomeItem s f -> SomeItem s f
 cvItemS (SomeItem x y) = SomeItem x y
 
 backFromEdges :: forall s a da z dz. NodeMap s NodeDict -> [AnyEdge s a da z dz] -> BackwardGraph s a da z dz

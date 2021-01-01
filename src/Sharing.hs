@@ -19,7 +19,7 @@ module Sharing (
 
     -- * Map
     ExprName,
-    ExprMap(..),
+    ExprMap,
     SomeExprWithName(..),
     toList, fromListWith,
     lookupExprName,
@@ -44,7 +44,6 @@ import Control.Monad.Trans.Class
 import Control.Exception (evaluate)
 
 type ExprName = StableName Any
-
 type ExprMap f = HashMap (StableName Any) (SomeExpr f)
 
 mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> ExprMap f -> ExprMap g
@@ -119,18 +118,10 @@ insertTreeBuilder' name computeAction = do
 
 newtype BuildAction f g = BuildAction (forall v dv. (AdditiveGroup v, AdditiveGroup dv) => f v dv -> TreeBuilder g (g v dv))
 
-makeStableName' :: f v dv -> IO (StableName Any)
-makeStableName' x = do
-    x' <- evaluate (eraseType x)
-    z <- makeStableName x'
-    --putStrLn ("make " <> show (hashStableName z))
-    return z
-
 makeStableName'' :: f v dv -> IO (StableName Any)
 makeStableName'' x = do
     x' <- evaluate x
     z <- makeStableName x'
-    --putStrLn ("make " <> show (hashStableName z))
     return (unsafeCoerce z)
 
 insertExpr
@@ -141,9 +132,6 @@ insertExpr
 insertExpr (BuildAction value) expr = do
     name <- TreeCache (lift (makeStableName'' expr))
     insertTreeBuilder' name (value expr)
-
-eraseType :: a -> Any
-eraseType = unsafeCoerce
 
 runTreeBuilder :: (AdditiveGroup v, AdditiveGroup dv) => TreeBuilder f (g v dv) -> IO (g v dv, ExprMap f)
 runTreeBuilder rs_x = runStateT (unTreeCache rs_x) Map.empty
