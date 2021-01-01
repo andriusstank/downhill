@@ -8,6 +8,10 @@ import Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
 import Sharing
+    ( forgetSharing2,
+      runRecoverSharing2,
+      SharedExprS,
+      SharedExprWithMap(..) )
 import ExprRef
 import qualified Debug.Trace
 import Sharing (SharedExpr(SharedExprSum))
@@ -17,6 +21,8 @@ import System.Mem.StableName (makeStableName, hashStableName)
 import Data.Foldable (traverse_)
 import qualified NodeMap
 import NodeMap (unsafeFromExprMap, SomeNodeMap(..), SomeValueWithNodeMap(..))
+import Data.Coerce (coerce)
+import Data.Constraint.Unsafe (Coercible)
 
 newtype R = R Integer
     deriving Show
@@ -94,3 +100,6 @@ _z = do
     ans2 <- evaluate (R 2 ⊗ dy')
     print (ans1, ans2)
     return ()
+
+_cvt :: Coercible s2 s1 => SharedExprS a da s1 v dv -> SharedExprS a da s2 v dv
+_cvt = coerce

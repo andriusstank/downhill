@@ -3,6 +3,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 module NodeMap where
 import ExprRef
 import Data.HashMap.Lazy (HashMap)
@@ -72,7 +73,3 @@ fromListWith xs f = NodeMap (Map.fromListWith f' (go <$> xs))
 cvItem :: SomeExprWithName f -> SomeItem s f
 cvItem (SomeExprWithName (ExprName x) y) = SomeItem (NodeKey x) y
 
-runTreeBuilder :: forall v dv s f g. (AdditiveGroup v, AdditiveGroup dv) => TreeBuilder f (g s v dv) -> IO (SomeValueWithNodeMap g f v dv)
-runTreeBuilder rs_x = do
-    (x, m) <- ExprMap.runTreeBuilder rs_x
-    return $ SomeValueWithNodeMap x (unsafeFromExprMap m)

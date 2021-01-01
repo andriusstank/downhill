@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -15,7 +16,7 @@
 module Graph where
 import Prelude hiding (head, tail)
 import ExprRef (ExprMap, ExprName, SomeExprWithName(..), SomeExpr(..))
-import Sharing(SharedTerm(..), SharedExpr(..), SharedArg(..), SharedExprS(..))
+import Sharing(SharedTerm(..), SharedExpr(..), SharedArg(..), SharedExprS, unSharedExprS)
 import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
 
 import NodeMap (toExprName, unsafeNodeKey,  NodeMap, unsafeFromExprMap, toExprMap, NodeKey )
@@ -115,9 +116,9 @@ data BackwardGraph s a da z dz = BackwardGraph (NodeMap s (BackwardInnerNode a d
 data AnyEdge a da z dz = forall u du v dv. AnyEdge (Edge AnyHead AnyTail a da z dz u du v dv)
 
 convertGraph :: forall s a da z dz. NodeMap s (SharedExprS a da s) -> SharedExprS a da s z dz -> ForwardGraph s a da z dz
-convertGraph env (SharedExprS (SharedExprSum zs)) = ForwardGraph (NodeMap.mapmapWithKey convertInnerNode env) (ForwardFinalNode SinkNode (convertFinalEdge <$> zs))
+convertGraph env zs' = ForwardGraph (NodeMap.mapmapWithKey convertInnerNode env) (ForwardFinalNode SinkNode (convertFinalEdge <$> zs))
     where convertInnerNode :: forall x dx. NodeKey s x dx -> SharedExprS a da s x dx -> ForwardInnerNode a da z dz x dx
-          convertInnerNode xname (SharedExprS (SharedExprSum xs)) = ForwardInnerNode (convertInnerEdge xname <$> xs)
+          convertInnerNode xname (unSharedExprS -> (SharedExprSum xs)) = ForwardInnerNode (convertInnerEdge xname <$> xs)
           convertInnerEdge :: forall x dx. NodeKey s x dx -> SharedTerm a da x dx -> SomeForwardInnerEdge a da z dz x dx
           convertInnerEdge tail = \case
             SharedFunAp f x -> SomeForwardInnerEdge (Edge (InnerNode (toExprName tail)) f (convertArg x))
@@ -128,6 +129,7 @@ convertGraph env (SharedExprS (SharedExprSum zs)) = ForwardGraph (NodeMap.mapmap
           convertFinalEdge :: SharedTerm a da z dz -> SomeForwardFinalEdge a da z dz
           convertFinalEdge = \case
             SharedFunAp f x -> SomeForwardFinalEdge (Edge SinkNode f (convertArg x))
+          zs = unSharedExprSum (unSharedExprS zs')
 
 newtype FwdValue x dx = FwdValue x
     deriving Generic

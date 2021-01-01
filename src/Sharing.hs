@@ -1,3 +1,4 @@
+{-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RankNTypes #-}
@@ -12,7 +13,17 @@
 {-# language DerivingVia #-}
 {-# language GeneralisedNewtypeDeriving #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
-module Sharing where
+module Sharing (
+    SharedTerm(..),
+    SharedExpr(..),
+    SharedArg(..),
+    SharedExprS,
+    SharedExprWithMap(..),
+    runRecoverSharing2,
+    forgetSharing2,
+    unSharedExprS
+)
+where
 
 import Expr
 import GHC.StableName
@@ -47,9 +58,13 @@ data SharedArg a da v dv where
 data SharedTerm a da v dv where
     SharedFunAp :: AFunction u du v dv -> SharedArg a da u du -> SharedTerm a da v dv
 
-data SharedExpr a da v dv = (AdditiveGroup v, AdditiveGroup dv) => SharedExprSum [SharedTerm a da v dv]
+data SharedExpr a da v dv = (AdditiveGroup v, AdditiveGroup dv) => SharedExprSum { unSharedExprSum :: [SharedTerm a da v dv] }
 
+type role SharedExprS nominal nominal representational nominal nominal
 data SharedExprS a da (s :: KeySet) v dv = SharedExprS (SharedExpr a da v dv)
+
+unSharedExprS (SharedExprS x)= x
+
 
 forgetSharing2 :: forall s a v da dv. (SharedExprS a da s v dv, NodeMap s (SharedExprS a da s)) -> Expr2 a da v dv
 forgetSharing2 (x, env) = goSum x
