@@ -16,7 +16,7 @@
 module Graph where
 import Prelude hiding (head, tail)
 import ExprRef (ExprMap, ExprName, SomeExprWithName(..), SomeExpr(..))
-import Sharing(SharedArgS(SharedArgExprS, SharedArgVarS),  SharedTerm(..), SharedExpr(..), SharedArg(..), SharedExprS(..), SharedTermS(..))
+import Sharing(SharedTerm(..), SharedExpr(..), SharedArg(..))
 import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
 
 import NodeMap (unsafeCastNode, toExprName, unsafeNodeKey,  NodeMap, unsafeFromExprMap, toExprMap, NodeKey )
@@ -25,7 +25,7 @@ import Data.VectorSpace (sumV, AdditiveGroup)
 import Data.Kind (Type)
 import GHC.Generics (Generic)
 import Data.Either (partitionEithers)
-import NodeMap (SomeItem(..), NodeKey)
+import NodeMap (SomeItem(..), NodeKey, SharedArgS(SharedArgExprS, SharedArgVarS), SharedExprS(..), SharedTermS(..))
 
 import qualified NodeMap
 

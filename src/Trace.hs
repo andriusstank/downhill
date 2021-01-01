@@ -7,7 +7,7 @@ import Data.VectorSpace (AdditiveGroup(..))
 import Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
-import Sharing
+import NodeMap
     ( forgetSharing2,
       runRecoverSharing2,
       SharedExprS,
