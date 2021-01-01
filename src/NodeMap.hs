@@ -8,7 +8,6 @@
 {-# language ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 module NodeMap (
-    unsafeCastNode,
     unsafeNodeKey,
     unsafeFromExprMap,
     toExprMap,
