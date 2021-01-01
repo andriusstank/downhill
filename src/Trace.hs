@@ -8,13 +8,12 @@ import Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
 import NodeMap
-    (runRecoverSharing3,  forgetSharing2,
-      runRecoverSharing2,
+    (runRecoverSharing3,
       SharedExprS,
       SharedExprWithMap(..) )
 import ExprRef
 import qualified Debug.Trace
-import Sharing (SharedExpr(SharedExprSum))
+import Sharing ()
 import Graph
 import Control.Monad (forM_, forM, when)
 import System.Mem.StableName (makeStableName, hashStableName)

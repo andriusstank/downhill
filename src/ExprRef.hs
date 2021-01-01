@@ -38,7 +38,7 @@ import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Class
 import Control.Exception (evaluate)
 
-newtype ExprName v dv = ExprName (StableName Any)
+type ExprName = StableName Any
 
 -- idea: use StableName for tree builder only, use plain Int as ExprName and flat vector as ExprMap
 -- idea: ExprMap is representable functor, make use of that
@@ -48,46 +48,46 @@ mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> ExprMap f -> ExprMap g
 mapmap f (ExprMap x) = ExprMap (go <$> x)
     where go (SomeExpr y) = SomeExpr (f y)
 
-mapmapWithKey :: forall f g. (forall v dv. ExprName v dv -> f v dv -> g v dv) -> ExprMap f -> ExprMap g
+mapmapWithKey :: forall f g. (forall v dv. ExprName -> f v dv -> g v dv) -> ExprMap f -> ExprMap g
 mapmapWithKey f (ExprMap x) = ExprMap (Map.mapWithKey go x)
-    where go key (SomeExpr y) = SomeExpr (f (ExprName key) y)
+    where go key (SomeExpr y) = SomeExpr (f key y)
 
 data SomeExpr f = forall v dv. SomeExpr (f v dv)
 
-data SomeExprWithName f = forall v dv. SomeExprWithName (ExprName v dv) (f v dv)
+data SomeExprWithName f = forall v dv. SomeExprWithName ExprName (f v dv)
 
 toList :: ExprMap f -> [SomeExprWithName f]
 toList = fmap wrap . Map.toList . unExprMap
     where wrap (key, someValue) = case someValue of
-            SomeExpr value -> SomeExprWithName (ExprName key) value
+            SomeExpr value -> SomeExprWithName key value
 
 fromListWith :: forall f. [SomeExprWithName f] -> (forall x dx. f x dx -> f x dx -> f x dx) -> ExprMap f
 fromListWith xs f = ExprMap (Map.fromListWith f' (go <$> xs))
     where go :: SomeExprWithName f -> (StableName Any, SomeExpr f)
-          go (SomeExprWithName (ExprName xname) x) = (xname, SomeExpr x)
+          go (SomeExprWithName xname x) = (xname, SomeExpr x)
           f' (SomeExpr x) (SomeExpr y) = SomeExpr (f x (unsafeCoerce y))
 
-debugShow :: ExprName v dv -> String
-debugShow (ExprName ref) = show (hashStableName ref)
+debugShow :: ExprName -> String
+debugShow ref = show (hashStableName ref)
 
 unsafeCastType''' :: SomeExpr f -> f v dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCoerce x -- !!!
 
-lookupExprName :: ExprMap f -> ExprName v dv -> Maybe (f v dv)
-lookupExprName (ExprMap m) (ExprName ref) =
+lookupExprName :: ExprMap f -> ExprName -> Maybe (f v dv)
+lookupExprName (ExprMap m) ref =
     case Map.lookup ref m of
         Just x -> Just (unsafeCastType''' x)
         Nothing -> Nothing
 
-insertExprName :: (AdditiveGroup v, AdditiveGroup dv) => ExprMap f -> ExprName v dv -> f v dv -> ExprMap f
-insertExprName (ExprMap cache') (ExprName name) y  = ExprMap (Map.insert name (SomeExpr y) cache')
+insertExprName :: (AdditiveGroup v, AdditiveGroup dv) => ExprMap f -> ExprName -> f v dv -> ExprMap f
+insertExprName (ExprMap cache') name y  = ExprMap (Map.insert name (SomeExpr y) cache')
 
 newtype TreeBuilder f r = TreeCache { unTreeCache :: StateT (ExprMap f) IO r }
     deriving (Functor, Applicative, Monad)
 
 
-insertTreeCache :: (AdditiveGroup v, AdditiveGroup dv) => ExprName v dv -> f v dv -> TreeBuilder f ()
+insertTreeCache :: (AdditiveGroup v, AdditiveGroup dv) => ExprName -> f v dv -> TreeBuilder f ()
 insertTreeCache name value = do
     cache' <- TreeCache get
     let newCache = insertExprName cache' name value
@@ -95,9 +95,9 @@ insertTreeCache name value = do
 
 insertTreeBuilder
     :: (AdditiveGroup v, AdditiveGroup dv)
-    => ExprName v dv
+    => ExprName
     -> TreeBuilder f (f v dv)
-    -> TreeBuilder f (ExprName v dv, f v dv)
+    -> TreeBuilder f (ExprName, f v dv)
 insertTreeBuilder name value = do
     y <- value
     insertTreeCache name y
@@ -105,9 +105,9 @@ insertTreeBuilder name value = do
 
 insertTreeBuilder'
     :: (AdditiveGroup v, AdditiveGroup dv)
-    => ExprName v dv
+    => ExprName
     -> TreeBuilder f (f v dv) -- ^ blah
-    -> TreeBuilder f (ExprName v dv, f v dv)
+    -> TreeBuilder f (ExprName, f v dv)
 insertTreeBuilder' name computeAction = do
     cache <- TreeCache get
     case lookupExprName cache name of
@@ -134,10 +134,10 @@ insertExpr
   :: forall f g v dv. (AdditiveGroup v, AdditiveGroup dv)
   => BuildAction f g
   -> f v dv
-  -> TreeBuilder g (ExprName v dv, g v dv)
+  -> TreeBuilder g (ExprName, g v dv)
 insertExpr (BuildAction value) expr = do
     name <- TreeCache (lift (makeStableName'' expr))
-    insertTreeBuilder' (ExprName name) (value expr)
+    insertTreeBuilder' name (value expr)
 
 eraseType :: a -> Any
 eraseType = unsafeCoerce
