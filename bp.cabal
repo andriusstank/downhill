@@ -21,7 +21,8 @@ library
                        Sharing,
                        Tensor,
                        Graph,
-                       NodeMap
+                       NodeMap,
+                       OpenGraph
   -- other-modules:
   -- other-extensions:
   build-depends:       base ^>=4.12.0.0,
@@ -30,7 +31,8 @@ library
                        containers, unordered-containers,
                        transformers,
                        reflection,
-                       adjunctions
+                       adjunctions,
+                       data-fix
 
   hs-source-dirs:      src
   other-modules:       Trace

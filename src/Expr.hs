@@ -22,14 +22,17 @@ data Expr a da v dv where
     Func :: (AdditiveGroup u, AdditiveGroup v, AdditiveGroup du, AdditiveGroup dv) => AFunction u du v dv -> Expr a da u du -> Expr a da v dv
     Sum :: AdditiveGroup v => [Expr a da v dv] -> Expr a da v dv
 
-data ExprArg a da v dv where
-    ArgVar :: ExprArg a da a da
-    ArgExpr :: Expr2 a da v dv -> ExprArg a da v dv
+data ExprArg p a da v dv where
+    ArgVar :: ExprArg p a da a da
+    ArgExpr :: p v dv -> ExprArg p a da v dv
 
-data Term2 a da v dv where
-    Func2 :: AFunction u du v dv -> ExprArg a da u du -> Term2 a da v dv
+data Term3 p a da v dv where
+    Func2 :: AFunction u du v dv -> ExprArg p a da u du -> Term3 p a da v dv
 
-data Expr2 a da v dv = (AdditiveGroup v, AdditiveGroup dv) => ExprSum [Term2 a da v dv]
+data Expr3 p a da v dv = (AdditiveGroup v, AdditiveGroup dv) => ExprSum [Term3 p a da v dv]
+
+type Term2 a da = Term3 (Expr2 a da) a da
+newtype Expr2 a da v dv = Expr2 { unExpr2 :: Expr3 (Expr2 a da) a da v dv }
 
 -- Evaluate
 instance TensorProduct (Expr a da v dv) a v where
@@ -45,7 +48,7 @@ instance TensorProduct (Term2 a da v dv) a v where
             ArgExpr x' -> f ⊗ (x' ⊗ a)
 
 instance TensorProduct (Expr2 a da v dv) a v where
-    ExprSum xs ⊗ a = sumV [x ⊗ a | x <- xs]
+    Expr2 (ExprSum xs) ⊗ a = sumV [x ⊗ a | x <- xs]
 
 
 -- Substitute
@@ -62,13 +65,13 @@ instance AdditiveGroup da => TensorProduct dv (Expr a da v dv) da where
         Func f x -> (dv ⊗ f) ⊗ x
         Sum xs -> sumV [dv ⊗ x | x <- xs]
 
-instance AdditiveGroup da => TensorProduct dv (Term2 a da v dv) da where
+instance AdditiveGroup da => TensorProduct dv (Term3 (Expr2 a da) a da v dv) da where
     dv ⊗ expr = case expr of
         Func2 f x -> case x of
             ArgVar -> dv ⊗ f
             ArgExpr x' -> (dv ⊗ f) ⊗ x'
 instance AdditiveGroup da => TensorProduct dv (Expr2 a da v dv) da where
-    dv ⊗ ExprSum xs = sumV [dv ⊗ x | x <- xs]
+    dv ⊗ Expr2 (ExprSum xs) = sumV [dv ⊗ x | x <- xs]
 
 instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction (Expr u du v dv) u v du dv
 
