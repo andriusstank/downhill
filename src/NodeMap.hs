@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
@@ -29,7 +30,7 @@ module NodeMap (
     uncheckedMakeNodeMap,
     NodeSet,
 
-    List2, fromList, List2(..)
+    fromList, List2(..)
 ) where
 import Data.HashMap.Lazy (HashMap)
 import GHC.StableName (StableName)
@@ -60,7 +61,7 @@ newtype NodeMap s f = NodeMap { unNodeMap :: OpenMap f }
 data SomeItem s f = forall x dx. SomeItem (NodeKey s x dx) (f x dx)
 
 class NodeSet s where
-    nodesetDict :: Dict (Reifies s (OpenMap Unit))
+    nodesetDict :: OpenMap Unit
 
 mapmap :: forall s f g. (forall v dv. f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
 mapmap f = NodeMap . OpenGraph.mapmap f . unNodeMap
@@ -96,7 +97,7 @@ fromListWith xs f = NodeMap (OpenMap (Map.fromListWith f' (go <$> xs)))
 
 generate :: forall s f. NodeSet s => (forall x dx. NodeKey s x dx -> f x dx) -> NodeMap s f
 generate f = case nodesetDict @s of
-    Dict -> mapmapWithKey (\key _ -> f key) (NodeMap (reflect @s Proxy))
+    m -> mapmapWithKey (\key _ -> f key) (NodeMap m)
 
 zipWith :: forall s f g h. (forall x dx. f x dx -> g x dx -> h x dx) -> NodeMap s f -> NodeMap s g -> NodeMap s h
 zipWith f (NodeMap (OpenMap x)) (NodeMap (OpenMap y)) = NodeMap (OpenMap (HashMap.intersectionWith f' x y))
@@ -147,9 +148,10 @@ runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4 x
 data SomeNodeMap f where
     SomeNodeMap :: NodeSet s => NodeMap s f -> SomeNodeMap f
 
-data NodeSetWrapper s = NodeSetWrapper s
+data NodeSetWrapper s
 
-instance Reifies s (OpenMap Unit) => NodeSet (NodeSetWrapper s)
+instance Reifies s (OpenMap Unit) => NodeSet (NodeSetWrapper s) where
+    nodesetDict = reflect @s Proxy
 
 uncheckedMakeNodeMap :: forall f. OpenMap f -> SomeNodeMap f
 uncheckedMakeNodeMap x = reify nodes go

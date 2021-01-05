@@ -226,8 +226,6 @@ backFromEdges dictmap edges = BackwardGraph edgeMap (BackwardInitialNode initial
           edgeMap = NodeMap.zipWith withDict dictmap edgeList
           withDict :: NodeDict x dx -> List2 (SomeBackwardInnerEdge s a da z dz) x dx -> BackwardInnerNode s a da z dz x dx
           withDict NodeDict (List2 xs) = BackwardInnerNode xs
-          addb :: BackwardInnerNode s a da z dz x dx -> BackwardInnerNode s a da z dz x dx -> BackwardInnerNode s a da z dz x dx
-          addb (BackwardInnerNode xs) (BackwardInnerNode ys) = BackwardInnerNode (xs ++ ys)
 
 mkdict :: ForwardGraph s a da z dz -> NodeMap s NodeDict
 mkdict (ForwardGraph env _) = NodeMap.mapmap go env
