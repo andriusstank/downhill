@@ -7,6 +7,7 @@ module OpenGraph
     ( OpenKey(..), OpenMap(..), OpenArg, OpenTerm, OpenExpr, OpenExprWithMap(..)
     , SomeOpenItem(SomeOpenItem)
     , mapmap, mapmapWithKey, lookup, toList
+    , runRecoverSharing4
     )
 where
 

@@ -21,7 +21,8 @@ module NodeMap (
     fromListWith,
     lookup,
     runRecoverSharing3,
-    SomeSharedExprWithMap(..)
+    SomeSharedExprWithMap(..),
+    uncheckedMakeNodeMap,
 ) where
 import Data.HashMap.Lazy (HashMap)
 import GHC.StableName (StableName)
@@ -33,11 +34,12 @@ import Tensor (AFunction)
 import Sharing (TreeBuilder, ExprMap, SomeExpr(..), ExprName, SomeExprWithName(..), BuildAction(..))
 import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2),  Expr3(ExprSum), Expr2(Expr2))
 import Prelude hiding (lookup)
-import OpenGraph (OpenKey(OpenKey), OpenMap(OpenMap), SomeOpenItem(SomeOpenItem))
+import OpenGraph (OpenExpr, OpenExprWithMap(OpenExprWithMap), OpenKey(OpenKey), OpenMap(OpenMap), SomeOpenItem(SomeOpenItem))
 import qualified OpenGraph
 import qualified Sharing
 import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
+import Data.Constraint (Dict(Dict))
 
 data Unit x dx = Unit
 
@@ -141,14 +143,36 @@ runRecoverSharing3 x = case x of
       (x', m) <- Sharing.runTreeBuilder z
       return (SomeSharedExprWithMap (NodeMap (OpenMap m)) x')
 
+cvthelper :: forall s a da v dv. NodeMap s (OpenExpr a da) -> OpenExpr a da v dv -> SomeSharedExprWithMap a da v dv
+cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
+    where cvtexpr :: forall x dx. OpenExpr a da x dx -> SharedExprS s a da x dx
+          cvtexpr = \case
+            ExprSum terms -> ExprSum (cvtterm <$> terms)
+          cvtterm :: forall x dx. Term3 OpenKey a da x dx -> Term3 (NodeKey s) a da x dx
+          cvtterm = \case
+            Func2 f x' -> Func2 f (cvtarg x')
+          cvtarg :: forall u du. ExprArg OpenKey a da u du -> ExprArg (NodeKey s) a da u du
+          cvtarg = \case
+            ArgVar -> ArgVar
+            ArgExpr key -> case tryLookup m key of
+                Just (key, _value) -> ArgExpr key
+                Nothing -> error "oh fuck"
+          
+
+cvtmap :: OpenExprWithMap a da v dv -> SomeSharedExprWithMap a da v dv
+cvtmap (OpenExprWithMap m x) = case uncheckedMakeNodeMap m of
+    SomeNodeMap m' -> cvthelper m' x
+
+runRecoverSharing5' :: forall a da v dv. Expr2 a da v dv -> IO (SomeSharedExprWithMap a da v dv)
+runRecoverSharing5' x = cvtmap <$> OpenGraph.runRecoverSharing4 x
 
 data SomeNodeMap f where
     SomeNodeMap :: Reifies s (OpenMap Unit) => NodeMap s f -> SomeNodeMap f
 
-mkSomeNodeMap :: forall (s :: *). Reifies s (OpenMap Unit) => Proxy s -> SomeNodeMap Unit
-mkSomeNodeMap proxy = SomeNodeMap @s (NodeMap $ reflect proxy)
+uncheckedMakeNodeMap :: forall f. OpenMap f -> SomeNodeMap f
+uncheckedMakeNodeMap x = reify nodes go
+    where nodes :: OpenMap Unit
+          nodes = OpenGraph.mapmap (const Unit) x
+          go :: forall s. Reifies s (OpenMap Unit) => Proxy s -> SomeNodeMap f
+          go _proxy = SomeNodeMap @s (NodeMap x)
 
--- mkSomeNodeMap' :: OpenMap f -> SomeNodeMap f
--- mkSomeNodeMap' x = reify (NodeMap (unOpenMap (OpenGraph.mapmap (const Unit) x))) mkSomeNodeMap
---fromOpenGraph :: OpenExprWithMap a da z dz -> SomeSharedExprWithMap a da z dz
---fromOpenGraph = _
