@@ -15,7 +15,7 @@ import Control.Monad (forM_, forM, when)
 import System.Mem.StableName (makeStableName, hashStableName)
 import Data.Foldable (traverse_)
 import qualified NodeMap
-import NodeMap (runRecoverSharing3)
+import NodeMap (runRecoverSharing5)
 import Data.Coerce (coerce)
 import Data.Constraint.Unsafe (Coercible)
 
@@ -76,7 +76,7 @@ testExpr = do
 -- >>> testExpr ⊗ (R 7)
 -- R 56
 _x :: () -> IO (NodeMap.SomeSharedExprWithMap R R R R)
-_x () = runRecoverSharing3 =<< testExpr
+_x () = runRecoverSharing5 =<< testExpr
 
 {-
 _y :: IO R

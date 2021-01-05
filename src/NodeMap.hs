@@ -20,7 +20,8 @@ module NodeMap (
     toList,
     fromListWith,
     lookup,
-    runRecoverSharing3,
+    --runRecoverSharing3,
+    runRecoverSharing5,
     SomeSharedExprWithMap(..),
     uncheckedMakeNodeMap,
 ) where
@@ -47,8 +48,6 @@ type role NodeKey nominal nominal nominal
 newtype NodeKey s x dx = NodeKey (OpenKey x dx)
 newtype NodeMap s f = NodeMap { unNodeMap :: OpenMap f }
 
--- TODO: representable functor instance
-
 data SomeItem s f = forall x dx. SomeItem (NodeKey s x dx) (f x dx)
 
 mapmap :: forall s f g. (forall v dv. f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
@@ -63,10 +62,6 @@ toList :: NodeMap s f -> [SomeItem s f]
 toList (NodeMap m) =  wrap<$> OpenGraph.toList m
     where wrap :: SomeOpenItem f -> SomeItem s f
           wrap (SomeOpenItem key value) = SomeItem (NodeKey key) value
-
-unsafeCastType''' :: SomeExpr f -> f v dv
-unsafeCastType''' = \case
-    SomeExpr x -> unsafeCoerce x -- !!!
 
 lookup :: NodeMap s f -> NodeKey s v dv -> f v dv
 lookup (NodeMap m) (NodeKey key) =
@@ -91,57 +86,8 @@ type SharedArgS s = ExprArg (NodeKey s)
 type SharedTermS s = Term3 (NodeKey s)
 type SharedExprS s = Expr3 (NodeKey s)
 
-{-
-data SharedArgS s a da v dv where
-    SharedArgVarS :: SharedArgS s a da a da
-    SharedArgExprS :: NodeKey s v dv -> SharedArgS s a da v dv
-
-data SharedTermS s a da v dv where
-    SharedFunApS :: AFunction u du v dv -> SharedArgS s a da u du -> SharedTermS s a da v dv
-
-data SharedExprS s a da v dv = (AdditiveGroup v, AdditiveGroup dv) => SharedExprSumS { unSharedExprSumS :: [SharedTermS s a da v dv] }
--}
-
-goSharing3 :: forall s a da v dv. Expr2 a da v dv -> TreeBuilder (SharedExprS s a da) (SharedExprS s a da v dv)
-goSharing3 (Expr2 (ExprSum xs)) = do
-    let go' :: Term3 (Expr2 a da) a da v dv -> TreeBuilder (SharedExprS s a da) (SharedTermS s a da v dv)
-        go' = goSharing3term
-    xs' <- traverse go' xs
-    return $ ExprSum xs'
-
-insertExpr3
-  :: forall s a da g v dv.
-     BuildAction (Expr2 a da) g
-  -> Expr2 a da v dv
-  -> TreeBuilder g (NodeKey s v dv, g v dv)
-insertExpr3 x y@(Expr2 (ExprSum _)) = do
-    (ref, z) <- Sharing.insertExpr x y
-    return (NodeKey (OpenKey ref), z)
-
-goSharing3arg :: forall s a da v dv. ExprArg (Expr2 a da) a da v dv -> TreeBuilder (SharedExprS s a da) (SharedArgS s a da v dv)
-goSharing3arg = \case
-    ArgVar -> return ArgVar
-    ArgExpr  x ->  do
-        (xRef, _sx) <- insertExpr3 sharingAction3 x
-        return (ArgExpr xRef)
-goSharing3term :: forall s a da v dv. Term3 (Expr2 a da) a da v dv -> TreeBuilder (SharedExprS s a da) (SharedTermS s a da v dv)
-goSharing3term = \case
-    Func2 f arg -> do
-        arg' <- goSharing3arg arg
-        return (Func2 f arg')
-
-sharingAction3 :: BuildAction (Expr2 a da) (SharedExprS s a da)
-sharingAction3 = BuildAction goSharing3
-
 data SomeSharedExprWithMap a da z dz where
     SomeSharedExprWithMap :: NodeMap s (SharedExprS s a da) -> SharedExprS s a da z dz -> SomeSharedExprWithMap a da z dz
-
-runRecoverSharing3 :: forall a da v dv. Expr2 a da v dv -> IO (SomeSharedExprWithMap a da v dv)
-runRecoverSharing3 x = case x of
-    Expr2 (ExprSum _) -> do
-      let z = goSharing3 x :: (TreeBuilder (SharedExprS s a da) (SharedExprS s a da v dv))
-      (x', m) <- Sharing.runTreeBuilder z
-      return (SomeSharedExprWithMap (NodeMap (OpenMap m)) x')
 
 cvthelper :: forall s a da v dv. NodeMap s (OpenExpr a da) -> OpenExpr a da v dv -> SomeSharedExprWithMap a da v dv
 cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
@@ -155,7 +101,7 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
           cvtarg = \case
             ArgVar -> ArgVar
             ArgExpr key -> case tryLookup m key of
-                Just (key, _value) -> ArgExpr key
+                Just (key', _value) -> ArgExpr key'
                 Nothing -> error "oh fuck"
           
 
@@ -163,8 +109,8 @@ cvtmap :: OpenExprWithMap a da v dv -> SomeSharedExprWithMap a da v dv
 cvtmap (OpenExprWithMap m x) = case uncheckedMakeNodeMap m of
     SomeNodeMap m' -> cvthelper m' x
 
-runRecoverSharing5' :: forall a da v dv. Expr2 a da v dv -> IO (SomeSharedExprWithMap a da v dv)
-runRecoverSharing5' x = cvtmap <$> OpenGraph.runRecoverSharing4 x
+runRecoverSharing5 :: forall a da v dv. Expr2 a da v dv -> IO (SomeSharedExprWithMap a da v dv)
+runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4 x
 
 data SomeNodeMap f where
     SomeNodeMap :: Reifies s (OpenMap Unit) => NodeMap s f -> SomeNodeMap f
