@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE GADTs #-}
@@ -19,11 +20,16 @@ module NodeMap (
     mapmap, mapmapWithKey,
     toList,
     fromListWith,
+    zipWith,
     lookup,
+    generate,
     --runRecoverSharing3,
     runRecoverSharing5,
     SomeSharedExprWithMap(..),
     uncheckedMakeNodeMap,
+    NodeSet,
+
+    List2, fromList, List2(..)
 ) where
 import Data.HashMap.Lazy (HashMap)
 import GHC.StableName (StableName)
@@ -34,21 +40,27 @@ import Data.VectorSpace (AdditiveGroup)
 import Tensor (AFunction)
 import Sharing (TreeBuilder, ExprMap, SomeExpr(..), ExprName, SomeExprWithName(..), BuildAction(..))
 import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2),  Expr3(ExprSum), Expr2(Expr2))
-import Prelude hiding (lookup)
+import Prelude hiding (lookup, zipWith)
 import OpenGraph (OpenExpr, OpenExprWithMap(OpenExprWithMap), OpenKey(OpenKey), OpenMap(OpenMap), SomeOpenItem(SomeOpenItem))
 import qualified OpenGraph
 import qualified Sharing
 import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
 import Data.Constraint (Dict(Dict))
+import qualified Data.HashMap.Lazy as HashMap
 
 data Unit x dx = Unit
+
+newtype List2 f x dx = List2 [f x dx]
 
 type role NodeKey nominal nominal nominal
 newtype NodeKey s x dx = NodeKey (OpenKey x dx)
 newtype NodeMap s f = NodeMap { unNodeMap :: OpenMap f }
 
 data SomeItem s f = forall x dx. SomeItem (NodeKey s x dx) (f x dx)
+
+class NodeSet s where
+    nodesetDict :: Dict (Reifies s (OpenMap Unit))
 
 mapmap :: forall s f g. (forall v dv. f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
 mapmap f = NodeMap . OpenGraph.mapmap f . unNodeMap
@@ -82,14 +94,34 @@ fromListWith xs f = NodeMap (OpenMap (Map.fromListWith f' (go <$> xs)))
           go (SomeItem (NodeKey (OpenKey xname)) x) = (xname, SomeExpr x)
           f' (SomeExpr x) (SomeExpr y) = SomeExpr (f x (unsafeCoerce y))
 
+generate :: forall s f. NodeSet s => (forall x dx. NodeKey s x dx -> f x dx) -> NodeMap s f
+generate f = case nodesetDict @s of
+    Dict -> mapmapWithKey (\key _ -> f key) (NodeMap (reflect @s Proxy))
+
+zipWith :: forall s f g h. (forall x dx. f x dx -> g x dx -> h x dx) -> NodeMap s f -> NodeMap s g -> NodeMap s h
+zipWith f (NodeMap (OpenMap x)) (NodeMap (OpenMap y)) = NodeMap (OpenMap (HashMap.intersectionWith f' x y))
+    where f' (SomeExpr x') (SomeExpr y') = SomeExpr (f x' (unsafeCoerce y'))
+
+adjust :: forall s f x dx. (f x dx -> f x dx) -> NodeKey s x dx -> NodeMap s f -> NodeMap s f
+adjust f (NodeKey (OpenKey key)) (NodeMap (OpenMap m)) = NodeMap (OpenMap m')
+    where m' = HashMap.adjust f' key m
+          f' (SomeExpr x) = SomeExpr (f (unsafeCoerce x))
+
+fromList :: forall s f. NodeSet s => [SomeItem s f] -> NodeMap s (List2 f)
+fromList = foldr prepend s0
+    where prepend :: SomeItem s f -> NodeMap s (List2 f) -> NodeMap s (List2 f)
+          prepend (SomeItem key value) = adjust (\(List2 xs) -> List2 (value:xs)) key
+          s0 :: NodeMap s (List2 f)
+          s0 = generate (const (List2 []))
+
 type SharedArgS s = ExprArg (NodeKey s)
 type SharedTermS s = Term3 (NodeKey s)
 type SharedExprS s = Expr3 (NodeKey s)
 
 data SomeSharedExprWithMap a da z dz where
-    SomeSharedExprWithMap :: NodeMap s (SharedExprS s a da) -> SharedExprS s a da z dz -> SomeSharedExprWithMap a da z dz
+    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s a da) -> SharedExprS s a da z dz -> SomeSharedExprWithMap a da z dz
 
-cvthelper :: forall s a da v dv. NodeMap s (OpenExpr a da) -> OpenExpr a da v dv -> SomeSharedExprWithMap a da v dv
+cvthelper :: forall s a da v dv. NodeSet s => NodeMap s (OpenExpr a da) -> OpenExpr a da v dv -> SomeSharedExprWithMap a da v dv
 cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
     where cvtexpr :: forall x dx. OpenExpr a da x dx -> SharedExprS s a da x dx
           cvtexpr = \case
@@ -113,12 +145,16 @@ runRecoverSharing5 :: forall a da v dv. Expr2 a da v dv -> IO (SomeSharedExprWit
 runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4 x
 
 data SomeNodeMap f where
-    SomeNodeMap :: Reifies s (OpenMap Unit) => NodeMap s f -> SomeNodeMap f
+    SomeNodeMap :: NodeSet s => NodeMap s f -> SomeNodeMap f
+
+data NodeSetWrapper s = NodeSetWrapper s
+
+instance Reifies s (OpenMap Unit) => NodeSet (NodeSetWrapper s)
 
 uncheckedMakeNodeMap :: forall f. OpenMap f -> SomeNodeMap f
 uncheckedMakeNodeMap x = reify nodes go
     where nodes :: OpenMap Unit
           nodes = OpenGraph.mapmap (const Unit) x
           go :: forall s. Reifies s (OpenMap Unit) => Proxy s -> SomeNodeMap f
-          go _proxy = SomeNodeMap @s (NodeMap x)
+          go _proxy = SomeNodeMap @(NodeSetWrapper s) (NodeMap x)
 

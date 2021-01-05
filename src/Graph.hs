@@ -18,7 +18,7 @@ import Prelude hiding (head, tail)
 import Sharing(ExprMap)
 import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
 
-import NodeMap (SharedArgS, SharedTermS,  SharedExprS,  NodeMap, NodeKey, SomeItem(SomeItem) )
+import NodeMap (NodeSet, SharedArgS, SharedTermS,  SharedExprS,  NodeMap, NodeKey, SomeItem(SomeItem), List2(List2))
 import Data.VectorSpace (sumV, AdditiveGroup)
 import Data.Kind (Type)
 import GHC.Generics (Generic)
@@ -214,14 +214,18 @@ data NodeDict x dx = (AdditiveGroup x, AdditiveGroup dx) => NodeDict
 cvItemS :: SomeItem s f -> SomeItem s f
 cvItemS (SomeItem x y) = SomeItem x y
 
-backFromEdges :: forall s a da z dz. NodeMap s NodeDict -> [AnyEdge s a da z dz] -> BackwardGraph s a da z dz
+backFromEdges :: forall s a da z dz. NodeSet s => NodeMap s NodeDict -> [AnyEdge s a da z dz] -> BackwardGraph s a da z dz
 backFromEdges dictmap edges = BackwardGraph edgeMap (BackwardInitialNode initial)
     where (initial, inner) = partitionEithers (classifyBackEdge <$> edges)
-          edgeMap :: NodeMap s (BackwardInnerNode s a da z dz)
-          edgeMap = NodeMap.fromListWith [NodeMap.SomeItem xname (mkNode xname x) | (NodeMap.SomeItem xname x) <- (cvItemS <$> inner)] addb
-            where mkNode :: NodeKey s v dv -> SomeBackwardInnerEdge s a da z dz v dv -> BackwardInnerNode s a da z dz v dv
+          edgeList :: NodeMap s (List2 (SomeBackwardInnerEdge s a da z dz))
+          edgeList = NodeMap.fromList [NodeMap.SomeItem xname (mkNode xname x) | (NodeMap.SomeItem xname x) <- (cvItemS <$> inner)]
+            where mkNode :: NodeKey s v dv -> SomeBackwardInnerEdge s a da z dz v dv -> SomeBackwardInnerEdge s a da z dz v dv
                   mkNode xname x = case (NodeMap.lookup dictmap xname) of
-                      NodeDict -> BackwardInnerNode [x]
+                      NodeDict -> x
+          edgeMap :: NodeMap s (BackwardInnerNode s a da z dz)
+          edgeMap = NodeMap.zipWith withDict dictmap edgeList
+          withDict :: NodeDict x dx -> List2 (SomeBackwardInnerEdge s a da z dz) x dx -> BackwardInnerNode s a da z dz x dx
+          withDict NodeDict (List2 xs) = BackwardInnerNode xs
           addb :: BackwardInnerNode s a da z dz x dx -> BackwardInnerNode s a da z dz x dx -> BackwardInnerNode s a da z dz x dx
           addb (BackwardInnerNode xs) (BackwardInnerNode ys) = BackwardInnerNode (xs ++ ys)
 
@@ -231,7 +235,7 @@ mkdict (ForwardGraph env _) = NodeMap.mapmap go env
           go = \case
             ForwardInnerNode _ -> NodeDict
 
-flipGraph :: ForwardGraph s a da z dz -> BackwardGraph s a da z dz
+flipGraph :: NodeSet s => ForwardGraph s a da z dz -> BackwardGraph s a da z dz
 flipGraph fwd = backFromEdges (mkdict fwd) (allFwdEdges fwd)
 
 data f :⊗ g :: Type -> Type -> Type -> Type -> Type where
