@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE DataKinds #-}
@@ -14,10 +16,9 @@ module NodeMap (
     SharedArgS,
     SharedTermS,
     SharedExprS,
-    mapmap,
+    mapmap, mapmapWithKey,
     toList,
     fromListWith,
-    mapmapWithKey,
     lookup,
     runRecoverSharing3,
     SomeSharedExprWithMap(..)
@@ -32,46 +33,56 @@ import Tensor (AFunction)
 import Sharing (TreeBuilder, ExprMap, SomeExpr(..), ExprName, SomeExprWithName(..), BuildAction(..))
 import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2),  Expr3(ExprSum), Expr2(Expr2))
 import Prelude hiding (lookup)
-import OpenGraph
+import OpenGraph (OpenKey(OpenKey), OpenMap(OpenMap), SomeOpenItem(SomeOpenItem))
+import qualified OpenGraph
 import qualified Sharing
+import Data.Reflection (reify, Reifies(reflect))
+import Data.Data (Proxy(Proxy))
 
-data KeySet
+data Unit x dx = Unit
 
 type role NodeKey nominal nominal nominal
-newtype NodeKey (s :: KeySet) x dx = NodeKey (StableName Any)
-newtype NodeMap (s :: KeySet) f = NodeMap { unNodeMap :: HashMap (StableName Any) (SomeExpr f) }
+newtype NodeKey s x dx = NodeKey (OpenKey x dx)
+newtype NodeMap s f = NodeMap { unNodeMap :: OpenMap f }
 
 -- TODO: representable functor instance
 
-data SomeItem (s :: KeySet) f = forall x dx. SomeItem (NodeKey s x dx) (f x dx)
+data SomeItem s f = forall x dx. SomeItem (NodeKey s x dx) (f x dx)
 
 mapmap :: forall s f g. (forall v dv. f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
-mapmap f = NodeMap . Sharing.mapmap f . unNodeMap
+mapmap f = NodeMap . OpenGraph.mapmap f . unNodeMap
 
 mapmapWithKey :: forall s f g. (forall v dv. NodeKey s v dv -> f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
-mapmapWithKey f (NodeMap x) = NodeMap (Map.mapWithKey go x)
-    where go key (SomeExpr y) = SomeExpr (f (NodeKey key) y)
-
+mapmapWithKey f (NodeMap x) = NodeMap (OpenGraph.mapmapWithKey f' x)
+    where f' :: OpenKey x dx -> f x dx -> g x dx
+          f' key' x' = f (NodeKey key') x'
 
 toList :: NodeMap s f -> [SomeItem s f]
-toList (NodeMap m) = wrap <$> Map.toList m
-    where wrap :: (StableName Any, SomeExpr f) -> SomeItem s f
-          wrap (xname, SomeExpr x) = SomeItem (NodeKey xname) x
+toList (NodeMap m) =  wrap<$> OpenGraph.toList m
+    where wrap :: SomeOpenItem f -> SomeItem s f
+          wrap (SomeOpenItem key value) = SomeItem (NodeKey key) value
 
 unsafeCastType''' :: SomeExpr f -> f v dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCoerce x -- !!!
 
 lookup :: NodeMap s f -> NodeKey s v dv -> f v dv
-lookup (NodeMap m) (NodeKey ref) =
-    case Map.lookup ref m of
-        Just x -> unsafeCastType''' x
+lookup (NodeMap m) (NodeKey key) =
+    case OpenGraph.lookup m key of
+        Just x -> x
         Nothing -> error "oh fuck"
 
+tryLookup :: NodeMap s f -> OpenKey x dx -> Maybe (NodeKey s x dx, f x dx)
+tryLookup (NodeMap m) key =
+    case OpenGraph.lookup m key of
+        Just x -> Just (NodeKey key, x)
+        Nothing -> Nothing
+
+-- TODO: use `s` to create map
 fromListWith :: forall s f. [SomeItem s f] -> (forall x dx. f x dx -> f x dx -> f x dx) -> NodeMap s f
-fromListWith xs f = NodeMap (Map.fromListWith f' (go <$> xs))
+fromListWith xs f = NodeMap (OpenMap (Map.fromListWith f' (go <$> xs)))
     where go :: SomeItem s f -> (StableName Any, SomeExpr f)
-          go (SomeItem (NodeKey xname) x) = (xname, SomeExpr x)
+          go (SomeItem (NodeKey (OpenKey xname)) x) = (xname, SomeExpr x)
           f' (SomeExpr x) (SomeExpr y) = SomeExpr (f x (unsafeCoerce y))
 
 type SharedArgS s = ExprArg (NodeKey s)
@@ -103,7 +114,7 @@ insertExpr3
   -> TreeBuilder g (NodeKey s v dv, g v dv)
 insertExpr3 x y@(Expr2 (ExprSum _)) = do
     (ref, z) <- Sharing.insertExpr x y
-    return (NodeKey ref, z)
+    return (NodeKey (OpenKey ref), z)
 
 goSharing3arg :: forall s a da v dv. ExprArg (Expr2 a da) a da v dv -> TreeBuilder (SharedExprS s a da) (SharedArgS s a da v dv)
 goSharing3arg = \case
@@ -128,7 +139,16 @@ runRecoverSharing3 x = case x of
     Expr2 (ExprSum _) -> do
       let z = goSharing3 x :: (TreeBuilder (SharedExprS s a da) (SharedExprS s a da v dv))
       (x', m) <- Sharing.runTreeBuilder z
-      return (SomeSharedExprWithMap (NodeMap m) x')
+      return (SomeSharedExprWithMap (NodeMap (OpenMap m)) x')
 
+
+data SomeNodeMap f where
+    SomeNodeMap :: Reifies s (OpenMap Unit) => NodeMap s f -> SomeNodeMap f
+
+mkSomeNodeMap :: forall (s :: *). Reifies s (OpenMap Unit) => Proxy s -> SomeNodeMap Unit
+mkSomeNodeMap proxy = SomeNodeMap @s (NodeMap $ reflect proxy)
+
+-- mkSomeNodeMap' :: OpenMap f -> SomeNodeMap f
+-- mkSomeNodeMap' x = reify (NodeMap (unOpenMap (OpenGraph.mapmap (const Unit) x))) mkSomeNodeMap
 --fromOpenGraph :: OpenExprWithMap a da z dz -> SomeSharedExprWithMap a da z dz
 --fromOpenGraph = _

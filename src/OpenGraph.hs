@@ -5,18 +5,24 @@
 
 module OpenGraph
     ( OpenKey(..), OpenMap(..), OpenArg, OpenTerm, OpenExpr, OpenExprWithMap(..)
+    , SomeOpenItem(SomeOpenItem)
+    , mapmap, mapmapWithKey, lookup, toList
     )
 where
 
 import Expr(ExprArg(ArgExpr, ArgVar),  Expr2(Expr2), Term3(Func2),  Expr2, Expr3(ExprSum))
 import GHC.StableName (StableName(StableName))
 import GHC.Base (Any)
-import Sharing (BuildAction(BuildAction),SomeExpr, TreeBuilder)
+import Sharing (SomeExpr(SomeExpr), ExprName, BuildAction(BuildAction), TreeBuilder)
 import qualified Sharing
 import Data.HashMap.Lazy (HashMap)
+import Prelude hiding (lookup)
+import qualified Data.HashMap.Lazy as HashMap
 
 newtype OpenKey x dx = OpenKey (StableName Any)
 newtype OpenMap f = OpenMap { unOpenMap :: HashMap (StableName Any) (SomeExpr f) }
+
+data SomeOpenItem f = forall x dx. SomeOpenItem (OpenKey x dx) (f x dx)
 
 type OpenArg = ExprArg OpenKey
 type OpenTerm = Term3 OpenKey
@@ -63,3 +69,21 @@ runRecoverSharing4 x = case x of
       let z = goSharing4 x :: (TreeBuilder (OpenExpr a da) (OpenExpr a da v dv))
       (x', m) <- Sharing.runTreeBuilder z
       return (OpenExprWithMap (OpenMap m) x')
+
+mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> OpenMap f -> OpenMap g
+mapmap f = OpenMap . Sharing.mapmap f . unOpenMap
+
+mapmapWithKey :: forall f g. (forall x dx. OpenKey x dx -> f x dx -> g x dx) -> OpenMap f -> OpenMap g
+mapmapWithKey f = OpenMap . Sharing.mapmapWithKey f' . unOpenMap
+    where f' :: forall x dx. ExprName -> f x dx -> g x dx
+          f' key = f (OpenKey key)
+
+lookup :: OpenMap f -> OpenKey x dx -> Maybe (f x dx)
+lookup (OpenMap m) (OpenKey k) = Sharing.lookupExprName m k
+
+-- data SomeOpenItem f = forall x dx. SomeOpenItem (OpenKey x dx) (f x dx)
+toList :: OpenMap f -> [SomeOpenItem f]
+toList = fmap wrap . HashMap.toList . unOpenMap
+    where wrap :: (StableName Any, SomeExpr f) -> SomeOpenItem f
+          wrap (key, x) = case x of
+              SomeExpr x' -> SomeOpenItem (OpenKey key) x'
