@@ -3,29 +3,17 @@
 {-# LANGUAGE LambdaCase #-}
 {-# language ScopedTypeVariables #-}
 
-module OpenGraph
-    ( OpenKey(..), OpenMap(..), OpenArg, OpenTerm, OpenExpr, OpenExprWithMap(..)
-    , SomeOpenItem(SomeOpenItem)
-    , mapmap, mapmapWithKey, lookup, toList
-    , intersectionWith
-    , runRecoverSharing4
-    )
+module OpenGraph (
+    OpenArg, OpenTerm, OpenExpr, OpenExprWithMap(..),
+    runRecoverSharing4
+)
 where
 
 import Expr(ExprArg(ArgExpr, ArgVar),  Expr2(Expr2), Term3(Func2),  Expr2, Expr3(ExprSum))
-import GHC.StableName (StableName)
-import GHC.Base (Any)
-import Sharing (SomeExpr(SomeExpr), BuildAction(BuildAction), TreeBuilder)
+import Sharing (BuildAction(BuildAction), TreeBuilder)
 import qualified Sharing
-import Data.HashMap.Lazy (HashMap)
 import Prelude hiding (lookup)
-import qualified Data.HashMap.Lazy as HashMap
-import Unsafe.Coerce (unsafeCoerce)
-
-newtype OpenKey x dx = OpenKey (StableName Any)
-newtype OpenMap f = OpenMap { unOpenMap :: HashMap (StableName Any) (SomeExpr f) }
-
-data SomeOpenItem f = forall x dx. SomeOpenItem (OpenKey x dx) (f x dx)
+import OpenMap (OpenMap(..), OpenKey(..))
 
 type OpenArg = ExprArg OpenKey
 type OpenTerm = Term3 OpenKey
@@ -72,32 +60,4 @@ runRecoverSharing4 x = case x of
     Expr2 (ExprSum _) -> do
       let z = goSharing4 x :: (TreeBuilder (OpenExpr a da) (OpenExpr a da v dv))
       (x', m) <- Sharing.runTreeBuilder z
-      return (OpenExprWithMap (OpenMap m) x')
-
-mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> OpenMap f -> OpenMap g
-mapmap f = OpenMap . fmap go . unOpenMap
-    where go (SomeExpr y) = SomeExpr (f y)
-
-mapmapWithKey :: forall f g. (forall x dx. OpenKey x dx -> f x dx -> g x dx) -> OpenMap f -> OpenMap g
-mapmapWithKey f = OpenMap . HashMap.mapWithKey go . unOpenMap
-    where go key (SomeExpr y) = SomeExpr (f (OpenKey key) y)
-
-lookup :: OpenMap f -> OpenKey x dx -> Maybe (f x dx)
-lookup (OpenMap m) (OpenKey k) = unsafeCastType''' <$> HashMap.lookup k m
-
-
--- data SomeOpenItem f = forall x dx. SomeOpenItem (OpenKey x dx) (f x dx)
-toList :: OpenMap f -> [SomeOpenItem f]
-toList = fmap wrap . HashMap.toList . unOpenMap
-    where wrap :: (StableName Any, SomeExpr f) -> SomeOpenItem f
-          wrap (key, x) = case x of
-              SomeExpr x' -> SomeOpenItem (OpenKey key) x'
-
-unsafeCastType''' :: SomeExpr f -> f v dv
-unsafeCastType''' = \case
-    SomeExpr x -> unsafeCoerce x
-
-intersectionWith :: forall f g h. (forall x dx. f x dx -> g x dx -> h x dx) -> OpenMap f -> OpenMap g -> OpenMap h
-intersectionWith f (OpenMap x) (OpenMap y) = OpenMap (HashMap.intersectionWith f' x y)
-    where f' (SomeExpr x') sy = SomeExpr (f x' y')
-            where y' = unsafeCastType''' sy
+      return (OpenExprWithMap m x')

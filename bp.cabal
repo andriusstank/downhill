@@ -22,7 +22,8 @@ library
                        Tensor,
                        Graph,
                        NodeMap,
-                       OpenGraph
+                       OpenGraph,
+                       Types
   -- other-modules:
   -- other-extensions:
   build-depends:       base ^>=4.12.0.0,

@@ -40,9 +40,11 @@ import Tensor (AFunction)
 import Sharing (TreeBuilder, SomeExpr(..), BuildAction(..))
 import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2),  Expr3(ExprSum), Expr2(Expr2))
 import Prelude hiding (lookup, zipWith)
-import OpenGraph (OpenExpr, OpenExprWithMap(OpenExprWithMap), OpenKey(OpenKey), OpenMap(OpenMap), SomeOpenItem(SomeOpenItem))
+import OpenMap (OpenKey(OpenKey), OpenMap(OpenMap), SomeOpenItem(SomeOpenItem))
+import OpenGraph (OpenExpr, OpenExprWithMap(OpenExprWithMap))
 import qualified OpenGraph
 import qualified Sharing
+import qualified OpenMap
 import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
 import Data.Constraint (Dict(Dict))
@@ -62,27 +64,27 @@ class NodeSet s where
     nodesetDict :: OpenMap Unit
 
 mapmap :: forall s f g. (forall v dv. f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
-mapmap f = NodeMap . OpenGraph.mapmap f . unNodeMap
+mapmap f = NodeMap . OpenMap.mapmap f . unNodeMap
 
 mapmapWithKey :: forall s f g. (forall v dv. NodeKey s v dv -> f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
-mapmapWithKey f (NodeMap x) = NodeMap (OpenGraph.mapmapWithKey f' x)
+mapmapWithKey f (NodeMap x) = NodeMap (OpenMap.mapmapWithKey f' x)
     where f' :: OpenKey x dx -> f x dx -> g x dx
           f' key' x' = f (NodeKey key') x'
 
 toList :: NodeMap s f -> [SomeItem s f]
-toList (NodeMap m) =  wrap<$> OpenGraph.toList m
+toList (NodeMap m) =  wrap <$> OpenMap.toList m
     where wrap :: SomeOpenItem f -> SomeItem s f
           wrap (SomeOpenItem key value) = SomeItem (NodeKey key) value
 
 lookup :: NodeMap s f -> NodeKey s v dv -> f v dv
 lookup (NodeMap m) (NodeKey key) =
-    case OpenGraph.lookup m key of
+    case OpenMap.lookup m key of
         Just x -> x
         Nothing -> error "oh fuck"
 
 tryLookup :: NodeMap s f -> OpenKey x dx -> Maybe (NodeKey s x dx, f x dx)
 tryLookup (NodeMap m) key =
-    case OpenGraph.lookup m key of
+    case OpenMap.lookup m key of
         Just x -> Just (NodeKey key, x)
         Nothing -> Nothing
 
@@ -91,7 +93,7 @@ generate f = case nodesetDict @s of
     m -> mapmapWithKey (\key _ -> f key) (NodeMap m)
 
 zipWith :: forall s f g h. (forall x dx. f x dx -> g x dx -> h x dx) -> NodeMap s f -> NodeMap s g -> NodeMap s h
-zipWith f (NodeMap x) (NodeMap y) = NodeMap (OpenGraph.intersectionWith f x y)
+zipWith f (NodeMap x) (NodeMap y) = NodeMap (OpenMap.intersectionWith f x y)
 
 adjust :: forall s f x dx. (f x dx -> f x dx) -> NodeKey s x dx -> NodeMap s f -> NodeMap s f
 adjust f (NodeKey (OpenKey key)) (NodeMap (OpenMap m)) = NodeMap (OpenMap m')
@@ -146,7 +148,7 @@ instance Reifies s (OpenMap Unit) => NodeSet (NodeSetWrapper s) where
 uncheckedMakeNodeMap :: forall f. OpenMap f -> SomeNodeMap f
 uncheckedMakeNodeMap x = reify nodes go
     where nodes :: OpenMap Unit
-          nodes = OpenGraph.mapmap (const Unit) x
+          nodes = OpenMap.mapmap (const Unit) x
           go :: forall s. Reifies s (OpenMap Unit) => Proxy s -> SomeNodeMap f
           go _proxy = SomeNodeMap @(NodeSetWrapper s) (NodeMap x)
 

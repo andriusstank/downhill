@@ -32,25 +32,19 @@ import Unsafe.Coerce (unsafeCoerce)
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Class
 import Control.Exception (evaluate)
+import Types
+import OpenMap (OpenKey(OpenKey), OpenMap)
+import qualified OpenMap
 
 type ExprName = StableName Any
-type ExprMap f = HashMap (StableName Any) (SomeExpr f)
+--type ExprMap f = HashMap (StableName Any) (SomeExpr f)
+type ExprMap f = OpenMap f
 
-data SomeExpr f = forall v dv. SomeExpr (f v dv)
-
-
-unsafeCastType''' :: SomeExpr f -> f v dv
-unsafeCastType''' = \case
-    SomeExpr x -> unsafeCoerce x -- !!!
-
-lookupExprName :: ExprMap f -> ExprName -> Maybe (f v dv)
-lookupExprName m ref =
-    case Map.lookup ref m of
-        Just x -> Just (unsafeCastType''' x)
-        Nothing -> Nothing
+lookupExprName :: forall f v dv. ExprMap f -> ExprName -> Maybe (f v dv)
+lookupExprName m ref = OpenMap.lookup m (OpenKey ref)
 
 insertExprName :: (AdditiveGroup v, AdditiveGroup dv) => ExprMap f -> ExprName -> f v dv -> ExprMap f
-insertExprName cache' name y  = Map.insert name (SomeExpr y) cache'
+insertExprName cache' name y = OpenMap.insert (OpenKey name) y cache'
 
 newtype TreeBuilder f r = TreeCache { unTreeCache :: StateT (ExprMap f) IO r }
     deriving (Functor, Applicative, Monad)
@@ -101,4 +95,4 @@ insertExpr (BuildAction value) expr = do
     insertTreeBuilder' name (value expr)
 
 runTreeBuilder :: (AdditiveGroup v, AdditiveGroup dv) => TreeBuilder f (g v dv) -> IO (g v dv, ExprMap f)
-runTreeBuilder rs_x = runStateT (unTreeCache rs_x) Map.empty
+runTreeBuilder rs_x = runStateT (unTreeCache rs_x) OpenMap.empty
