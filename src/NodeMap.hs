@@ -40,7 +40,7 @@ import Tensor (AFunction)
 import Sharing (TreeBuilder, SomeExpr(..), BuildAction(..))
 import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2),  Expr3(ExprSum), Expr2(Expr2))
 import Prelude hiding (lookup, zipWith)
-import OpenMap (OpenKey(OpenKey), OpenMap(OpenMap), SomeOpenItem(SomeOpenItem))
+import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
 import OpenGraph (OpenExpr, OpenExprWithMap(OpenExprWithMap))
 import qualified OpenGraph
 import qualified Sharing
@@ -96,9 +96,7 @@ zipWith :: forall s f g h. (forall x dx. f x dx -> g x dx -> h x dx) -> NodeMap 
 zipWith f (NodeMap x) (NodeMap y) = NodeMap (OpenMap.intersectionWith f x y)
 
 adjust :: forall s f x dx. (f x dx -> f x dx) -> NodeKey s x dx -> NodeMap s f -> NodeMap s f
-adjust f (NodeKey (OpenKey key)) (NodeMap (OpenMap m)) = NodeMap (OpenMap m')
-    where m' = HashMap.adjust f' key m
-          f' (SomeExpr x) = SomeExpr (f (unsafeCoerce x))
+adjust f (NodeKey key) (NodeMap m) = NodeMap (OpenMap.adjust f key m)
 
 fromList :: forall s f. NodeSet s => [SomeItem s f] -> NodeMap s (List2 f)
 fromList = foldr prepend s0

@@ -23,6 +23,7 @@ library
                        Graph,
                        NodeMap,
                        OpenGraph,
+                       OpenMap,
                        Types
   -- other-modules:
   -- other-extensions:

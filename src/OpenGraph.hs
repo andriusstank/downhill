@@ -13,7 +13,7 @@ import Expr(ExprArg(ArgExpr, ArgVar),  Expr2(Expr2), Term3(Func2),  Expr2, Expr3
 import Sharing (BuildAction(BuildAction), TreeBuilder)
 import qualified Sharing
 import Prelude hiding (lookup)
-import OpenMap (OpenMap(..), OpenKey(..))
+import OpenMap (OpenMap, OpenKey)
 
 type OpenArg = ExprArg OpenKey
 type OpenTerm = Term3 OpenKey
@@ -33,8 +33,8 @@ insertExpr3
   -> Expr2 a da v dv
   -> TreeBuilder g (OpenKey v dv, g v dv)
 insertExpr3 x y@(Expr2 (ExprSum _)) = do
-    (ref, z) <- Sharing.insertExpr x y
-    return (OpenKey ref, z)
+    (k, z) <- Sharing.insertExpr x y
+    return (k, z)
 
 goSharing4arg :: forall a da v dv. ExprArg (Expr2 a da) a da v dv -> TreeBuilder (OpenExpr a da) (OpenArg a da v dv)
 goSharing4arg = \case
