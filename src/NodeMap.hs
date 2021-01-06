@@ -20,11 +20,9 @@ module NodeMap (
     SharedExprS,
     mapmap, mapmapWithKey,
     toList,
-    fromListWith,
     zipWith,
     lookup,
     generate,
-    --runRecoverSharing3,
     runRecoverSharing5,
     SomeSharedExprWithMap(..),
     uncheckedMakeNodeMap,
@@ -39,7 +37,7 @@ import qualified Data.HashMap.Strict as Map
 import Unsafe.Coerce (unsafeCoerce)
 import Data.VectorSpace (AdditiveGroup)
 import Tensor (AFunction)
-import Sharing (TreeBuilder, ExprMap, SomeExpr(..), ExprName, SomeExprWithName(..), BuildAction(..))
+import Sharing (TreeBuilder, SomeExpr(..), BuildAction(..))
 import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2),  Expr3(ExprSum), Expr2(Expr2))
 import Prelude hiding (lookup, zipWith)
 import OpenGraph (OpenExpr, OpenExprWithMap(OpenExprWithMap), OpenKey(OpenKey), OpenMap(OpenMap), SomeOpenItem(SomeOpenItem))
@@ -88,20 +86,12 @@ tryLookup (NodeMap m) key =
         Just x -> Just (NodeKey key, x)
         Nothing -> Nothing
 
--- TODO: use `s` to create map
-fromListWith :: forall s f. [SomeItem s f] -> (forall x dx. f x dx -> f x dx -> f x dx) -> NodeMap s f
-fromListWith xs f = NodeMap (OpenMap (Map.fromListWith f' (go <$> xs)))
-    where go :: SomeItem s f -> (StableName Any, SomeExpr f)
-          go (SomeItem (NodeKey (OpenKey xname)) x) = (xname, SomeExpr x)
-          f' (SomeExpr x) (SomeExpr y) = SomeExpr (f x (unsafeCoerce y))
-
 generate :: forall s f. NodeSet s => (forall x dx. NodeKey s x dx -> f x dx) -> NodeMap s f
 generate f = case nodesetDict @s of
     m -> mapmapWithKey (\key _ -> f key) (NodeMap m)
 
 zipWith :: forall s f g h. (forall x dx. f x dx -> g x dx -> h x dx) -> NodeMap s f -> NodeMap s g -> NodeMap s h
-zipWith f (NodeMap (OpenMap x)) (NodeMap (OpenMap y)) = NodeMap (OpenMap (HashMap.intersectionWith f' x y))
-    where f' (SomeExpr x') (SomeExpr y') = SomeExpr (f x' (unsafeCoerce y'))
+zipWith f (NodeMap x) (NodeMap y) = NodeMap (OpenGraph.intersectionWith f x y)
 
 adjust :: forall s f x dx. (f x dx -> f x dx) -> NodeKey s x dx -> NodeMap s f -> NodeMap s f
 adjust f (NodeKey (OpenKey key)) (NodeMap (OpenMap m)) = NodeMap (OpenMap m')

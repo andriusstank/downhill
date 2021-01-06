@@ -15,16 +15,6 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 module Sharing (
     SomeExpr(..),
-    debugShow,
-
-    -- * Map
-    ExprName,
-    ExprMap,
-    SomeExprWithName(..),
-    toList, fromListWith,
-    lookupExprName,
-    mapmap, mapmapWithKey,
-    
     -- * Tree
     TreeBuilder,
     BuildAction(..),
@@ -46,31 +36,8 @@ import Control.Exception (evaluate)
 type ExprName = StableName Any
 type ExprMap f = HashMap (StableName Any) (SomeExpr f)
 
-mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> ExprMap f -> ExprMap g
-mapmap f x = go <$> x
-    where go (SomeExpr y) = SomeExpr (f y)
-
-mapmapWithKey :: forall f g. (forall v dv. ExprName -> f v dv -> g v dv) -> ExprMap f -> ExprMap g
-mapmapWithKey f x = Map.mapWithKey go x
-    where go key (SomeExpr y) = SomeExpr (f key y)
-
 data SomeExpr f = forall v dv. SomeExpr (f v dv)
 
-data SomeExprWithName f = forall v dv. SomeExprWithName ExprName (f v dv)
-
-toList :: ExprMap f -> [SomeExprWithName f]
-toList = fmap wrap . Map.toList
-    where wrap (key, someValue) = case someValue of
-            SomeExpr value -> SomeExprWithName key value
-
-fromListWith :: forall f. [SomeExprWithName f] -> (forall x dx. f x dx -> f x dx -> f x dx) -> ExprMap f
-fromListWith xs f = Map.fromListWith f' (go <$> xs)
-    where go :: SomeExprWithName f -> (StableName Any, SomeExpr f)
-          go (SomeExprWithName xname x) = (xname, SomeExpr x)
-          f' (SomeExpr x) (SomeExpr y) = SomeExpr (f x (unsafeCoerce y))
-
-debugShow :: ExprName -> String
-debugShow ref = show (hashStableName ref)
 
 unsafeCastType''' :: SomeExpr f -> f v dv
 unsafeCastType''' = \case
