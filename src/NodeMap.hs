@@ -41,7 +41,7 @@ import Sharing (TreeBuilder, SomeExpr(..), BuildAction(..))
 import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2),  Expr3(ExprSum), Expr2(Expr2))
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
-import OpenGraph (OpenExpr, OpenExprWithMap(OpenExprWithMap))
+import OpenGraph (OpenExpr)
 import qualified OpenGraph
 import qualified Sharing
 import qualified OpenMap
@@ -128,8 +128,8 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
                 Nothing -> error "oh fuck"
           
 
-cvtmap :: OpenExprWithMap a da v dv -> SomeSharedExprWithMap a da v dv
-cvtmap (OpenExprWithMap m x) = case uncheckedMakeNodeMap m of
+cvtmap :: (OpenExpr a da v dv, OpenMap (OpenExpr a da)) -> SomeSharedExprWithMap a da v dv
+cvtmap (x, m) = case uncheckedMakeNodeMap m of
     SomeNodeMap m' -> cvthelper m' x
 
 runRecoverSharing5 :: forall a da v dv. Expr2 a da v dv -> IO (SomeSharedExprWithMap a da v dv)

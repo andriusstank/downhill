@@ -4,7 +4,7 @@
 {-# language ScopedTypeVariables #-}
 
 module OpenGraph (
-    OpenArg, OpenTerm, OpenExpr, OpenExprWithMap(..),
+    OpenArg, OpenTerm, OpenExpr,
     runRecoverSharing4
 )
 where
@@ -52,12 +52,8 @@ goSharing4term = \case
 sharingAction4 :: BuildAction (Expr2 a da) (OpenExpr a da)
 sharingAction4 = BuildAction goSharing4
 
-data OpenExprWithMap a da z dz =
-    OpenExprWithMap (OpenMap (OpenExpr a da)) (OpenExpr a da z dz)
-
-runRecoverSharing4 :: forall a da v dv. Expr2 a da v dv -> IO (OpenExprWithMap a da v dv)
+runRecoverSharing4 :: forall a da z dz. Expr2 a da z dz -> IO (OpenExpr a da z dz, OpenMap (OpenExpr a da))
 runRecoverSharing4 x = case x of
     Expr2 (ExprSum _) -> do
-      let z = goSharing4 x :: (TreeBuilder (OpenExpr a da) (OpenExpr a da v dv))
-      (x', m) <- Sharing.runTreeBuilder z
-      return (OpenExprWithMap m x')
+      let z = goSharing4 x :: (TreeBuilder (OpenExpr a da) (OpenExpr a da z dz))
+      Sharing.runTreeBuilder z
