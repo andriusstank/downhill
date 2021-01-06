@@ -18,6 +18,7 @@ import qualified NodeMap
 import NodeMap (runRecoverSharing5)
 import Data.Coerce (coerce)
 import Data.Constraint.Unsafe (Coercible)
+import Expr (Term3)
 
 newtype R = R Integer
     deriving Show
@@ -51,7 +52,7 @@ tracingFunc name value = AFunction fwd back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: Expr2 a da v dv -> Term2 a da v dv
+exprToTerm :: Expr2 a da v dv -> Term3 (Expr2 a da) a da v dv
 exprToTerm = Func2 indentityFunc . ArgExpr
 
 

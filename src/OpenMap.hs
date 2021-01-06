@@ -16,11 +16,11 @@ import Prelude (Monad(return), IO, (.), Functor(fmap), (<$>), Maybe)
 import GHC.StableName (StableName)
 import Data.HashMap.Lazy (HashMap)
 import GHC.Base (Any)
-import Types (SomeExpr(SomeExpr))
 import qualified Data.HashMap.Lazy as HashMap
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Exception (evaluate)
 import System.Mem.StableName (makeStableName)
+import Types (SomeExpr(SomeExpr))
 
 newtype OpenKey x dx = OpenKey (StableName Any)
 newtype OpenMap f = OpenMap { unOpenMap :: HashMap (StableName Any) (SomeExpr f) }

@@ -13,7 +13,19 @@
 {-# language ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
-module Graph where
+module Graph
+    ( ForwardGraph(..)
+    , ForwardInnerNode(..), ForwardFinalNode(..)
+    , SomeForwardInnerEdge(..), SomeForwardFinalEdge
+    , BackwardGraph(..)
+    , BackwardInnerNode(..), BackwardInitialNode(..)
+    , SomeBackwardInnerEdge(..),SomeBackwardInitialEdge(..)
+    , Edge(..), SourceNode(..), SinkNode(..)
+    , AnyHead(..), AnyTail(..), InnerNode(..)
+    , convertGraph
+    , flipGraph
+    )
+where
 import Prelude hiding (head, tail)
 import Sharing()
 import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
@@ -56,41 +68,6 @@ data AnyTail s a da z dz x dx where
 
 data Edge head tail a da z dz u du v dv = Edge (tail a da z dz v dv) (AFunction u du v dv) (head a da z dz u du)
 
-{-
-type ForwardInnerEdge = Edge AnyHead InnerNode
-type ForwardFinalEdge = Edge AnyHead SinkNode
-type BackInitialEdge = Edge SourceNode AnyTail
-type BackInnerEdge = Edge InnerNode AnyTail
--}
-
-data ForwardEdge s a da z dz u du v dv
-    = ForwardFinalEdge (Edge (AnyHead s) SinkNode a da z dz u du v dv)
-    | ForwardInnerEdge (Edge (AnyHead s) (InnerNode s) a da z dz u du v dv)
-
-data BackwardEdge s a da z dz u du v dv
-    = BackInnerEdge (Edge (InnerNode s) (AnyTail s) a da z dz u du v dv)
-    | BackInitialEdge (Edge SourceNode (AnyTail s) a da z dz u du v dv)
-
-classifyForwardInnerEdge :: Edge (AnyHead s) (InnerNode s) a da z dz u du v dv -> BackwardEdge s a da z dz u du v dv
-classifyForwardInnerEdge (Edge tail f head) = case head of
-    SourceHead head' -> BackInitialEdge (Edge (InnerTail tail) f head')
-    InnerHead head' -> BackInnerEdge (Edge (InnerTail tail) f head')
-
-classifyForwardFinalEdge :: Edge (AnyHead s) SinkNode a da z dz u du v dv -> BackwardEdge s a da z dz u du v dv
-classifyForwardFinalEdge (Edge tail f head) = case head of
-    SourceHead head' -> BackInitialEdge (Edge (SinkTail tail) f head')
-    InnerHead head' -> BackInnerEdge (Edge (SinkTail tail) f head')
-
-classifyBackwardInnerEdge :: Edge (InnerNode s) (AnyTail s) a da z dz u du v dv -> ForwardEdge s a da z dz u du v dv
-classifyBackwardInnerEdge (Edge tail f head) = case tail of
-    SinkTail tail' -> ForwardFinalEdge (Edge tail' f (InnerHead head))
-    InnerTail tail' -> ForwardInnerEdge (Edge tail' f (InnerHead head))
-
-classifyBackwardInitialEdge :: Edge SourceNode (AnyTail s) a da z dz u du v dv -> ForwardEdge s a da z dz u du v dv
-classifyBackwardInitialEdge (Edge tail f head) = case tail of
-    SinkTail tail' -> ForwardFinalEdge (Edge tail' f (SourceHead head))
-    InnerTail tail' -> ForwardInnerEdge (Edge tail' f (SourceHead head))
-
 data SomeForwardInnerEdge s a da z dz v dv = forall u du. SomeForwardInnerEdge (Edge (AnyHead s) (InnerNode s) a da z dz u du v dv)
 data SomeForwardFinalEdge s a da z dz = forall u du. SomeForwardFinalEdge (Edge (AnyHead s) SinkNode a da z dz u du z dz)
 
@@ -98,7 +75,6 @@ data ForwardInnerNode s a da z dz x dx where
     ForwardInnerNode :: (AdditiveGroup x, AdditiveGroup dx) => [SomeForwardInnerEdge s a da z dz x dx] -> ForwardInnerNode s a da z dz x dx
 
 data ForwardFinalNode s a da z dz = ForwardFinalNode (SinkNode a da z dz z dz) [SomeForwardFinalEdge s a da z dz]
-data SomeForwardInnerNode s a da z dz = forall x dx. SomeForwardInnerNode [SomeForwardInnerEdge s a da z dz x dx]
 
 data ForwardGraph s a da z dz = ForwardGraph (NodeMap s (ForwardInnerNode s a da z dz)) (ForwardFinalNode s a da z dz)
 

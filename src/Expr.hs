@@ -6,6 +6,9 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Expr
+(
+    Expr3(..), ExprArg(..), Term3(..), Expr2(..)
+)
 where
 --import Tensor(TensorProduct(..), LinearFunction, AFunction, transposeFunc)
 import Tensor
@@ -31,7 +34,8 @@ data Term3 p a da v dv where
 
 data Expr3 p a da v dv = (AdditiveGroup v, AdditiveGroup dv) => ExprSum [Term3 p a da v dv]
 
-type Term2 a da = Term3 (Expr2 a da) a da
+--type Term2 a da = Term3 (Expr2 a da) a da
+
 newtype Expr2 a da v dv = Expr2 { unExpr2 :: Expr3 (Expr2 a da) a da v dv }
 
 -- Evaluate
@@ -41,7 +45,7 @@ instance TensorProduct (Expr a da v dv) a v where
         Func f x -> f ⊗ (x ⊗ a)
         Sum xs -> sumV [x ⊗ a | x <- xs]
 
-instance TensorProduct (Term2 a da v dv) a v where
+instance TensorProduct (Term3 (Expr2 a da) a da v dv) a v where
     expr ⊗ a = case expr of
         Func2 f x -> case x of
             ArgVar -> f ⊗ a
