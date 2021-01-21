@@ -3,7 +3,7 @@
 
 module Trace where
 import Tensor
-    ( indentityFunc, AFunction(AFunction), TensorProduct((⊗)) )
+    ( AFunction(..), TensorProduct((⊗)) )
 import Data.VectorSpace (AdditiveGroup(..))
 import Expr
 import System.IO (hPutStrLn, stderr)
@@ -40,7 +40,7 @@ instance AdditiveGroup R where
         return (R z)
 
 tracingFunc :: String -> Integer -> AFunction R R R R
-tracingFunc name value = AFunction fwd back
+tracingFunc name value = BlackBoxFunc fwd back
     where fwd (R x) = unsafePerformIO $ do
             x' <- evaluate x
             let y = value*x'
@@ -53,7 +53,7 @@ tracingFunc name value = AFunction fwd back
             return (R (value*x'))
 
 exprToTerm :: Expr2 a da v dv -> Term3 (Expr2 a da) a da v dv
-exprToTerm = Func2 indentityFunc . ArgExpr
+exprToTerm = Func2 IndentityFunc . ArgExpr
 
 
 testExpr :: IO (Expr2 R R R R)

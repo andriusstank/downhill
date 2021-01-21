@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase #-}
@@ -7,12 +8,12 @@
 
 module Expr
 (
-    Expr3(..), ExprArg(..), Term3(..), Expr2(..)
+    Expr3(..), ExprArg(..), Term3(..), Expr2(..), sumExpr2
 )
 where
 --import Tensor(TensorProduct(..), LinearFunction, AFunction, transposeFunc)
 import Tensor
-import Data.VectorSpace (AdditiveGroup, sumV)
+import Data.VectorSpace (VectorSpace(..),  AdditiveGroup(..), sumV)
 import Data.Constraint
 -- class (TensorProduct f u v, TensorProduct dv f du) => LinearFunction b f u v du dv | f -> b where
 
@@ -37,6 +38,20 @@ data Expr3 p a da v dv = (AdditiveGroup v, AdditiveGroup dv) => ExprSum [Term3 p
 --type Term2 a da = Term3 (Expr2 a da) a da
 
 newtype Expr2 a da v dv = Expr2 { unExpr2 :: Expr3 (Expr2 a da) a da v dv }
+
+instance (AdditiveGroup v, AdditiveGroup dv) => AdditiveGroup (Expr2 a da v dv) where
+    zeroV = Expr2 (ExprSum [])
+    negateV x = Expr2 (ExprSum [Func2 NegateFunc (ArgExpr x)])
+    x ^+^ y = Expr2 (ExprSum [Func2 IndentityFunc (ArgExpr x), Func2 IndentityFunc (ArgExpr y)])
+    x ^-^ y = Expr2 (ExprSum [Func2 IndentityFunc (ArgExpr x), Func2 NegateFunc (ArgExpr y)])
+
+instance (VectorSpace v, VectorSpace dv, Scalar v ~ Scalar dv) => VectorSpace (Expr2 a da v dv) where
+    type Scalar (Expr2 a da v dv) = Scalar v
+    a *^ v = Expr2 (ExprSum [Func2 (ScaleFunc a) (ArgExpr v)])
+
+sumExpr2 :: (AdditiveGroup v, AdditiveGroup dv) => [Expr2 a da v dv] -> Expr2 a da v dv
+sumExpr2 xs = Expr2 (ExprSum (wrap <$> xs))
+    where wrap x = Func2 IndentityFunc (ArgExpr x)
 
 -- Evaluate
 instance TensorProduct (Expr a da v dv) a v where
@@ -90,4 +105,3 @@ instance LinearFunction' Expr where
 -- >>> 1
 
 -- Func :: LinearFunction b f u v du dv => f -> Expr' a da b u du -> Expr' a da b v dv
-

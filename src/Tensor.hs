@@ -1,4 +1,6 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -18,7 +20,7 @@ module Tensor (
     TensorProduct(..),
     LinearFunction,
     PairFunc(..),
-    AFunction(..), indentityFunc, transposeFunc,
+    AFunction(..), transposeFunc,
     LinearFunction'(..)
 )
 where
@@ -61,22 +63,30 @@ _testLinearFunction f dv u = lhs == rhs
     where lhs = (dv ⊗ f :: du) ⊗ u :: b
           rhs = dv ⊗ (f ⊗ u) :: b
 
-data AFunction u du v dv = AFunction
-    { funcFwd  :: u -> v
-    , funcBack :: dv -> du
-    }
-
-indentityFunc :: AFunction x dx x dx
-indentityFunc = AFunction id id
+data AFunction u du v dv where
+    IndentityFunc :: AFunction u du u du
+    NegateFunc :: (AdditiveGroup u, AdditiveGroup du) => AFunction u du u du
+    ScaleFunc :: forall a v dv. (VectorSpace v, VectorSpace dv, a ~ Scalar v, a ~ Scalar dv) => a -> AFunction v dv v dv
+    BlackBoxFunc :: (u -> v) -> (dv -> du) -> AFunction u du v dv
 
 instance TensorProduct (AFunction u du v dv) u v where
-    f ⊗ x = funcFwd f x
+    IndentityFunc ⊗ x = x
+    NegateFunc ⊗ x = negateV x
+    ScaleFunc a ⊗ v = a *^ v
+    (BlackBoxFunc f _) ⊗ x = f x
 
 instance TensorProduct dv (AFunction u du v dv) du where
-    x ⊗ f = funcBack f x
+    x ⊗ IndentityFunc = x
+    x ⊗ NegateFunc = negateV x
+    v ⊗ ScaleFunc a = a *^ v
+    x ⊗ (BlackBoxFunc _ f) = f x
 
 transposeFunc :: AFunction u v du dv -> AFunction dv du v u
-transposeFunc (AFunction f g) = AFunction g f
+transposeFunc = \case
+    IndentityFunc -> IndentityFunc
+    NegateFunc -> NegateFunc
+    ScaleFunc x -> ScaleFunc x
+    BlackBoxFunc f g -> BlackBoxFunc g f
 
 instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction (AFunction u du v dv) u v du dv
 
