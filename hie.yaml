@@ -1,3 +1,6 @@
 cradle:
   cabal:
-    component: "lib:bp"
+    - path: "./src"
+      component: "lib:bp"
+    - path: "./test"
+      component: "test:bp-test"
