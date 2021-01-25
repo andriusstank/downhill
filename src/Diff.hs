@@ -8,7 +8,7 @@ module Diff
     BVar, BVarS, bvarValue,
     constant, var,
     backprop, backpropS,
-    fst
+    fst, snd, zip
 )
 where
 
@@ -55,10 +55,24 @@ backpropS x = backprop x 1
 
 fstT :: AdditiveGroup dv => ExprArg (Expr2 a da) a da (u, v) (du, dv) -> Term3 (Expr2 a da) a da u du
 fstT x = Func2 (BlackBoxFunc Prelude.fst (, zeroV)) x
-
 fstA :: (AdditiveGroup u, AdditiveGroup du, AdditiveGroup  dv) => ExprArg (Expr2 a da) a da (u, v) (du, dv) -> ExprArg (Expr2 a da) a da u du
 fstA x = ArgExpr (Expr2 (ExprSum [fstT x]))
-
 fst :: (AdditiveGroup u, AdditiveGroup du, AdditiveGroup dv) => BVar (b1, b2) a da (u, v) (du, dv) -> BVar b1 a da u du
 fst (AffineFunc y0 dy) = AffineFunc (Prelude.fst y0) (fstA dy)
 
+sndT :: AdditiveGroup du => ExprArg (Expr2 a da) a da (u, v) (du, dv) -> Term3 (Expr2 a da) a da v dv
+sndT x = Func2 (BlackBoxFunc Prelude.snd (zeroV, )) x
+sndA :: (AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => ExprArg (Expr2 a da) a da (u, v) (du, dv) -> ExprArg (Expr2 a da) a da v dv
+sndA x = ArgExpr (Expr2 (ExprSum [sndT x]))
+snd :: (AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => BVar (b1, b2) a da (u, v) (du, dv) -> BVar b2 a da v dv
+snd (AffineFunc y0 dy) = AffineFunc (Prelude.snd y0) (sndA dy)
+
+zipA :: forall a da u du v dv. (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => ExprArg (Expr2 a da) a da u du -> ExprArg (Expr2 a da) a da v dv -> ExprArg (Expr2 a da) a da (u, v) (du, dv)
+zipA x y = ArgExpr (Expr2 (ExprSum [intoFst x, intoSnd y]))
+    where intoFst :: ExprArg (Expr2 a da) a da u du -> Term3 (Expr2 a da) a da (u, v) (du, dv)
+          intoFst z = Func2 (BlackBoxFunc (, zeroV) Prelude.fst) z
+          intoSnd :: ExprArg (Expr2 a da) a da v dv -> Term3 (Expr2 a da) a da (u, v) (du, dv)
+          intoSnd z = Func2 (BlackBoxFunc (zeroV,) Prelude.snd) z
+
+zip :: (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => BVar b a da u du -> BVar c a da v dv -> BVar (b, c) a da (u, v) (du, dv)
+zip (AffineFunc x dx) (AffineFunc y dy) = AffineFunc (x, y) (zipA dx dy)
