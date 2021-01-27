@@ -5,6 +5,8 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+
 module Affine where
 
 import Data.AffineSpace (AffineSpace((.-.), Diff))

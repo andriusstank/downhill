@@ -13,6 +13,7 @@ basicTests = testGroup "Basic tests"
         testIdentity = backpropS (var 3 :: BVarS Integer) @?= 1 
         testPoly =
             let x = var 5 :: BVarS Integer
+                y = 3*x :: BVarS Integer
             in backpropS ((2+3*x) * (5+7*x)) @?= 29 + 42 * bvarValue x
 
 tests :: TestTree
