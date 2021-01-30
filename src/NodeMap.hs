@@ -109,18 +109,18 @@ type SharedArgS s = ExprArg (NodeKey s)
 type SharedTermS s = Term3 (NodeKey s)
 type SharedExprS s = Expr3 (NodeKey s)
 
-data SomeSharedExprWithMap a da z dz where
-    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s a da) -> SharedExprS s a da dz -> SomeSharedExprWithMap a da z dz
+data SomeSharedExprWithMap da dz where
+    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s da) -> SharedExprS s da dz -> SomeSharedExprWithMap da dz
 
-cvthelper :: forall s a da v dv. NodeSet s => NodeMap s (OpenExpr a da) -> OpenExpr a da dv -> SomeSharedExprWithMap a da v dv
+cvthelper :: forall s da dv. NodeSet s => NodeMap s (OpenExpr da) -> OpenExpr da dv -> SomeSharedExprWithMap da dv
 cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
-    where cvtexpr :: forall dx. OpenExpr a da dx -> SharedExprS s a da dx
+    where cvtexpr :: forall dx. OpenExpr da dx -> SharedExprS s da dx
           cvtexpr = \case
             ExprSum terms -> ExprSum (cvtterm <$> terms)
-          cvtterm :: forall dx. Term3 OpenKey a da dx -> Term3 (NodeKey s) a da dx
+          cvtterm :: forall dx. Term3 OpenKey da dx -> Term3 (NodeKey s) da dx
           cvtterm = \case
             Func2 f x' -> Func2 f (cvtarg x')
-          cvtarg :: forall du. ExprArg OpenKey a da du -> ExprArg (NodeKey s) a da du
+          cvtarg :: forall du. ExprArg OpenKey da du -> ExprArg (NodeKey s) da du
           cvtarg = \case
             ArgVar -> ArgVar
             ArgExpr key -> case tryLookup m key of
@@ -128,11 +128,11 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
                 Nothing -> error "oh fuck"
           
 
-cvtmap :: (OpenExpr a da dv, OpenMap (OpenExpr a da)) -> SomeSharedExprWithMap a da v dv
+cvtmap :: (OpenExpr da dv, OpenMap (OpenExpr da)) -> SomeSharedExprWithMap da dv
 cvtmap (x, m) = case uncheckedMakeNodeMap m of
     SomeNodeMap m' -> cvthelper m' x
 
-runRecoverSharing5 :: forall a da v dv. Expr2 a da dv -> IO (SomeSharedExprWithMap a da v dv)
+runRecoverSharing5 :: forall da dv. Expr2 da dv -> IO (SomeSharedExprWithMap da dv)
 runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4 x
 
 data SomeNodeMap f where

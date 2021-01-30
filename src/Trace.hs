@@ -67,15 +67,15 @@ tracingFunc name value = AFunction1 back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVector dv => Expr2 a da dv -> Term3 (Expr2 a da) a da dv
+exprToTerm :: FullVector dv => Expr2 da dv -> Term3 (Expr2 da) da dv
 exprToTerm = Func2 identityFunc . ArgExpr
 
 
-testExpr :: IO (Expr2 R R R)
+testExpr :: IO (Expr2 R R)
 testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
-        x0, x1 :: Expr2 R R R
+        x0, x1 :: Expr2 R R
         x0 = Expr2 (ExprSum [Func2 f ArgVar])
         x1 = Expr2 (ExprSum [Func2 g ArgVar])
         x2 = Expr2 (ExprSum [exprToTerm x0, exprToTerm x1])
@@ -92,7 +92,7 @@ testExpr = do
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-_x :: () -> IO (NodeMap.SomeSharedExprWithMap R R R R)
+_x :: () -> IO (NodeMap.SomeSharedExprWithMap R R)
 _x () = runRecoverSharing5 =<< testExpr
 
 {-

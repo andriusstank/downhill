@@ -22,43 +22,43 @@ import Notensor (VecBuilder, FullVector, FullVectors, BasicVector, scaleFunc, Ba
 --    SomeLinearFunc :: LinearFunction b f u v du dv => SomeLinearFunc b v dv
 
 
-data ExprArg p a da dv where
-    ArgVar :: ExprArg p a da da
-    ArgExpr :: p dv -> ExprArg p a da dv
+data ExprArg p da dv where
+    ArgVar :: ExprArg p da da
+    ArgExpr :: p dv -> ExprArg p da dv
 
-data Term3 p a da dv where
-    Func2 :: AFunction1 du dv -> ExprArg p a da du -> Term3 p a da dv
+data Term3 p da dv where
+    Func2 :: AFunction1 du dv -> ExprArg p da du -> Term3 p da dv
 
-data Expr3 p a da dv = BasicVector dv => ExprSum [Term3 p a da dv]
+data Expr3 p da dv = BasicVector dv => ExprSum [Term3 p da dv]
 
 --type Term2 a da = Term3 (Expr2 a da) a da
 
-newtype Expr2 a da dv = Expr2 { unExpr2 :: Expr3 (Expr2 a da) a da dv }
+newtype Expr2 da dv = Expr2 { unExpr2 :: Expr3 (Expr2 da) da dv }
 
-zeroE :: BasicVector dv => Expr2 a da dv
+zeroE :: BasicVector dv => Expr2 da dv
 zeroE = Expr2 (ExprSum [])
 
-instance FullVector dv => AdditiveGroup (Expr2 a da dv) where
+instance FullVector dv => AdditiveGroup (Expr2 da dv) where
     zeroV = zeroE
     negateV x = Expr2 (ExprSum [Func2 negateFunc (ArgExpr x)])
     x ^+^ y = Expr2 (ExprSum [Func2 identityFunc (ArgExpr x), Func2 identityFunc (ArgExpr y)])
     x ^-^ y = Expr2 (ExprSum [Func2 identityFunc (ArgExpr x), Func2 negateFunc (ArgExpr y)])
 
-instance FullVector dv => VectorSpace (Expr2 a da dv) where
-    type Scalar (Expr2 a da dv) = Scalar dv
+instance FullVector dv => VectorSpace (Expr2 da dv) where
+    type Scalar (Expr2 da dv) = Scalar dv
     a *^ v = Expr2 (ExprSum [Func2 (scaleFunc a) (ArgExpr v)])
 
-instance FullVector dv => AdditiveGroup (ExprArg (Expr2 a da) a da dv) where
+instance FullVector dv => AdditiveGroup (ExprArg (Expr2 da) da dv) where
     zeroV = ArgExpr zeroV
     negateV x = ArgExpr (Expr2 (ExprSum [Func2 negateFunc x]))
     x ^+^ y = ArgExpr (Expr2 (ExprSum [Func2 identityFunc x, Func2 identityFunc y]))
     x ^-^ y = ArgExpr (Expr2 (ExprSum [Func2 identityFunc x, Func2 negateFunc y]))
 
-instance FullVector dv => VectorSpace (ExprArg (Expr2 a da) a da dv) where
-    type Scalar (ExprArg (Expr2 a da) a da dv) = Scalar (Expr2 a da dv)
+instance FullVector dv => VectorSpace (ExprArg (Expr2 da) da dv) where
+    type Scalar (ExprArg (Expr2 da) da dv) = Scalar (Expr2 da dv)
     a *^ x = ArgExpr (Expr2 (ExprSum [Func2 (scaleFunc a) x]))
 
-sumExpr2 :: FullVector dv => [Expr2 a da dv] -> Expr2 a da dv
+sumExpr2 :: FullVector dv => [Expr2 da dv] -> Expr2 da dv
 sumExpr2 xs = Expr2 (ExprSum (wrap <$> xs))
     where wrap x = Func2 identityFunc (ArgExpr x)
 {-

@@ -44,79 +44,69 @@ import Notensor
     , AFunction2(backF, fwdF, AFunction2), AFunction1(AFunction1)
     , backF1
     )
+data SourceNode da dz dx where
+    SourceNode :: SourceNode da dz da
 
-{-
-data PassthroughEdge a da z dz = AFunction a da z dz
-data SourceEdge a da v dv = SourceEdge (ExprName v dv) (AFunction a da v dv)
-data SinkEdge z dz u du = SinkEdge (AFunction u du z dz) (ExprName u du)
-data InnerEdge u du v dv = InnerEdge (ExprName v dv) (AFunction u du v dv) (ExprName u du)
--}
+data SinkNode da dz dx where
+    SinkNode :: SinkNode da dz dz
 
---data ForwardNode a da v dv = ForwardNode [SourceEdge a da v dv] [InnerEdge ]
+data InnerNode s da dz dx where
+    InnerNode :: NodeKey s dx -> InnerNode s da dz dx
 
-data SourceNode a da z dz dx where
-    SourceNode :: SourceNode a da z dz da
+data AnyHead s da dz dx where
+    SourceHead :: SourceNode da dz dx -> AnyHead s da dz dx
+    InnerHead :: InnerNode s da dz dx -> AnyHead s da dz dx
 
-data SinkNode a da z dz dx where
-    SinkNode :: SinkNode a da z dz dz
+data AnyTail s da dz dx where
+    SinkTail :: SinkNode da dz dx -> AnyTail s da dz dx
+    InnerTail :: InnerNode s da dz dx -> AnyTail s da dz dx
 
-data InnerNode s a da z dz dx where
-    InnerNode :: NodeKey s dx -> InnerNode s a da z dz dx
+data Edge head tail da dz du dv = Edge (tail dv) (AFunction1 du dv) (head du)
 
-data AnyHead s a da z dz dx where
-    SourceHead :: SourceNode a da z dz dx -> AnyHead s a da z dz dx
-    InnerHead :: InnerNode s a da z dz dx -> AnyHead s a da z dz dx
+data SomeForwardInnerEdge s da dz dv = forall du. SomeForwardInnerEdge (Edge (AnyHead s da dz) (InnerNode s da dz) da dz du dv)
+data SomeForwardFinalEdge s da dz = forall du. SomeForwardFinalEdge (Edge (AnyHead s da dz) (SinkNode da dz) da dz du dz)
 
-data AnyTail s a da z dz dx where
-    SinkTail :: SinkNode a da z dz dx -> AnyTail s a da z dz dx
-    InnerTail :: InnerNode s a da z dz dx -> AnyTail s a da z dz dx
+data ForwardInnerNode s da dz dx where
+    ForwardInnerNode :: BasicVector dx => [SomeForwardInnerEdge s da dz dx] -> ForwardInnerNode s da dz dx
 
-data Edge head tail a da z dz du dv = Edge (tail dv) (AFunction1 du dv) (head du)
+data ForwardFinalNode s da dz = ForwardFinalNode (SinkNode da dz dz) [SomeForwardFinalEdge s da dz]
 
-data SomeForwardInnerEdge s a da z dz dv = forall du. SomeForwardInnerEdge (Edge (AnyHead s a da z dz) (InnerNode s a da z dz) a da z dz du dv)
-data SomeForwardFinalEdge s a da z dz = forall du. SomeForwardFinalEdge (Edge (AnyHead s a da z dz) (SinkNode a da z dz) a da z dz du dz)
-
-data ForwardInnerNode s a da z dz dx where
-    ForwardInnerNode :: BasicVector dx => [SomeForwardInnerEdge s a da z dz dx] -> ForwardInnerNode s a da z dz dx
-
-data ForwardFinalNode s a da z dz = ForwardFinalNode (SinkNode a da z dz dz) [SomeForwardFinalEdge s a da z dz]
-
-data ForwardGraph s a da z dz = ForwardGraph (NodeMap s (ForwardInnerNode s a da z dz)) (ForwardFinalNode s a da z dz)
+data ForwardGraph s da dz = ForwardGraph (NodeMap s (ForwardInnerNode s da dz)) (ForwardFinalNode s da dz)
 
 
-data SomeBackwardInnerEdge s a da z dz du = forall dv. SomeBackwardInnerEdge (Edge (InnerNode s a da z dz) (AnyTail s a da z dz) a da z dz du dv)
-data SomeBackwardInitialEdge s a da z dz = forall dv. SomeBackwardInitialEdge (Edge (SourceNode a da z dz) (AnyTail s a da z dz) a da z dz da dv)
+data SomeBackwardInnerEdge s da dz du = forall dv. SomeBackwardInnerEdge (Edge (InnerNode s da dz) (AnyTail s da dz) da dz du dv)
+data SomeBackwardInitialEdge s da dz = forall dv. SomeBackwardInitialEdge (Edge (SourceNode da dz) (AnyTail s da dz) da dz da dv)
 
-data BackwardInnerNode s a da z dz dx where
-    BackwardInnerNode :: BasicVector dx => [SomeBackwardInnerEdge s a da z dz dx] -> BackwardInnerNode s a da z dz dx
+data BackwardInnerNode s da dz dx where
+    BackwardInnerNode :: BasicVector dx => [SomeBackwardInnerEdge s da dz dx] -> BackwardInnerNode s da dz dx
 
-data BackwardInitialNode s a da z dz = BackwardInitialNode [SomeBackwardInitialEdge s a da z dz]
+data BackwardInitialNode s da dz = BackwardInitialNode [SomeBackwardInitialEdge s da dz]
 
-data BackwardGraph s a da z dz = BackwardGraph (NodeMap s (BackwardInnerNode s a da z dz)) (BackwardInitialNode s a da z dz)
+data BackwardGraph s da dz = BackwardGraph (NodeMap s (BackwardInnerNode s da dz)) (BackwardInitialNode s da dz)
 
-data AnyEdge s a da z dz = forall du dv. AnyEdge (Edge (AnyHead s a da z dz) (AnyTail s a da z dz) a da z dz du dv)
+data AnyEdge s da dz = forall du dv. AnyEdge (Edge (AnyHead s da dz) (AnyTail s da dz) da dz du dv)
 
-convertGraph :: forall s a da z dz. NodeMap s (SharedExprS s a da) -> SharedExprS s a da dz -> ForwardGraph s a da z dz
+convertGraph :: forall s da dz. NodeMap s (SharedExprS s da) -> SharedExprS s da dz -> ForwardGraph s da dz
 convertGraph env (ExprSum zs) = ForwardGraph (NodeMap.mapmapWithKey convertInnerNode env) (ForwardFinalNode SinkNode (convertFinalEdge <$> zs))
-    where convertInnerNode :: forall dx. NodeKey s dx -> SharedExprS s a da dx -> ForwardInnerNode s a da z dz dx
+    where convertInnerNode :: forall dx. NodeKey s dx -> SharedExprS s da dx -> ForwardInnerNode s da dz dx
           convertInnerNode xname (ExprSum xs) = ForwardInnerNode (convertInnerEdge xname <$> xs)
-          convertInnerEdge :: forall dx. NodeKey s dx -> SharedTermS s a da dx -> SomeForwardInnerEdge s a da z dz dx
+          convertInnerEdge :: forall dx. NodeKey s dx -> SharedTermS s da dx -> SomeForwardInnerEdge s da dz dx
           convertInnerEdge tail = \case
             Func2 f x -> SomeForwardInnerEdge (Edge (InnerNode tail) f (convertArg x))
-          convertArg :: SharedArgS s a da du -> AnyHead s a da z dz du
+          convertArg :: SharedArgS s da du -> AnyHead s da dz du
           convertArg = \case
              ArgVar -> SourceHead SourceNode
              ArgExpr argName -> InnerHead (InnerNode argName)
-          convertFinalEdge :: SharedTermS s a da dz -> SomeForwardFinalEdge s a da z dz
+          convertFinalEdge :: SharedTermS s da dz -> SomeForwardFinalEdge s da dz
           convertFinalEdge = \case
             Func2 f x -> SomeForwardFinalEdge (Edge SinkNode f (convertArg x))
 
 newtype BackValue dx = BackValue dx
     deriving Generic
 
-goBackEdge' :: forall s head a da z dz du dv. BasicVector du => NodeMap s BackValue -> dz -> Edge head (AnyTail s a da z dz) a da z dz du dv -> VecBuilder du
+goBackEdge' :: forall s head da dz du dv. BasicVector du => NodeMap s BackValue -> dz -> Edge head (AnyTail s da dz) da dz du dv -> VecBuilder du
 goBackEdge' ys dz (Edge tail f _head) = backF1 f (goTail tail)
-    where goTail :: AnyTail s a da z dz dx -> dx
+    where goTail :: AnyTail s da dz dx -> dx
           goTail = \case
             SinkTail tail' -> case tail' of
                 SinkNode -> dz
@@ -124,37 +114,37 @@ goBackEdge' ys dz (Edge tail f _head) = backF1 f (goTail tail)
                 InnerNode nodeName -> case NodeMap.lookup ys nodeName of
                     BackValue x -> x
 
-evalBackMap :: forall s a da z dz. NodeMap s (BackwardInnerNode s a da z dz) -> dz -> NodeMap s BackValue
+evalBackMap :: forall s da dz. NodeMap s (BackwardInnerNode s da dz) -> dz -> NodeMap s BackValue
 evalBackMap dxs dz = ys
     where ys = NodeMap.mapmap go dxs
-          go :: forall dx. BackwardInnerNode s a da z dz dx -> BackValue dx
+          go :: forall dx. BackwardInnerNode s da dz dx -> BackValue dx
           go (BackwardInnerNode xs') = BackValue (sumBuilder (goEdge <$> xs'))
-          goEdge :: BasicVector dx => SomeBackwardInnerEdge s a da z dz dx -> VecBuilder dx
+          goEdge :: BasicVector dx => SomeBackwardInnerEdge s da dz dx -> VecBuilder dx
           goEdge = \case
             SomeBackwardInnerEdge e -> goBackEdge' ys dz e
 
-instance BasicVector da => TensorProduct dz (BackwardGraph s a da z dz) da where
+instance BasicVector da => TensorProduct dz (BackwardGraph s da dz) da where
     dx ⊗ BackwardGraph env (BackwardInitialNode edges) = sumBuilder (go <$> edges)
-        where go :: SomeBackwardInitialEdge s a da z dz -> VecBuilder da
+        where go :: SomeBackwardInitialEdge s da dz -> VecBuilder da
               go (SomeBackwardInitialEdge edge) = goBackEdge' env' dx edge
               env' = evalBackMap env dx
 
-allFwdEdges :: forall s a da z dz. ForwardGraph s a da z dz -> [AnyEdge s a da z dz]
+allFwdEdges :: forall s da dz. ForwardGraph s da dz -> [AnyEdge s da dz]
 allFwdEdges (ForwardGraph env (ForwardFinalNode _ es)) = finalEdges ++ innerEdges
-    where innerEdges :: [AnyEdge s a da z dz]
+    where innerEdges :: [AnyEdge s da dz]
           innerEdges = concatMap nodeEdges (NodeMap.toList env)
             where nodeEdges (NodeMap.SomeItem _name (ForwardInnerNode xs)) = go <$> xs
-                    where go :: SomeForwardInnerEdge s a da z dz dv -> AnyEdge s a da z dz
+                    where go :: SomeForwardInnerEdge s da dz dv -> AnyEdge s da dz
                           go (SomeForwardInnerEdge (Edge tail f head)) = AnyEdge (Edge (InnerTail tail) f head)
-          finalEdges :: [AnyEdge s a da z dz]
+          finalEdges :: [AnyEdge s da dz]
           finalEdges = go <$> es
-            where go :: SomeForwardFinalEdge s a da z dz -> AnyEdge s a da z dz
+            where go :: SomeForwardFinalEdge s da dz -> AnyEdge s da dz
                   go (SomeForwardFinalEdge (Edge tail f head)) = AnyEdge (Edge (SinkTail tail) f head)
 
 classifyBackEdge
-  :: forall s a da z dz.
-     AnyEdge s a da z dz
-  -> Either (SomeBackwardInitialEdge s a da z dz) (SomeItem s (SomeBackwardInnerEdge s a da z dz))
+  :: forall s da dz.
+     AnyEdge s da dz
+  -> Either (SomeBackwardInitialEdge s da dz) (SomeItem s (SomeBackwardInnerEdge s da dz))
 classifyBackEdge (AnyEdge (Edge tail f head)) = case head of
     SourceHead x -> case x of
         SourceNode -> Left (SomeBackwardInitialEdge (Edge tail f SourceNode))
@@ -165,26 +155,26 @@ data NodeDict dx = BasicVector dx => NodeDict
 cvItemS :: SomeItem s f -> SomeItem s f
 cvItemS (SomeItem x y) = SomeItem x y
 
-backFromEdges :: forall s a da z dz. NodeSet s => NodeMap s NodeDict -> [AnyEdge s a da z dz] -> BackwardGraph s a da z dz
+backFromEdges :: forall s da dz. NodeSet s => NodeMap s NodeDict -> [AnyEdge s da dz] -> BackwardGraph s da dz
 backFromEdges dictmap edges = BackwardGraph edgeMap (BackwardInitialNode initial)
     where (initial, inner) = partitionEithers (classifyBackEdge <$> edges)
-          edgeList :: NodeMap s (List2 (SomeBackwardInnerEdge s a da z dz))
+          edgeList :: NodeMap s (List2 (SomeBackwardInnerEdge s da dz))
           edgeList = NodeMap.fromList [NodeMap.SomeItem xname (mkNode xname x) | (NodeMap.SomeItem xname x) <- (cvItemS <$> inner)]
-            where mkNode :: NodeKey s dv -> SomeBackwardInnerEdge s a da z dz dv -> SomeBackwardInnerEdge s a da z dz dv
+            where mkNode :: NodeKey s dv -> SomeBackwardInnerEdge s da dz dv -> SomeBackwardInnerEdge s da dz dv
                   mkNode xname x = case (NodeMap.lookup dictmap xname) of
                       NodeDict -> x
-          edgeMap :: NodeMap s (BackwardInnerNode s a da z dz)
+          edgeMap :: NodeMap s (BackwardInnerNode s da dz)
           edgeMap = NodeMap.zipWith withDict dictmap edgeList
-          withDict :: NodeDict dx -> List2 (SomeBackwardInnerEdge s a da z dz) dx -> BackwardInnerNode s a da z dz dx
+          withDict :: NodeDict dx -> List2 (SomeBackwardInnerEdge s da dz) dx -> BackwardInnerNode s da dz dx
           withDict NodeDict (List2 xs) = BackwardInnerNode xs
 
-mkdict :: ForwardGraph s a da z dz -> NodeMap s NodeDict
+mkdict :: ForwardGraph s da dz -> NodeMap s NodeDict
 mkdict (ForwardGraph env _) = NodeMap.mapmap go env
-    where go :: ForwardInnerNode s a da z dz dv -> NodeDict dv
+    where go :: ForwardInnerNode s da dz dv -> NodeDict dv
           go = \case
             ForwardInnerNode _ -> NodeDict
 
-flipGraph :: NodeSet s => ForwardGraph s a da z dz -> BackwardGraph s a da z dz
+flipGraph :: NodeSet s => ForwardGraph s da dz -> BackwardGraph s da dz
 flipGraph fwd = backFromEdges (mkdict fwd) (allFwdEdges fwd)
 
 data f :⊗ g :: Type -> Type -> Type -> Type -> Type where
