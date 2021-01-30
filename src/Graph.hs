@@ -20,8 +20,7 @@ module Graph
     , BackwardGraph(..)
     , BackwardInnerNode(..), BackwardInitialNode(..)
     , SomeBackwardInnerEdge(..),SomeBackwardInitialEdge(..)
-    , Edge(..)
-    , AnyHead(..), AnyTail(..), InnerNode(..)
+    , Head(..), Tail(..)
     , convertGraph
     , flipGraph
     )
@@ -45,24 +44,19 @@ import Notensor
     , backF1
     )
 
-data InnerNode s da dz dx where
-    InnerNode :: NodeKey s dx -> InnerNode s da dz dx
+data Head s da dz dx where
+    SourceHead :: Head s da dz da
+    InnerHead :: NodeKey s dx -> Head s da dz dx
 
-data AnyHead s da dz dx where
-    SourceHead :: AnyHead s da dz da
-    InnerHead :: NodeKey s dx -> AnyHead s da dz dx
-
-data AnyTail s da dz dx where
-    SinkTail :: AnyTail s da dz dz
-    InnerTail :: NodeKey s dx -> AnyTail s da dz dx
-
-data Edge head tail da dz du dv = Edge (tail dv) (AFunction1 du dv) (head du)
+data Tail s da dz dx where
+    SinkTail :: Tail s da dz dz
+    InnerTail :: NodeKey s dx -> Tail s da dz dx
 
 data ForwardEdge head da dz du dv = ForwardEdge (AFunction1 du dv) (head du)
 data BackwardEdge tail da dz du dv = BackwardEdge (tail dv) (AFunction1 du dv)
 
-data SomeForwardInnerEdge s da dz dv = forall du. SomeForwardInnerEdge (ForwardEdge (AnyHead s da dz) da dz du dv)
-data SomeForwardFinalEdge s da dz = forall du. SomeForwardFinalEdge (ForwardEdge (AnyHead s da dz) da dz du dz)
+data SomeForwardInnerEdge s da dz dv = forall du. SomeForwardInnerEdge (ForwardEdge (Head s da dz) da dz du dv)
+data SomeForwardFinalEdge s da dz = forall du. SomeForwardFinalEdge (ForwardEdge (Head s da dz) da dz du dz)
 
 data ForwardInnerNode s da dz dx where
     ForwardInnerNode :: BasicVector dx => [SomeForwardInnerEdge s da dz dx] -> ForwardInnerNode s da dz dx
@@ -71,8 +65,8 @@ data ForwardFinalNode s da dz = ForwardFinalNode [SomeForwardFinalEdge s da dz]
 
 data ForwardGraph s da dz = ForwardGraph (NodeMap s (ForwardInnerNode s da dz)) (ForwardFinalNode s da dz)
 
-data SomeBackwardInnerEdge s da dz du = forall dv. SomeBackwardInnerEdge (BackwardEdge (AnyTail s da dz) da dz du dv)
-data SomeBackwardInitialEdge s da dz = forall dv. SomeBackwardInitialEdge (BackwardEdge (AnyTail s da dz) da dz da dv)
+data SomeBackwardInnerEdge s da dz du = forall dv. SomeBackwardInnerEdge (BackwardEdge (Tail s da dz) da dz du dv)
+data SomeBackwardInitialEdge s da dz = forall dv. SomeBackwardInitialEdge (BackwardEdge (Tail s da dz) da dz da dv)
 
 data BackwardInnerNode s da dz dx where
     BackwardInnerNode :: BasicVector dx => [SomeBackwardInnerEdge s da dz dx] -> BackwardInnerNode s da dz dx
@@ -81,7 +75,7 @@ data BackwardInitialNode s da dz = BackwardInitialNode [SomeBackwardInitialEdge 
 
 data BackwardGraph s da dz = BackwardGraph (NodeMap s (BackwardInnerNode s da dz)) (BackwardInitialNode s da dz)
 
-data AnyEdge s da dz = forall du dv. AnyEdge (Edge (AnyHead s da dz) (AnyTail s da dz) da dz du dv)
+data AnyEdge s da dz = forall du dv. AnyEdge (Tail s da dz dv) (AFunction1 du dv) (Head s da dz du)
 
 convertGraph :: forall s da dz. NodeMap s (SharedExprS s da) -> SharedExprS s da dz -> ForwardGraph s da dz
 convertGraph env (ExprSum zs) = ForwardGraph (NodeMap.mapmap convertInnerNode env) (ForwardFinalNode (convertFinalEdge <$> zs))
@@ -90,7 +84,7 @@ convertGraph env (ExprSum zs) = ForwardGraph (NodeMap.mapmap convertInnerNode en
           convertInnerEdge :: forall dx. SharedTermS s da dx -> SomeForwardInnerEdge s da dz dx
           convertInnerEdge = \case
             Func2 f x -> SomeForwardInnerEdge (ForwardEdge f (convertArg x))
-          convertArg :: SharedArgS s da du -> AnyHead s da dz du
+          convertArg :: SharedArgS s da du -> Head s da dz du
           convertArg = \case
              ArgVar -> SourceHead
              ArgExpr argName -> InnerHead argName
@@ -101,9 +95,9 @@ convertGraph env (ExprSum zs) = ForwardGraph (NodeMap.mapmap convertInnerNode en
 newtype BackValue dx = BackValue dx
     deriving Generic
 
-goBackEdge' :: forall s da dz du dv. BasicVector du => NodeMap s BackValue -> dz -> BackwardEdge (AnyTail s da dz) da dz du dv -> VecBuilder du
+goBackEdge' :: forall s da dz du dv. BasicVector du => NodeMap s BackValue -> dz -> BackwardEdge (Tail s da dz) da dz du dv -> VecBuilder du
 goBackEdge' ys dz (BackwardEdge tail f) = backF1 f (goTail tail)
-    where goTail :: AnyTail s da dz dx -> dx
+    where goTail :: Tail s da dz dx -> dx
           goTail = \case
             SinkTail -> dz
             InnerTail nodeName -> case NodeMap.lookup ys nodeName of
@@ -127,7 +121,7 @@ instance BasicVector da => TensorProduct dz (BackwardGraph s da dz) da where
 forwardNodeEdges :: forall s da dz dx. NodeKey s dx -> ForwardInnerNode s da dz dx -> [AnyEdge s da dz]
 forwardNodeEdges name (ForwardInnerNode xs) = go <$> xs
     where go :: SomeForwardInnerEdge s da dz dx -> AnyEdge s da dz
-          go (SomeForwardInnerEdge (ForwardEdge f head)) = AnyEdge (Edge (InnerTail name) f head)
+          go (SomeForwardInnerEdge (ForwardEdge f head)) = AnyEdge (InnerTail name) f head
 
 allFwdEdges :: forall s da dz. ForwardGraph s da dz -> [AnyEdge s da dz]
 allFwdEdges (ForwardGraph env (ForwardFinalNode es)) = finalEdges ++ innerEdges
@@ -137,13 +131,13 @@ allFwdEdges (ForwardGraph env (ForwardFinalNode es)) = finalEdges ++ innerEdges
           finalEdges :: [AnyEdge s da dz]
           finalEdges = go <$> es
             where go :: SomeForwardFinalEdge s da dz -> AnyEdge s da dz
-                  go (SomeForwardFinalEdge (ForwardEdge f head)) = AnyEdge (Edge SinkTail f head)
+                  go (SomeForwardFinalEdge (ForwardEdge f head)) = AnyEdge SinkTail f head
 
 classifyBackEdge
   :: forall s da dz.
      AnyEdge s da dz
   -> Either (SomeBackwardInitialEdge s da dz) (SomeItem s (SomeBackwardInnerEdge s da dz))
-classifyBackEdge (AnyEdge (Edge tail f head)) = case head of
+classifyBackEdge (AnyEdge tail f head) = case head of
     SourceHead -> Left (SomeBackwardInitialEdge (BackwardEdge tail f))
     InnerHead x -> Right (SomeItem x (SomeBackwardInnerEdge (BackwardEdge tail f)))
 
