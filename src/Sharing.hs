@@ -56,7 +56,7 @@ insertTreeBuilder name value = do
 
 insertTreeBuilder'
     :: OpenKey v dv
-    -> TreeBuilder f (f v dv) -- ^ blah
+    -> TreeBuilder f (f v dv)
     -> TreeBuilder f (OpenKey v dv, f v dv)
 insertTreeBuilder' name computeAction = do
     cache <- TreeCache get

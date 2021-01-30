@@ -28,7 +28,7 @@ module Graph
 where
 import Prelude hiding (head, tail)
 import Sharing()
-import Tensor(transposeFunc, LinearFunction, TensorProduct(..), AFunction(..))
+import Tensor(transposeFunc, LinearFunction, TensorProduct(..))
 
 import NodeMap (NodeSet, SharedArgS, SharedTermS,  SharedExprS,  NodeMap, NodeKey, SomeItem(SomeItem), List2(List2))
 import Data.VectorSpace (sumV, AdditiveGroup)
@@ -39,6 +39,7 @@ import NodeMap ()
 
 import qualified NodeMap
 import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2), Expr3(ExprSum))
+import Notensor (BasicVectors, BasicVector(VecBuilder, sumBuilder), AFunction2(backF, fwdF, AFunction2))
 
 {-
 data PassthroughEdge a da z dz = AFunction a da z dz
@@ -66,13 +67,13 @@ data AnyTail s a da z dz x dx where
     SinkTail :: SinkNode a da z dz x dx -> AnyTail s a da z dz x dx
     InnerTail :: InnerNode s a da z dz x dx -> AnyTail s a da z dz x dx
 
-data Edge head tail a da z dz u du v dv = Edge (tail a da z dz v dv) (AFunction u du v dv) (head a da z dz u du)
+data Edge head tail a da z dz u du v dv = Edge (tail a da z dz v dv) (AFunction2 u du v dv) (head a da z dz u du)
 
 data SomeForwardInnerEdge s a da z dz v dv = forall u du. SomeForwardInnerEdge (Edge (AnyHead s) (InnerNode s) a da z dz u du v dv)
 data SomeForwardFinalEdge s a da z dz = forall u du. SomeForwardFinalEdge (Edge (AnyHead s) SinkNode a da z dz u du z dz)
 
 data ForwardInnerNode s a da z dz x dx where
-    ForwardInnerNode :: (AdditiveGroup x, AdditiveGroup dx) => [SomeForwardInnerEdge s a da z dz x dx] -> ForwardInnerNode s a da z dz x dx
+    ForwardInnerNode :: BasicVectors x dx => [SomeForwardInnerEdge s a da z dz x dx] -> ForwardInnerNode s a da z dz x dx
 
 data ForwardFinalNode s a da z dz = ForwardFinalNode (SinkNode a da z dz z dz) [SomeForwardFinalEdge s a da z dz]
 
@@ -83,7 +84,7 @@ data SomeBackwardInnerEdge s a da z dz u du = forall v dv. SomeBackwardInnerEdge
 data SomeBackwardInitialEdge s a da z dz = forall v dv. SomeBackwardInitialEdge (Edge SourceNode (AnyTail s) a da z dz a da v dv)
 
 data BackwardInnerNode s a da z dz x dx where
-    BackwardInnerNode :: AdditiveGroup dx => [SomeBackwardInnerEdge s a da z dz x dx] -> BackwardInnerNode s a da z dz x dx
+    BackwardInnerNode :: BasicVector dx => [SomeBackwardInnerEdge s a da z dz x dx] -> BackwardInnerNode s a da z dz x dx
 
 data BackwardInitialNode s a da z dz = BackwardInitialNode [SomeBackwardInitialEdge s a da z dz]
 
@@ -111,11 +112,12 @@ newtype FwdValue x dx = FwdValue x
 newtype BackValue x dx = BackValue dx
     deriving Generic
 
-instance AdditiveGroup x => AdditiveGroup (FwdValue x dx)
-instance AdditiveGroup dx => AdditiveGroup (BackValue x dx)
+--instance AdditiveGroup x => AdditiveGroup (FwdValue x dx)
+--instance AdditiveGroup dx => AdditiveGroup (BackValue x dx)
 
-goEdge' :: forall s tail a da z dz u du v dv. NodeMap s FwdValue -> a -> Edge (AnyHead s) tail a da z dz u du v dv -> v
-goEdge' ys a (Edge _tail f head) = f ⊗ goHead head
+
+goEdge' :: forall s tail a da z dz u du v dv. BasicVector v => NodeMap s FwdValue -> a -> Edge (AnyHead s) tail a da z dz u du v dv -> VecBuilder v
+goEdge' ys a (Edge _tail f head) = fwdF f (goHead head)
     where goHead :: AnyHead s a da z dz x dx -> x
           goHead = \case
             SourceHead head' -> case head' of
@@ -128,13 +130,13 @@ evalFwdMap :: forall s a da z dz. NodeMap s (ForwardInnerNode s a da z dz) -> a 
 evalFwdMap xs a = ys
     where ys = NodeMap.mapmap go xs
           go :: forall x dx. ForwardInnerNode s a da z dz x dx -> FwdValue x dx
-          go (ForwardInnerNode xs') = sumV (goEdge <$> xs')
-          goEdge :: SomeForwardInnerEdge s a da z dz x dx -> FwdValue x dx
+          go (ForwardInnerNode xs') = FwdValue (sumBuilder (goEdge <$> xs'))
+          goEdge :: BasicVector x => SomeForwardInnerEdge s a da z dz x dx -> VecBuilder x
           goEdge = \case
-            SomeForwardInnerEdge e -> FwdValue (goEdge' ys a e)
+            SomeForwardInnerEdge e -> goEdge' ys a e
 
-goBackEdge' :: forall s head a da z dz u du v dv. NodeMap s BackValue -> dz -> Edge head (AnyTail s) a da z dz u du v dv -> du
-goBackEdge' ys dz (Edge tail f _head) = goTail tail ⊗ f
+goBackEdge' :: forall s head a da z dz u du v dv. BasicVector du => NodeMap s BackValue -> dz -> Edge head (AnyTail s) a da z dz u du v dv -> VecBuilder du
+goBackEdge' ys dz (Edge tail f _head) = backF f (goTail tail)
     where goTail :: AnyTail s a da z dz x dx -> dx
           goTail = \case
             SinkTail tail' -> case tail' of
@@ -147,20 +149,20 @@ evalBackMap :: forall s a da z dz. NodeMap s (BackwardInnerNode s a da z dz) -> 
 evalBackMap dxs dz = ys
     where ys = NodeMap.mapmap go dxs
           go :: forall x dx. BackwardInnerNode s a da z dz x dx -> BackValue x dx
-          go (BackwardInnerNode xs') = sumV (goEdge <$> xs')
-          goEdge :: SomeBackwardInnerEdge s a da z dz x dx -> BackValue x dx
+          go (BackwardInnerNode xs') = BackValue (sumBuilder (goEdge <$> xs'))
+          goEdge :: BasicVector dx => SomeBackwardInnerEdge s a da z dz x dx -> VecBuilder dx
           goEdge = \case
-            SomeBackwardInnerEdge e -> BackValue (goBackEdge' ys dz e)
+            SomeBackwardInnerEdge e -> goBackEdge' ys dz e
 
-instance AdditiveGroup z => TensorProduct (ForwardGraph s a da z dz) a z where
-    ForwardGraph env (ForwardFinalNode _sink edges) ⊗ x = sumV (go <$> edges)
-        where go :: SomeForwardFinalEdge s a da z dz -> z
+instance BasicVector z => TensorProduct (ForwardGraph s a da z dz) a z where
+    ForwardGraph env (ForwardFinalNode _sink edges) ⊗ x = sumBuilder (go <$> edges)
+        where go :: BasicVector z => SomeForwardFinalEdge s a da z dz -> VecBuilder z
               go (SomeForwardFinalEdge edge) = goEdge' env' x edge
               env' = evalFwdMap env x
 
-instance AdditiveGroup da => TensorProduct dz (BackwardGraph s a da z dz) da where
-    dx ⊗ BackwardGraph env (BackwardInitialNode edges) = sumV (go <$> edges)
-        where go :: SomeBackwardInitialEdge s a da z dz -> da
+instance BasicVector da => TensorProduct dz (BackwardGraph s a da z dz) da where
+    dx ⊗ BackwardGraph env (BackwardInitialNode edges) = sumBuilder (go <$> edges)
+        where go :: SomeBackwardInitialEdge s a da z dz -> VecBuilder da
               go (SomeBackwardInitialEdge edge) = goBackEdge' env' dx edge
               env' = evalBackMap env dx
 
@@ -185,7 +187,7 @@ classifyBackEdge (AnyEdge (Edge tail f head)) = case head of
         SourceNode -> Left (SomeBackwardInitialEdge (Edge tail f SourceNode))
     InnerHead node@(InnerNode x) -> Right (SomeItem x (SomeBackwardInnerEdge (Edge tail f node)))
 
-data NodeDict x dx = (AdditiveGroup x, AdditiveGroup dx) => NodeDict
+data NodeDict x dx = BasicVectors x dx => NodeDict
 
 cvItemS :: SomeItem s f -> SomeItem s f
 cvItemS (SomeItem x y) = SomeItem x y
