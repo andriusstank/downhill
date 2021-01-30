@@ -125,13 +125,16 @@ instance BasicVector da => TensorProduct dz (BackwardGraph s da dz) da where
               go (SomeBackwardInitialEdge edge) = goBackEdge' env' dx edge
               env' = evalBackMap env dx
 
+forwardNodeEdges :: forall s da dz dx. NodeKey s dx -> ForwardInnerNode s da dz dx -> [AnyEdge s da dz]
+forwardNodeEdges name (ForwardInnerNode xs) = go <$> xs
+    where go :: SomeForwardInnerEdge s da dz dx -> AnyEdge s da dz
+          go (SomeForwardInnerEdge (Edge _tail f head)) = AnyEdge (Edge (InnerTail (InnerNode name)) f head)
+
 allFwdEdges :: forall s da dz. ForwardGraph s da dz -> [AnyEdge s da dz]
 allFwdEdges (ForwardGraph env (ForwardFinalNode _ es)) = finalEdges ++ innerEdges
     where innerEdges :: [AnyEdge s da dz]
           innerEdges = concatMap nodeEdges (NodeMap.toList env)
-            where nodeEdges (NodeMap.SomeItem _name (ForwardInnerNode xs)) = go <$> xs
-                    where go :: SomeForwardInnerEdge s da dz dv -> AnyEdge s da dz
-                          go (SomeForwardInnerEdge (Edge tail f head)) = AnyEdge (Edge (InnerTail tail) f head)
+            where nodeEdges (NodeMap.SomeItem name node) = forwardNodeEdges name node
           finalEdges :: [AnyEdge s da dz]
           finalEdges = go <$> es
             where go :: SomeForwardFinalEdge s da dz -> AnyEdge s da dz
