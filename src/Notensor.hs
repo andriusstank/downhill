@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Notensor
 ( BasicVector(..), BasicVectors, FullVector(..), FullVectors
-, AFunction2(..), ProdVector(..)
+, AFunction1(..), AFunction2(..), ProdVector(..)
 , mkAFunction2
 , identityFunc, negateFunc, scaleFunc
 , transposeFunc2
@@ -53,6 +53,8 @@ transposeFunc2 (AFunction2 fwd back) = AFunction2 back fwd
 
 type BasicVectors v dv = (BasicVector v, BasicVector dv)
 type FullVectors v dv = (FullVector v, FullVector dv, Scalar v ~ Scalar dv)
+
+data AFunction1 du dv = AFunction1 { backF1 :: dv -> VecBuilder du }
 
 data AFunction2 u du v dv = AFunction2
     { fwdF :: u -> VecBuilder v
