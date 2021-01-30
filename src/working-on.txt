@@ -1,0 +1,1 @@
+why AdditiveGroup in Sharing.hs?? insertExpr3 barks.

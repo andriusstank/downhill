@@ -1,10 +1,13 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE GADTs #-}
 {-# language PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Trace where
 import Tensor
     ( AFunction(..), TensorProduct((⊗)) )
-import Data.VectorSpace (AdditiveGroup(..))
+import Data.VectorSpace (sumV, VectorSpace(..), AdditiveGroup(..))
 import Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
@@ -19,9 +22,11 @@ import NodeMap (runRecoverSharing5)
 import Data.Coerce (coerce)
 import Data.Constraint.Unsafe (Coercible)
 import Expr (Term3)
+import Notensor (FullVectors, BasicVectors, FullVector(..), BasicVector(..), AFunction2(AFunction2), identityFunc)
+import GHC.Generics (Generic)
 
-newtype R = R Integer
-    deriving Show
+newtype R = R { unR :: Integer }
+    deriving (Show, Generic)
 
 instance AdditiveGroup R where
     zeroV = unsafePerformIO $ do
@@ -39,8 +44,20 @@ instance AdditiveGroup R where
             hPutStrLn stderr (show x' ++ "+" ++ show y' ++ " -> " ++ show z)
         return (R z)
 
-tracingFunc :: String -> Integer -> AFunction R R R R
-tracingFunc name value = BlackBoxFunc fwd back
+instance VectorSpace R where
+    type Scalar R = Integer
+
+instance BasicVector R where
+    type VecBuilder R = R
+    sumBuilder = sumV
+
+instance FullVector R where
+    identityBuilder = id
+    negateBuilder = negateV
+    scaleBuilder a = (a *^)
+
+tracingFunc :: String -> Integer -> AFunction2 R R R R
+tracingFunc name value = AFunction2 fwd back
     where fwd (R x) = unsafePerformIO $ do
             x' <- evaluate x
             let y = value*x'
@@ -52,14 +69,15 @@ tracingFunc name value = BlackBoxFunc fwd back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: Expr2 a da v dv -> Term3 (Expr2 a da) a da v dv
-exprToTerm = Func2 IndentityFunc . ArgExpr
+exprToTerm :: FullVectors v dv => Expr2 a da v dv -> Term3 (Expr2 a da) a da v dv
+exprToTerm = Func2 identityFunc . ArgExpr
 
 
 testExpr :: IO (Expr2 R R R R)
 testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
+        x0, x1 :: Expr2 R R R R
         x0 = Expr2 (ExprSum [Func2 f ArgVar])
         x1 = Expr2 (ExprSum [Func2 g ArgVar])
         x2 = Expr2 (ExprSum [exprToTerm x0, exprToTerm x1])
