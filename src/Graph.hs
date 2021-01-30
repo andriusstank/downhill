@@ -52,11 +52,11 @@ data Tail s da dz dx where
     SinkTail :: Tail s da dz dz
     InnerTail :: NodeKey s dx -> Tail s da dz dx
 
-data ForwardEdge head da dz du dv = ForwardEdge (AFunction1 du dv) (head du)
-data BackwardEdge tail da dz du dv = BackwardEdge (tail dv) (AFunction1 du dv)
+data ForwardEdge s da dz du dv = ForwardEdge (AFunction1 du dv) (Head s da dz du)
+data BackwardEdge s da dz du dv = BackwardEdge (Tail s da dz dv) (AFunction1 du dv)
 
-data SomeForwardInnerEdge s da dz dv = forall du. SomeForwardInnerEdge (ForwardEdge (Head s da dz) da dz du dv)
-data SomeForwardFinalEdge s da dz = forall du. SomeForwardFinalEdge (ForwardEdge (Head s da dz) da dz du dz)
+data SomeForwardInnerEdge s da dz dv = forall du. SomeForwardInnerEdge (ForwardEdge s da dz du dv)
+data SomeForwardFinalEdge s da dz = forall du. SomeForwardFinalEdge (ForwardEdge s da dz du dz)
 
 data ForwardInnerNode s da dz dx where
     ForwardInnerNode :: BasicVector dx => [SomeForwardInnerEdge s da dz dx] -> ForwardInnerNode s da dz dx
@@ -65,8 +65,8 @@ data ForwardFinalNode s da dz = ForwardFinalNode [SomeForwardFinalEdge s da dz]
 
 data ForwardGraph s da dz = ForwardGraph (NodeMap s (ForwardInnerNode s da dz)) (ForwardFinalNode s da dz)
 
-data SomeBackwardInnerEdge s da dz du = forall dv. SomeBackwardInnerEdge (BackwardEdge (Tail s da dz) da dz du dv)
-data SomeBackwardInitialEdge s da dz = forall dv. SomeBackwardInitialEdge (BackwardEdge (Tail s da dz) da dz da dv)
+data SomeBackwardInnerEdge s da dz du = forall dv. SomeBackwardInnerEdge (BackwardEdge s da dz du dv)
+data SomeBackwardInitialEdge s da dz = forall dv. SomeBackwardInitialEdge (BackwardEdge s da dz da dv)
 
 data BackwardInnerNode s da dz dx where
     BackwardInnerNode :: BasicVector dx => [SomeBackwardInnerEdge s da dz dx] -> BackwardInnerNode s da dz dx
@@ -95,7 +95,7 @@ convertGraph env (ExprSum zs) = ForwardGraph (NodeMap.mapmap convertInnerNode en
 newtype BackValue dx = BackValue dx
     deriving Generic
 
-goBackEdge' :: forall s da dz du dv. BasicVector du => NodeMap s BackValue -> dz -> BackwardEdge (Tail s da dz) da dz du dv -> VecBuilder du
+goBackEdge' :: forall s da dz du dv. BasicVector du => NodeMap s BackValue -> dz -> BackwardEdge s da dz du dv -> VecBuilder du
 goBackEdge' ys dz (BackwardEdge tail f) = backF1 f (goTail tail)
     where goTail :: Tail s da dz dx -> dx
           goTail = \case
