@@ -22,7 +22,7 @@ import NodeMap (runRecoverSharing5)
 import Data.Coerce (coerce)
 import Data.Constraint.Unsafe (Coercible)
 import Expr (Term3)
-import Notensor (ProdVector(..), FullVectors, BasicVectors, FullVector(..), BasicVector(..), AFunction2(AFunction2), identityFunc)
+import Notensor (ProdVector(..), FullVectors, BasicVectors, FullVector(..), BasicVector(..), identityFunc, AFunction1(AFunction1))
 import GHC.Generics (Generic)
 
 newtype R = R { unR :: Integer }
@@ -59,28 +59,23 @@ instance FullVector R where
     negateBuilder = negateV
     scaleBuilder a = (a *^)
 
-tracingFunc :: String -> Integer -> AFunction2 R R R R
-tracingFunc name value = AFunction2 fwd back
-    where fwd (R x) = unsafePerformIO $ do
-            x' <- evaluate x
-            let y = value*x'
-            hPutStrLn stderr (name ++ "(" ++ show x' ++ ") -> " ++ show y) 
-            return (R (value*x'))
-          back (R x) = unsafePerformIO $ do
+tracingFunc :: String -> Integer -> AFunction1 R R
+tracingFunc name value = AFunction1 back
+    where back (R x) = unsafePerformIO $ do
             x' <- evaluate x
             let y = value*x'
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVectors v dv => Expr2 a da v dv -> Term3 (Expr2 a da) a da v dv
+exprToTerm :: FullVector dv => Expr2 a da dv -> Term3 (Expr2 a da) a da dv
 exprToTerm = Func2 identityFunc . ArgExpr
 
 
-testExpr :: IO (Expr2 R R R R)
+testExpr :: IO (Expr2 R R R)
 testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
-        x0, x1 :: Expr2 R R R R
+        x0, x1 :: Expr2 R R R
         x0 = Expr2 (ExprSum [Func2 f ArgVar])
         x1 = Expr2 (ExprSum [Func2 g ArgVar])
         x2 = Expr2 (ExprSum [exprToTerm x0, exprToTerm x1])

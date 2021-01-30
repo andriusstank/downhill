@@ -22,23 +22,23 @@ import Control.Exception (evaluate)
 import System.Mem.StableName (makeStableName)
 import Types (SomeExpr(SomeExpr))
 
-newtype OpenKey x dx = OpenKey (StableName Any)
+newtype OpenKey dx = OpenKey (StableName Any)
 newtype OpenMap f = OpenMap { unOpenMap :: HashMap (StableName Any) (SomeExpr f) }
 
-data SomeOpenItem f = forall x dx. SomeOpenItem (OpenKey x dx) (f x dx)
+data SomeOpenItem f = forall dx. SomeOpenItem (OpenKey dx) (f dx)
 
 empty :: OpenMap f
 empty = OpenMap HashMap.empty
 
-mapmap :: forall f g. (forall v dv. f v dv -> g v dv) -> OpenMap f -> OpenMap g
+mapmap :: forall f g. (forall dv. f dv -> g dv) -> OpenMap f -> OpenMap g
 mapmap f = OpenMap . fmap go . unOpenMap
     where go (SomeExpr y) = SomeExpr (f y)
 
-mapmapWithKey :: forall f g. (forall x dx. OpenKey x dx -> f x dx -> g x dx) -> OpenMap f -> OpenMap g
+mapmapWithKey :: forall f g. (forall dx. OpenKey dx -> f dx -> g dx) -> OpenMap f -> OpenMap g
 mapmapWithKey f = OpenMap . HashMap.mapWithKey go . unOpenMap
     where go key (SomeExpr y) = SomeExpr (f (OpenKey key) y)
 
-lookup :: OpenMap f -> OpenKey x dx -> Maybe (f x dx)
+lookup :: OpenMap f -> OpenKey dx -> Maybe (f dx)
 lookup (OpenMap m) (OpenKey k) = unsafeCastType''' <$> HashMap.lookup k m
 
 
@@ -49,24 +49,24 @@ toList = fmap wrap . HashMap.toList . unOpenMap
           wrap (key, x) = case x of
               SomeExpr x' -> SomeOpenItem (OpenKey key) x'
 
-unsafeCastType''' :: SomeExpr f -> f v dv
+unsafeCastType''' :: SomeExpr f -> f dv
 unsafeCastType''' = \case
     SomeExpr x -> unsafeCoerce x
 
-intersectionWith :: forall f g h. (forall x dx. f x dx -> g x dx -> h x dx) -> OpenMap f -> OpenMap g -> OpenMap h
+intersectionWith :: forall f g h. (forall dx. f dx -> g dx -> h dx) -> OpenMap f -> OpenMap g -> OpenMap h
 intersectionWith f (OpenMap x) (OpenMap y) = OpenMap (HashMap.intersectionWith f' x y)
     where f' (SomeExpr x') sy = SomeExpr (f x' y')
             where y' = unsafeCastType''' sy
 
-insert :: forall f x dx. OpenKey x dx -> f x dx -> OpenMap f -> OpenMap f
+insert :: forall f dx. OpenKey dx -> f dx -> OpenMap f -> OpenMap f
 insert (OpenKey k) x (OpenMap m) = OpenMap (HashMap.insert k (SomeExpr x) m)
 
-adjust :: forall f x dx. (f x dx -> f x dx) -> OpenKey x dx -> OpenMap f -> OpenMap f
+adjust :: forall f dx. (f dx -> f dx) -> OpenKey dx -> OpenMap f -> OpenMap f
 adjust f (OpenKey key) (OpenMap m) = OpenMap m'
     where m' = HashMap.adjust f' key m
           f' x = SomeExpr (f (unsafeCastType''' x))
 
-makeOpenKey :: f v dv -> IO (OpenKey v dv)
+makeOpenKey :: f dv -> IO (OpenKey dv)
 makeOpenKey x = do
     x' <- evaluate x
     z <- makeStableName x'

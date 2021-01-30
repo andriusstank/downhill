@@ -23,22 +23,22 @@ import qualified Prelude
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (AFunction2, transposeFunc2, ProdVector, FullVectors, fstF, sndF, BasicVector,  BasicVectors)
+import Notensor (ProdVector, BasicVector, FullVector, fstF1, sndF1, intoFst, intoSnd)
 
-type BVar b a da v dv = AffineFunc b (ExprArg (Expr2 a da) a da v dv)
+type BVar b a da v dv = AffineFunc b (ExprArg (Expr2 a da) a da dv)
 
 type BVarS a = BVar a a a a a
 
 bvarValue :: AffineFunc b dv -> b
 bvarValue (AffineFunc y0 _dy) = y0
 
-constant :: BasicVectors v dv => b -> BVar b a da v dv
+constant :: BasicVector dv => b -> BVar b a da v dv
 constant x = AffineFunc x (ArgExpr zeroE)
 
 var :: b -> BVar b v dv v dv
 var x = AffineFunc x ArgVar
 
-backprop' :: forall a da v dv. BasicVector da => Expr2 a da v dv -> dv -> da
+backprop' :: forall a da dv. BasicVector da => Expr2 a da dv -> dv -> da
 backprop' dy dv = unsafePerformIO $ do
     NodeMap.SomeSharedExprWithMap smap expr <- runRecoverSharing5 dy :: IO (NodeMap.SomeSharedExprWithMap a da v dv)
     let x' = Graph.convertGraph smap expr -- :: Graph.ForwardGraph s a da v dv
@@ -53,26 +53,22 @@ backprop (AffineFunc _y0 y) dv = case y of
 backpropS :: (BasicVector da, Num dv) => BVar b a da v dv -> da
 backpropS x = backprop x 1
 
-fstT :: FullVectors u du => ExprArg (Expr2 a da) a da (u, v) (du, dv) -> Term3 (Expr2 a da) a da u du
-fstT x = Func2 fstF x
-fstA :: FullVectors u du => ExprArg (Expr2 a da) a da (u, v) (du, dv) -> ExprArg (Expr2 a da) a da u du
+fstT :: FullVector du => ExprArg (Expr2 a da) a da (du, dv) -> Term3 (Expr2 a da) a da du
+fstT x = Func2 fstF1 x
+fstA :: FullVector du => ExprArg (Expr2 a da) a da (du, dv) -> ExprArg (Expr2 a da) a da du
 fstA x = ArgExpr (Expr2 (ExprSum [fstT x]))
-fst :: FullVectors u du => BVar (b1, b2) a da (u, v) (du, dv) -> BVar b1 a da u du
+fst :: FullVector du => BVar (b1, b2) a da (u, v) (du, dv) -> BVar b1 a da u du
 fst (AffineFunc y0 dy) = AffineFunc (Prelude.fst y0) (fstA dy)
 
-sndT :: FullVectors v dv => ExprArg (Expr2 a da) a da (u, v) (du, dv) -> Term3 (Expr2 a da) a da v dv
-sndT x = Func2 sndF x
-sndA :: FullVectors v dv => ExprArg (Expr2 a da) a da (u, v) (du, dv) -> ExprArg (Expr2 a da) a da v dv
+sndT :: FullVector dv => ExprArg (Expr2 a da) a da (du, dv) -> Term3 (Expr2 a da) a da dv
+sndT x = Func2 sndF1 x
+sndA :: FullVector dv => ExprArg (Expr2 a da) a da (du, dv) -> ExprArg (Expr2 a da) a da dv
 sndA x = ArgExpr (Expr2 (ExprSum [sndT x]))
-snd :: FullVectors v dv => BVar (b1, b2) a da (u, v) (du, dv) -> BVar b2 a da v dv
+snd :: FullVector dv => BVar (b1, b2) a da (u, v) (du, dv) -> BVar b2 a da v dv
 snd (AffineFunc y0 dy) = AffineFunc (Prelude.snd y0) (sndA dy)
 
-zipA :: forall a da u du v dv. (ProdVector u, ProdVector du, ProdVector v, ProdVector dv) => ExprArg (Expr2 a da) a da u du -> ExprArg (Expr2 a da) a da v dv -> ExprArg (Expr2 a da) a da (u, v) (du, dv)
+zipA :: forall a da du dv. (ProdVector du, ProdVector dv) => ExprArg (Expr2 a da) a da du -> ExprArg (Expr2 a da) a da dv -> ExprArg (Expr2 a da) a da (du, dv)
 zipA x y = ArgExpr (Expr2 (ExprSum [Func2 intoFst x, Func2 intoSnd y]))
-    where intoFst :: (ProdVector u, ProdVector du) => AFunction2 u du (u, v) (du, dv)
-          intoFst = transposeFunc2 fstF
-          intoSnd :: (ProdVector u, ProdVector du) => AFunction2 v dv (u, v) (du, dv)
-          intoSnd = transposeFunc2 sndF
 
-zip :: (ProdVector u, ProdVector du, ProdVector v, ProdVector dv) => BVar b a da u du -> BVar c a da v dv -> BVar (b, c) a da (u, v) (du, dv)
+zip :: (ProdVector du, ProdVector dv) => BVar b a da u du -> BVar c a da v dv -> BVar (b, c) a da (u, v) (du, dv)
 zip (AffineFunc x dx) (AffineFunc y dy) = AffineFunc (x, y) (zipA dx dy)

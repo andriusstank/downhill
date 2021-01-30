@@ -39,37 +39,37 @@ newtype TreeBuilder f r = TreeCache { unTreeCache :: StateT (OpenMap f) IO r }
     deriving (Functor, Applicative, Monad)
 
 
-insertTreeCache :: OpenKey v dv -> f v dv -> TreeBuilder f ()
+insertTreeCache :: OpenKey dv -> f dv -> TreeBuilder f ()
 insertTreeCache name value = do
     cache' <- TreeCache get
     let newCache = OpenMap.insert name value cache'
     TreeCache (put newCache)
 
 insertTreeBuilder
-    :: OpenKey v dv
-    -> TreeBuilder f (f v dv)
-    -> TreeBuilder f (OpenKey v dv, f v dv)
+    :: OpenKey dv
+    -> TreeBuilder f (f dv)
+    -> TreeBuilder f (OpenKey dv, f dv)
 insertTreeBuilder name value = do
     y <- value
     insertTreeCache name y
     return (name, y)
 
 insertTreeBuilder'
-    :: OpenKey v dv
-    -> TreeBuilder f (f v dv)
-    -> TreeBuilder f (OpenKey v dv, f v dv)
+    :: OpenKey dv
+    -> TreeBuilder f (f dv)
+    -> TreeBuilder f (OpenKey dv, f dv)
 insertTreeBuilder' name computeAction = do
     cache <- TreeCache get
     case OpenMap.lookup cache name of
         Just x -> return (name, x)
         Nothing -> insertTreeBuilder name computeAction
 
-newtype BuildAction f g = BuildAction (forall v dv. f v dv -> TreeBuilder g (g v dv))
+newtype BuildAction f g = BuildAction (forall dv. f dv -> TreeBuilder g (g dv))
 
 insertExpr
   :: BuildAction f g
-  -> f v dv
-  -> TreeBuilder g (OpenKey v dv, g v dv)
+  -> f dv
+  -> TreeBuilder g (OpenKey dv, g dv)
 insertExpr (BuildAction value) expr = do
     name <- TreeCache (lift (OpenMap.makeOpenKey expr))
     insertTreeBuilder' name (value expr)

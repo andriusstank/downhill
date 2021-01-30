@@ -9,7 +9,7 @@ module Notensor
 , mkAFunction2
 , identityFunc, negateFunc, scaleFunc
 , transposeFunc2
-, fstF, sndF
+, fstF, fstF1, sndF, sndF1, toFunc1, intoFst, intoSnd
 ) where
 import Data.Kind (Type)
 import Data.VectorSpace (VectorSpace(Scalar))
@@ -39,10 +39,27 @@ instance (ProdVector a, ProdVector b) => ProdVector (a, b) where
     zeroBuilder = (Nothing, Nothing)
     identityBuilder (x, y) = (Just (identityBuilder x), Just (identityBuilder y))
 
+fstF1 :: ProdVector du => AFunction1 (du, dv) du
+fstF1 = AFunction1 back
+    where back x = (Just (identityBuilder x), Nothing)
+
+intoFst :: ProdVector du => AFunction1 du (du, dv)
+intoFst = AFunction1 fwd
+    where fwd (x, _) = identityBuilder x
+
 fstF :: (ProdVector u, ProdVector du) => AFunction2 (u, v) (du, dv) u du
 fstF = AFunction2 fwd back
     where fwd (x, _) = identityBuilder x
           back x = (Just (identityBuilder x), Nothing)
+
+sndF1 :: ProdVector dv => AFunction1 (du, dv) dv
+sndF1 = AFunction1 back
+    where back x = (Nothing, Just (identityBuilder x))
+
+intoSnd :: ProdVector dv => AFunction1 dv (du, dv)
+intoSnd = AFunction1 fwd
+    where fwd (_, x) = identityBuilder x
+
 sndF :: (ProdVector v, ProdVector dv) => AFunction2 (u, v) (du, dv) v dv
 sndF = AFunction2 fwd back
     where fwd (_, x) = identityBuilder x
@@ -61,19 +78,22 @@ data AFunction2 u du v dv = AFunction2
     , backF :: dv -> VecBuilder du
     }
 
+toFunc1 :: AFunction2 u du v dv -> AFunction1 du dv
+toFunc1 (AFunction2 _ back) = AFunction1 back
+
 -- TODO: review all uses
 mkAFunction2 :: (FullVector v, FullVector du) => (u->v) -> (dv->du) -> AFunction2 u du v dv
 mkAFunction2 fwd back = AFunction2 (identityBuilder . fwd) (identityBuilder . back)
 
-negateFunc :: (FullVector u, FullVector du) => AFunction2 u du u du
-negateFunc = AFunction2 negateBuilder negateBuilder
+negateFunc :: FullVector du => AFunction1 du du
+negateFunc = AFunction1 negateBuilder
 
-identityFunc :: (FullVector u, FullVector du) => AFunction2 u du u du
-identityFunc = AFunction2 identityBuilder identityBuilder
+identityFunc :: FullVector du => AFunction1 du du
+identityFunc = AFunction1 identityBuilder
 
 
-scaleFunc :: (FullVector u, FullVector du, Scalar u ~ Scalar du) => Scalar u -> AFunction2 u du u du
-scaleFunc a = AFunction2 (scaleBuilder a) (scaleBuilder a)
+scaleFunc :: FullVector du => Scalar du -> AFunction1 du du
+scaleFunc a = AFunction1 (scaleBuilder a)
 
 -- TODO: remove TensorProduct instances
 instance BasicVector v => TensorProduct (AFunction2 u du v dv) u v where

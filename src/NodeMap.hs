@@ -50,25 +50,25 @@ import Data.Data (Proxy(Proxy))
 import Data.Constraint (Dict(Dict))
 import qualified Data.HashMap.Lazy as HashMap
 
-data Unit x dx = Unit
+data Unit dx = Unit
 
-newtype List2 f x dx = List2 [f x dx]
+newtype List2 f dx = List2 [f dx]
 
-type role NodeKey nominal nominal nominal
-newtype NodeKey s x dx = NodeKey (OpenKey x dx)
+type role NodeKey nominal nominal
+newtype NodeKey s dx = NodeKey (OpenKey dx)
 newtype NodeMap s f = NodeMap { unNodeMap :: OpenMap f }
 
-data SomeItem s f = forall x dx. SomeItem (NodeKey s x dx) (f x dx)
+data SomeItem s f = forall dx. SomeItem (NodeKey s dx) (f dx)
 
 class NodeSet s where
     nodesetDict :: OpenMap Unit
 
-mapmap :: forall s f g. (forall v dv. f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
+mapmap :: forall s f g. (forall dv. f dv -> g dv) -> NodeMap s f -> NodeMap s g
 mapmap f = NodeMap . OpenMap.mapmap f . unNodeMap
 
-mapmapWithKey :: forall s f g. (forall v dv. NodeKey s v dv -> f v dv -> g v dv) -> NodeMap s f -> NodeMap s g
+mapmapWithKey :: forall s f g. (forall dv. NodeKey s dv -> f dv -> g dv) -> NodeMap s f -> NodeMap s g
 mapmapWithKey f (NodeMap x) = NodeMap (OpenMap.mapmapWithKey f' x)
-    where f' :: OpenKey x dx -> f x dx -> g x dx
+    where f' :: OpenKey dx -> f dx -> g dx
           f' key' x' = f (NodeKey key') x'
 
 toList :: NodeMap s f -> [SomeItem s f]
@@ -76,26 +76,26 @@ toList (NodeMap m) =  wrap <$> OpenMap.toList m
     where wrap :: SomeOpenItem f -> SomeItem s f
           wrap (SomeOpenItem key value) = SomeItem (NodeKey key) value
 
-lookup :: NodeMap s f -> NodeKey s v dv -> f v dv
+lookup :: NodeMap s f -> NodeKey s dv -> f dv
 lookup (NodeMap m) (NodeKey key) =
     case OpenMap.lookup m key of
         Just x -> x
         Nothing -> error "oh fuck"
 
-tryLookup :: NodeMap s f -> OpenKey x dx -> Maybe (NodeKey s x dx, f x dx)
+tryLookup :: NodeMap s f -> OpenKey dx -> Maybe (NodeKey s dx, f dx)
 tryLookup (NodeMap m) key =
     case OpenMap.lookup m key of
         Just x -> Just (NodeKey key, x)
         Nothing -> Nothing
 
-generate :: forall s f. NodeSet s => (forall x dx. NodeKey s x dx -> f x dx) -> NodeMap s f
+generate :: forall s f. NodeSet s => (forall dx. NodeKey s dx -> f dx) -> NodeMap s f
 generate f = case nodesetDict @s of
     m -> mapmapWithKey (\key _ -> f key) (NodeMap m)
 
-zipWith :: forall s f g h. (forall x dx. f x dx -> g x dx -> h x dx) -> NodeMap s f -> NodeMap s g -> NodeMap s h
+zipWith :: forall s f g h. (forall dx. f dx -> g dx -> h dx) -> NodeMap s f -> NodeMap s g -> NodeMap s h
 zipWith f (NodeMap x) (NodeMap y) = NodeMap (OpenMap.intersectionWith f x y)
 
-adjust :: forall s f x dx. (f x dx -> f x dx) -> NodeKey s x dx -> NodeMap s f -> NodeMap s f
+adjust :: forall s f dx. (f dx -> f dx) -> NodeKey s dx -> NodeMap s f -> NodeMap s f
 adjust f (NodeKey key) (NodeMap m) = NodeMap (OpenMap.adjust f key m)
 
 fromList :: forall s f. NodeSet s => [SomeItem s f] -> NodeMap s (List2 f)
@@ -110,17 +110,17 @@ type SharedTermS s = Term3 (NodeKey s)
 type SharedExprS s = Expr3 (NodeKey s)
 
 data SomeSharedExprWithMap a da z dz where
-    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s a da) -> SharedExprS s a da z dz -> SomeSharedExprWithMap a da z dz
+    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s a da) -> SharedExprS s a da dz -> SomeSharedExprWithMap a da z dz
 
-cvthelper :: forall s a da v dv. NodeSet s => NodeMap s (OpenExpr a da) -> OpenExpr a da v dv -> SomeSharedExprWithMap a da v dv
+cvthelper :: forall s a da v dv. NodeSet s => NodeMap s (OpenExpr a da) -> OpenExpr a da dv -> SomeSharedExprWithMap a da v dv
 cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
-    where cvtexpr :: forall x dx. OpenExpr a da x dx -> SharedExprS s a da x dx
+    where cvtexpr :: forall dx. OpenExpr a da dx -> SharedExprS s a da dx
           cvtexpr = \case
             ExprSum terms -> ExprSum (cvtterm <$> terms)
-          cvtterm :: forall x dx. Term3 OpenKey a da x dx -> Term3 (NodeKey s) a da x dx
+          cvtterm :: forall dx. Term3 OpenKey a da dx -> Term3 (NodeKey s) a da dx
           cvtterm = \case
             Func2 f x' -> Func2 f (cvtarg x')
-          cvtarg :: forall u du. ExprArg OpenKey a da u du -> ExprArg (NodeKey s) a da u du
+          cvtarg :: forall du. ExprArg OpenKey a da du -> ExprArg (NodeKey s) a da du
           cvtarg = \case
             ArgVar -> ArgVar
             ArgExpr key -> case tryLookup m key of
@@ -128,11 +128,11 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
                 Nothing -> error "oh fuck"
           
 
-cvtmap :: (OpenExpr a da v dv, OpenMap (OpenExpr a da)) -> SomeSharedExprWithMap a da v dv
+cvtmap :: (OpenExpr a da dv, OpenMap (OpenExpr a da)) -> SomeSharedExprWithMap a da v dv
 cvtmap (x, m) = case uncheckedMakeNodeMap m of
     SomeNodeMap m' -> cvthelper m' x
 
-runRecoverSharing5 :: forall a da v dv. Expr2 a da v dv -> IO (SomeSharedExprWithMap a da v dv)
+runRecoverSharing5 :: forall a da v dv. Expr2 a da dv -> IO (SomeSharedExprWithMap a da v dv)
 runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4 x
 
 data SomeNodeMap f where
