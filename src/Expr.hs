@@ -8,7 +8,7 @@
 
 module Expr
 (
-    Expr3(..), ExprArg(..), Term3(..), Expr2(..), zeroE, sumExpr2
+    Expr3(..), ExprArg(..), Term3(..), Expr2(..), zeroE, sumExpr2, expr2to5, expr5to2
 )
 where
 --import Tensor(TensorProduct(..), LinearFunction, AFunction, transposeFunc)
@@ -16,6 +16,7 @@ import Tensor
 import Data.VectorSpace (VectorSpace(..),  AdditiveGroup(..), sumV)
 import Data.Constraint
 import Notensor (VecBuilder, FullVector, FullVectors, BasicVector, scaleFunc, BasicVectors, negateFunc, AFunction2(AFunction2), identityFunc, AFunction1)
+import EType (Expr4 (Expr4Sum))
 -- class (TensorProduct f u v, TensorProduct dv f du) => LinearFunction b f u v du dv | f -> b where
 
 --data SomeLinearFunc b v dv where
@@ -31,9 +32,30 @@ data Term3 p da dv where
 
 data Expr3 p da dv = BasicVector dv => ExprSum [Term3 p da dv]
 
---type Term2 a da = Term3 (Expr2 a da) a da
-
 newtype Expr2 da dv = Expr2 { unExpr2 :: Expr3 (Expr2 da) da dv }
+
+newtype Expr5 da dv = Expr5 { unExpr5 :: Expr4 (Term3 (Expr5 da) da) dv }
+
+expr2to5 :: Expr2 da dv -> Expr5 da dv
+expr2to5 (Expr2 (ExprSum xs)) = Expr5 (Expr4Sum (goTerm <$> xs))
+    where goTerm :: Term3 (Expr2 da) da dv -> Term3 (Expr5 da) da dv
+          goTerm = \case
+            Func2 f arg -> Func2 f (goArg arg)
+          goArg :: ExprArg (Expr2 da) da du -> ExprArg (Expr5 da) da du
+          goArg = \case
+            ArgVar -> ArgVar
+            ArgExpr x -> ArgExpr (expr2to5 x)
+
+expr5to2 :: Expr5 da dv -> Expr2 da dv
+expr5to2 (Expr5 (Expr4Sum xs)) = Expr2 (ExprSum (goTerm <$> xs))
+    where goTerm :: Term3 (Expr5 da) da dv -> Term3 (Expr2 da) da dv
+          goTerm = \case
+            Func2 f arg -> Func2 f (goArg arg)
+          goArg :: ExprArg (Expr5 da) da du -> ExprArg (Expr2 da) da du
+          goArg = \case
+            ArgVar -> ArgVar
+            ArgExpr x -> ArgExpr (expr5to2 x)
+
 
 zeroE :: BasicVector dv => Expr2 da dv
 zeroE = Expr2 (ExprSum [])
@@ -84,3 +106,4 @@ instance BasicVector da => TensorProduct dv (Expr2 a da v dv) da where
 -- >>> 1
 
 -- Func :: LinearFunction b f u v du dv => f -> Expr' a da b u du -> Expr' a da b v dv
+

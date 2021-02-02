@@ -28,6 +28,7 @@ library
                        Affine,
                        Diff,
                        Notensor,
+                       EType,
                        Coolness
   -- other-modules:
   -- other-extensions:
