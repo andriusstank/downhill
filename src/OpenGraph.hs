@@ -62,4 +62,4 @@ runRecoverSharing4 :: forall da dz. Expr5 da dz -> IO (OpenExpr da dz, OpenMap (
 runRecoverSharing4 x = case x of
     Expr5 (Expr4Sum _) -> do
       let z = goSharing4 x :: (TreeBuilder (OpenExpr da) (OpenExpr da dz))
-      Sharing.runTreeBuilder @(Expr3 OpenKey da) @(Expr3 OpenKey) @da @dz z
+      Sharing.runTreeBuilder z

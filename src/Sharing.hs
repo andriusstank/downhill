@@ -74,5 +74,5 @@ insertExpr (BuildAction value) expr = do
     name <- TreeCache (lift (OpenMap.makeOpenKey expr))
     insertTreeBuilder' name (value expr)
 
-runTreeBuilder :: forall f g v dv. TreeBuilder f (g v dv) -> IO (g v dv, OpenMap f)
+runTreeBuilder :: forall f g dv. TreeBuilder f (g dv) -> IO (g dv, OpenMap f)
 runTreeBuilder rs_x = runStateT (unTreeCache rs_x) OpenMap.empty
