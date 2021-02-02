@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
@@ -56,4 +57,4 @@ runRecoverSharing4 :: forall da dz. Expr2 da dz -> IO (OpenExpr da dz, OpenMap (
 runRecoverSharing4 x = case x of
     Expr2 (ExprSum _) -> do
       let z = goSharing4 x :: (TreeBuilder (OpenExpr da) (OpenExpr da dz))
-      Sharing.runTreeBuilder z
+      Sharing.runTreeBuilder @(Expr3 OpenKey da) @(Expr3 OpenKey) @da @dz z
