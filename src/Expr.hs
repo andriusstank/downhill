@@ -8,7 +8,7 @@
 
 module Expr
 (
-    Expr3(..), ExprArg(..), Term3(..), Expr2(..), zeroE, sumExpr2, expr2to5, expr5to2
+    Expr3(..), ExprArg(..), Term3(..), Expr2(..), Expr5(..), zeroE, sumExpr2, expr2to5, expr5to2
 )
 where
 --import Tensor(TensorProduct(..), LinearFunction, AFunction, transposeFunc)
@@ -32,12 +32,13 @@ data Term3 p da dv where
 
 data Expr3 p da dv = BasicVector dv => ExprSum [Term3 p da dv]
 
-newtype Expr2 da dv = Expr2 { unExpr2 :: Expr3 (Expr2 da) da dv }
+--newtype Expr2 da dv = Expr2 { unExpr2 :: Expr3 (Expr2 da) da dv }
 
+type Expr2 = Expr5
 newtype Expr5 da dv = Expr5 { unExpr5 :: Expr4 (Term3 (Expr5 da) da) dv }
 
-expr2to5 :: Expr2 da dv -> Expr5 da dv
-expr2to5 (Expr2 (ExprSum xs)) = Expr5 (Expr4Sum (goTerm <$> xs))
+expr2to5 :: Expr5 da dv -> Expr5 da dv
+expr2to5 (Expr5 (Expr4Sum xs)) = Expr5 (Expr4Sum (goTerm <$> xs))
     where goTerm :: Term3 (Expr2 da) da dv -> Term3 (Expr5 da) da dv
           goTerm = \case
             Func2 f arg -> Func2 f (goArg arg)
@@ -47,7 +48,7 @@ expr2to5 (Expr2 (ExprSum xs)) = Expr5 (Expr4Sum (goTerm <$> xs))
             ArgExpr x -> ArgExpr (expr2to5 x)
 
 expr5to2 :: Expr5 da dv -> Expr2 da dv
-expr5to2 (Expr5 (Expr4Sum xs)) = Expr2 (ExprSum (goTerm <$> xs))
+expr5to2 (Expr5 (Expr4Sum xs)) = Expr5 (Expr4Sum (goTerm <$> xs))
     where goTerm :: Term3 (Expr5 da) da dv -> Term3 (Expr2 da) da dv
           goTerm = \case
             Func2 f arg -> Func2 f (goArg arg)
@@ -57,31 +58,31 @@ expr5to2 (Expr5 (Expr4Sum xs)) = Expr2 (ExprSum (goTerm <$> xs))
             ArgExpr x -> ArgExpr (expr5to2 x)
 
 
-zeroE :: BasicVector dv => Expr2 da dv
-zeroE = Expr2 (ExprSum [])
+zeroE :: BasicVector dv => Expr5 da dv
+zeroE = Expr5    (Expr4Sum [])
 
-instance FullVector dv => AdditiveGroup (Expr2 da dv) where
+instance FullVector dv => AdditiveGroup (Expr5 da dv) where
     zeroV = zeroE
-    negateV x = Expr2 (ExprSum [Func2 negateFunc (ArgExpr x)])
-    x ^+^ y = Expr2 (ExprSum [Func2 identityFunc (ArgExpr x), Func2 identityFunc (ArgExpr y)])
-    x ^-^ y = Expr2 (ExprSum [Func2 identityFunc (ArgExpr x), Func2 negateFunc (ArgExpr y)])
+    negateV x = Expr5 (Expr4Sum [Func2 negateFunc (ArgExpr x)])
+    x ^+^ y = Expr5 (Expr4Sum [Func2 identityFunc (ArgExpr x), Func2 identityFunc (ArgExpr y)])
+    x ^-^ y = Expr5 (Expr4Sum [Func2 identityFunc (ArgExpr x), Func2 negateFunc (ArgExpr y)])
 
-instance FullVector dv => VectorSpace (Expr2 da dv) where
-    type Scalar (Expr2 da dv) = Scalar dv
-    a *^ v = Expr2 (ExprSum [Func2 (scaleFunc a) (ArgExpr v)])
+instance FullVector dv => VectorSpace (Expr5 da dv) where
+    type Scalar (Expr5 da dv) = Scalar dv
+    a *^ v = Expr5 (Expr4Sum [Func2 (scaleFunc a) (ArgExpr v)])
 
-instance FullVector dv => AdditiveGroup (ExprArg (Expr2 da) da dv) where
+instance FullVector dv => AdditiveGroup (ExprArg (Expr5 da) da dv) where
     zeroV = ArgExpr zeroV
-    negateV x = ArgExpr (Expr2 (ExprSum [Func2 negateFunc x]))
-    x ^+^ y = ArgExpr (Expr2 (ExprSum [Func2 identityFunc x, Func2 identityFunc y]))
-    x ^-^ y = ArgExpr (Expr2 (ExprSum [Func2 identityFunc x, Func2 negateFunc y]))
+    negateV x = ArgExpr (Expr5 (Expr4Sum [Func2 negateFunc x]))
+    x ^+^ y = ArgExpr (Expr5 (Expr4Sum [Func2 identityFunc x, Func2 identityFunc y]))
+    x ^-^ y = ArgExpr (Expr5 (Expr4Sum [Func2 identityFunc x, Func2 negateFunc y]))
 
-instance FullVector dv => VectorSpace (ExprArg (Expr2 da) da dv) where
-    type Scalar (ExprArg (Expr2 da) da dv) = Scalar (Expr2 da dv)
-    a *^ x = ArgExpr (Expr2 (ExprSum [Func2 (scaleFunc a) x]))
+instance FullVector dv => VectorSpace (ExprArg (Expr5 da) da dv) where
+    type Scalar (ExprArg (Expr5 da) da dv) = Scalar (Expr5 da dv)
+    a *^ x = ArgExpr (Expr5 (Expr4Sum [Func2 (scaleFunc a) x]))
 
-sumExpr2 :: FullVector dv => [Expr2 da dv] -> Expr2 da dv
-sumExpr2 xs = Expr2 (ExprSum (wrap <$> xs))
+sumExpr2 :: FullVector dv => [Expr5 da dv] -> Expr5 da dv
+sumExpr2 xs = Expr5 (Expr4Sum (wrap <$> xs))
     where wrap x = Func2 identityFunc (ArgExpr x)
 {-
 instance BasicVector v => TensorProduct (Term3 (Expr2 a da) a da v dv) a (VecBuilder v) where

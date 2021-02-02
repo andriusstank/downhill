@@ -24,6 +24,7 @@ import Data.Constraint.Unsafe (Coercible)
 import Expr (Term3)
 import Notensor (ProdVector(..), FullVectors, BasicVectors, FullVector(..), BasicVector(..), identityFunc, AFunction1(AFunction1))
 import GHC.Generics (Generic)
+import EType (Expr4(Expr4Sum))
 
 newtype R = R { unR :: Integer }
     deriving (Show, Generic)
@@ -67,7 +68,7 @@ tracingFunc name value = AFunction1 back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVector dv => Expr2 da dv -> Term3 (Expr2 da) da dv
+exprToTerm :: FullVector dv => Expr5 da dv -> Term3 (Expr2 da) da dv
 exprToTerm = Func2 identityFunc . ArgExpr
 
 
@@ -75,15 +76,15 @@ testExpr :: IO (Expr2 R R)
 testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
-        x0, x1 :: Expr2 R R
-        x0 = Expr2 (ExprSum [Func2 f ArgVar])
-        x1 = Expr2 (ExprSum [Func2 g ArgVar])
-        x2 = Expr2 (ExprSum [exprToTerm x0, exprToTerm x1])
-        x3 = Expr2 (ExprSum [exprToTerm x1, exprToTerm x2])
-        x4 = Expr2 (ExprSum [exprToTerm x2, exprToTerm x3])
-        x5 = Expr2 (ExprSum [exprToTerm x3, exprToTerm x4])
-        x6 = Expr2 (ExprSum [exprToTerm x4, exprToTerm x5])
-        x7 = Expr2 (ExprSum [exprToTerm x5, exprToTerm x6])
+        x0, x1 :: Expr5 R R
+        x0 = Expr5 (Expr4Sum [Func2 f ArgVar])
+        x1 = Expr5 (Expr4Sum [Func2 g ArgVar])
+        x2 = Expr5 (Expr4Sum [exprToTerm x0, exprToTerm x1])
+        x3 = Expr5 (Expr4Sum [exprToTerm x1, exprToTerm x2])
+        x4 = Expr5 (Expr4Sum [exprToTerm x2, exprToTerm x3])
+        x5 = Expr5 (Expr4Sum [exprToTerm x3, exprToTerm x4])
+        x6 = Expr5 (Expr4Sum [exprToTerm x4, exprToTerm x5])
+        x7 = Expr5 (Expr4Sum [exprToTerm x5, exprToTerm x6])
     --    xs = [x0, x1, x2, x3, x4, x5, x6, x7]
     --traverse_ evaluate xs
     --names <- traverse makeStableName  xs

@@ -38,7 +38,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.VectorSpace (AdditiveGroup)
 import Tensor (AFunction)
 import Sharing (TreeBuilder, SomeExpr(..), BuildAction(..))
-import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2),  Expr3(ExprSum), Expr2(Expr2))
+import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2),  Expr3(ExprSum), Expr5)
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
 import OpenGraph (OpenExpr)
@@ -49,6 +49,7 @@ import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
 import Data.Constraint (Dict(Dict))
 import qualified Data.HashMap.Lazy as HashMap
+import EType (Expr4(Expr4Sum))
 
 data Unit dx = Unit
 
@@ -116,7 +117,7 @@ cvthelper :: forall s da dv. NodeSet s => NodeMap s (OpenExpr da) -> OpenExpr da
 cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
     where cvtexpr :: forall dx. OpenExpr da dx -> SharedExprS s da dx
           cvtexpr = \case
-            ExprSum terms -> ExprSum (cvtterm <$> terms)
+            Expr4Sum terms -> ExprSum (cvtterm <$> terms)
           cvtterm :: forall dx. Term3 OpenKey da dx -> Term3 (NodeKey s) da dx
           cvtterm = \case
             Func2 f x' -> Func2 f (cvtarg x')
@@ -132,7 +133,7 @@ cvtmap :: (OpenExpr da dv, OpenMap (OpenExpr da)) -> SomeSharedExprWithMap da dv
 cvtmap (x, m) = case uncheckedMakeNodeMap m of
     SomeNodeMap m' -> cvthelper m' x
 
-runRecoverSharing5 :: forall da dv. Expr2 da dv -> IO (SomeSharedExprWithMap da dv)
+runRecoverSharing5 :: forall da dv. Expr5 da dv -> IO (SomeSharedExprWithMap da dv)
 runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4 x
 
 data SomeNodeMap f where
