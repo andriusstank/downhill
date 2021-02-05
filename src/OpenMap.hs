@@ -20,7 +20,9 @@ import qualified Data.HashMap.Lazy as HashMap
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Exception (evaluate)
 import System.Mem.StableName (makeStableName)
-import Types (SomeExpr(SomeExpr))
+--import Types (SomeExpr(SomeExpr))
+
+data SomeExpr f = forall dv. SomeExpr (f dv)
 
 newtype OpenKey dx = OpenKey (StableName Any)
 newtype OpenMap f = OpenMap { unOpenMap :: HashMap (StableName Any) (SomeExpr f) }

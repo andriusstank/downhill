@@ -37,7 +37,7 @@ import qualified Data.HashMap.Strict as Map
 import Unsafe.Coerce (unsafeCoerce)
 import Data.VectorSpace (AdditiveGroup)
 import Tensor (AFunction)
-import Sharing (TreeBuilder, SomeExpr(..), BuildAction(..))
+import Sharing (TreeBuilder, BuildAction(..))
 import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2), Expr5)
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))

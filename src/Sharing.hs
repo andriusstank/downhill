@@ -14,7 +14,6 @@
 {-# language GeneralisedNewtypeDeriving #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 module Sharing (
-    SomeExpr(..),
     -- * Tree
     TreeBuilder,
     BuildAction(..),

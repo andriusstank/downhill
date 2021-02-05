@@ -26,17 +26,17 @@ import System.IO.Unsafe (unsafePerformIO)
 import Notensor (ProdVector, BasicVector, FullVector, fstF1, sndF1, intoFst, intoSnd)
 import EType (VectorSum(VectorSum))
 
-type BVar b a da v dv = AffineFunc b (ExprArg (Expr5 da) da dv)
+type BVar b a da dv = AffineFunc b (ExprArg (Expr5 da) da dv)
 
-type BVarS a = BVar a a a a a
+type BVarS a = BVar a a a a
 
 bvarValue :: AffineFunc b dv -> b
 bvarValue (AffineFunc y0 _dy) = y0
 
-constant :: BasicVector dv => b -> BVar b a da v dv
+constant :: BasicVector dv => b -> BVar b a da dv
 constant x = AffineFunc x (ArgExpr zeroE)
 
-var :: b -> BVar b v dv v dv
+var :: b -> BVar b v dv dv
 var x = AffineFunc x ArgVar
 
 backprop' :: forall da dv. BasicVector da => Expr5 da dv -> dv -> da
@@ -46,30 +46,30 @@ backprop' dy dv = unsafePerformIO $ do
         dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
     return (dv ⊗ dx')
 
-backprop :: forall b a da v dv. BasicVector da => BVar b a da v dv -> dv -> da
+backprop :: forall b a da dv. BasicVector da => BVar b a da dv -> dv -> da
 backprop (AffineFunc _y0 y) dv = case y of
     ArgVar -> dv
     ArgExpr x -> backprop' x dv
 
-backpropS :: (BasicVector da, Num dv) => BVar b a da v dv -> da
+backpropS :: (BasicVector da, Num dv) => BVar b a da dv -> da
 backpropS x = backprop x 1
 
 fstT :: FullVector du => ExprArg (Expr5 da) da (du, dv) -> Term3 (Expr5 da) da du
 fstT x = Func2 fstF1 x
 fstA :: FullVector du => ExprArg (Expr5 da) da (du, dv) -> ExprArg (Expr5 da) da du
 fstA x = ArgExpr (Expr5 (VectorSum [fstT x]))
-fst :: FullVector du => BVar (b1, b2) a da (u, v) (du, dv) -> BVar b1 a da u du
+fst :: FullVector du => BVar (b1, b2) a da (du, dv) -> BVar b1 a da du
 fst (AffineFunc y0 dy) = AffineFunc (Prelude.fst y0) (fstA dy)
 
 sndT :: FullVector dv => ExprArg (Expr5 da) da (du, dv) -> Term3 (Expr5 da) da dv
 sndT x = Func2 sndF1 x
 sndA :: FullVector dv => ExprArg (Expr5 da) da (du, dv) -> ExprArg (Expr5 da) da dv
 sndA x = ArgExpr (Expr5 (VectorSum [sndT x]))
-snd :: FullVector dv => BVar (b1, b2) a da (u, v) (du, dv) -> BVar b2 a da v dv
+snd :: FullVector dv => BVar (b1, b2) a da (du, dv) -> BVar b2 a da dv
 snd (AffineFunc y0 dy) = AffineFunc (Prelude.snd y0) (sndA dy)
 
 zipA :: forall da du dv. (ProdVector du, ProdVector dv) => ExprArg (Expr5 da) da du -> ExprArg (Expr5 da) da dv -> ExprArg (Expr5 da) da (du, dv)
 zipA x y = ArgExpr (Expr5 (VectorSum [Func2 intoFst x, Func2 intoSnd y]))
 
-zip :: (ProdVector du, ProdVector dv) => BVar b a da u du -> BVar c a da v dv -> BVar (b, c) a da (u, v) (du, dv)
+zip :: (ProdVector du, ProdVector dv) => BVar b a da du -> BVar c a da dv -> BVar (b, c) a da (du, dv)
 zip (AffineFunc x dx) (AffineFunc y dy) = AffineFunc (x, y) (zipA dx dy)
