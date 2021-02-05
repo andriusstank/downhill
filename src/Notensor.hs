@@ -11,14 +11,10 @@ module Notensor
 , transposeFunc2
 , fstF, fstF1, sndF, sndF1, toFunc1, intoFst, intoSnd
 ) where
-import Data.Kind (Type)
 import Data.VectorSpace (VectorSpace(Scalar))
 import Tensor (TensorProduct((⊗)))
 import Data.Maybe (catMaybes)
-
-class BasicVector v where
-    type VecBuilder v :: Type
-    sumBuilder :: [VecBuilder v] -> v
+import EType
 
 class BasicVector v => ProdVector v where
     zeroBuilder :: VecBuilder v

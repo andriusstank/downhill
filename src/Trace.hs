@@ -2,29 +2,23 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
 {-# language PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
+{- OPTIONS_GHC -Wno-unused-imports -}
 
 module Trace where
-import Tensor
-    ( AFunction(..), TensorProduct((⊗)) )
+import Tensor(TensorProduct((⊗)))
 import Data.VectorSpace (sumV, VectorSpace(..), AdditiveGroup(..))
 import Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
-import qualified Debug.Trace
 import Sharing ()
 import Graph
-import Control.Monad (forM_, forM, when)
-import System.Mem.StableName (makeStableName, hashStableName)
-import Data.Foldable (traverse_)
+import Control.Monad (when)
 import qualified NodeMap
 import NodeMap (runRecoverSharing5)
-import Data.Coerce (coerce)
-import Data.Constraint.Unsafe (Coercible)
 import Expr (Term3)
-import Notensor (ProdVector(..), FullVectors, BasicVectors, FullVector(..), BasicVector(..), identityFunc, AFunction1(AFunction1))
+import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, AFunction1(AFunction1))
 import GHC.Generics (Generic)
-import EType (Expr4(Expr4Sum))
+import EType (VectorSum(VectorSum))
 
 newtype R = R { unR :: Integer }
     deriving (Show, Generic)
@@ -68,23 +62,23 @@ tracingFunc name value = AFunction1 back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVector dv => Expr5 da dv -> Term3 (Expr2 da) da dv
+exprToTerm :: FullVector dv => Expr5 da dv -> Term3 (Expr5 da) da dv
 exprToTerm = Func2 identityFunc . ArgExpr
 
 
-testExpr :: IO (Expr2 R R)
+testExpr :: IO (Expr5 R R)
 testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
         x0, x1 :: Expr5 R R
-        x0 = Expr5 (Expr4Sum [Func2 f ArgVar])
-        x1 = Expr5 (Expr4Sum [Func2 g ArgVar])
-        x2 = Expr5 (Expr4Sum [exprToTerm x0, exprToTerm x1])
-        x3 = Expr5 (Expr4Sum [exprToTerm x1, exprToTerm x2])
-        x4 = Expr5 (Expr4Sum [exprToTerm x2, exprToTerm x3])
-        x5 = Expr5 (Expr4Sum [exprToTerm x3, exprToTerm x4])
-        x6 = Expr5 (Expr4Sum [exprToTerm x4, exprToTerm x5])
-        x7 = Expr5 (Expr4Sum [exprToTerm x5, exprToTerm x6])
+        x0 = Expr5 (VectorSum [Func2 f ArgVar])
+        x1 = Expr5 (VectorSum [Func2 g ArgVar])
+        x2 = Expr5 (VectorSum [exprToTerm x0, exprToTerm x1])
+        x3 = Expr5 (VectorSum [exprToTerm x1, exprToTerm x2])
+        x4 = Expr5 (VectorSum [exprToTerm x2, exprToTerm x3])
+        x5 = Expr5 (VectorSum [exprToTerm x3, exprToTerm x4])
+        x6 = Expr5 (VectorSum [exprToTerm x4, exprToTerm x5])
+        x7 = Expr5 (VectorSum [exprToTerm x5, exprToTerm x6])
     --    xs = [x0, x1, x2, x3, x4, x5, x6, x7]
     --traverse_ evaluate xs
     --names <- traverse makeStableName  xs
