@@ -16,7 +16,7 @@
  
 module Graph
     ( ForwardGraph(..)
-    , BackwardGraph(..)
+    , BackwardGraph
     , BackwardNode
     , Head(..)
     , convertGraph
@@ -54,11 +54,12 @@ type ForwardNode s f da dz = VectorSum (ForwardEdge s f da dz)
 
 data ForwardGraph s f da dz = ForwardGraph (NodeMap s (ForwardNode s f da dz)) (ForwardNode s f da dz dz)
 
-type BackwardEdge s da dz = ForwardEdge s BackFunction1 dz da
+--type BackwardEdge s da dz = ForwardEdge s BackFunction1 dz da
 
-type BackwardNode s da dz = VectorSum (BackwardEdge s da dz)
+type BackwardNode s da dz = VectorSum (ForwardEdge s BackFunction1 dz da)
 
-data BackwardGraph s da dz = BackwardGraph (NodeMap s (BackwardNode s da dz)) (BackwardNode s da dz da)
+--data BackwardGraph s da dz = BackwardGraph (NodeMap s (BackwardNode s da dz)) (BackwardNode s da dz da)
+type BackwardGraph s da dz = ForwardGraph s BackFunction1 dz da
 
 data AnyEdge s f da dz = forall du dv. AnyEdge (Head s dz da dv) (f du dv) (Head s da dz du)
 
@@ -93,13 +94,13 @@ evalBackMap dxs dz = ys
     where ys = NodeMap.mapmap go dxs
           go :: forall dx. BackwardNode s da dz dx -> BackValue dx
           go (VectorSum xs') = BackValue (sumBuilder (goEdge <$> xs'))
-          goEdge :: BasicVector dx => BackwardEdge s da dz dx -> VecBuilder dx
+          goEdge :: BasicVector dx => ForwardEdge s BackFunction1 dz da dx -> VecBuilder dx
           goEdge = \case
             ForwardEdge f tail -> goBackEdge' ys dz tail f
 
-instance BasicVector da => TensorProduct dz (BackwardGraph s da dz) da where
-    dx ⊗ BackwardGraph env (VectorSum edges) = sumBuilder (go <$> edges)
-        where go :: BackwardEdge s da dz da -> VecBuilder da
+instance BasicVector da => TensorProduct dz (ForwardGraph s BackFunction1 dz da) da where
+    dx ⊗ ForwardGraph env (VectorSum edges) = sumBuilder (go <$> edges)
+        where go :: ForwardEdge s BackFunction1 dz da da -> VecBuilder da
               go (ForwardEdge f tail) = goBackEdge' env' dx tail f
               env' = evalBackMap env dx
 
@@ -132,17 +133,21 @@ data NodeDict dx = BasicVector dx => NodeDict
 cvItemS :: SomeItem s f -> SomeItem s f
 cvItemS (SomeItem x y) = SomeItem x y
 
-backFromEdges :: forall s da dz. (NodeSet s, BasicVector da) => NodeMap s NodeDict -> [AnyEdge s AFunction1 da dz] -> BackwardGraph s da dz
-backFromEdges dictmap edges = BackwardGraph edgeMap (VectorSum initial)
+backFromEdges
+  :: forall s da dz. (NodeSet s, BasicVector da)
+  => NodeMap s NodeDict
+  -> [AnyEdge s AFunction1 da dz]
+  -> BackwardGraph s da dz
+backFromEdges dictmap edges = ForwardGraph edgeMap (VectorSum initial)
     where (initial, inner) = partitionEithers (classifyBackEdge' flipFunc1 <$> edges)
-          edgeList :: NodeMap s (List2 (BackwardEdge s da dz))
+          edgeList :: NodeMap s (List2 (ForwardEdge s BackFunction1 dz da))
           edgeList = NodeMap.fromList [NodeMap.SomeItem xname (mkNode xname x) | (NodeMap.SomeItem xname x) <- (cvItemS <$> inner)]
-            where mkNode :: NodeKey s dv -> BackwardEdge s da dz dv -> BackwardEdge s da dz dv
+            where mkNode :: NodeKey s dv -> ForwardEdge s BackFunction1 dz da dv -> ForwardEdge s BackFunction1 dz da dv
                   mkNode xname x = case (NodeMap.lookup dictmap xname) of
                       NodeDict -> x
           edgeMap :: NodeMap s (BackwardNode s da dz)
           edgeMap = NodeMap.zipWith withDict dictmap edgeList
-          withDict :: NodeDict dx -> List2 (BackwardEdge s da dz) dx -> BackwardNode s da dz dx
+          withDict :: NodeDict dx -> List2 (ForwardEdge s BackFunction1 dz da) dx -> BackwardNode s da dz dx
           withDict NodeDict (List2 xs) = VectorSum xs
 
 mkdict :: ForwardGraph s AFunction1 da dz -> NodeMap s NodeDict
