@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -5,7 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Notensor
 ( BasicVector(..), BasicVectors, FullVector(..), FullVectors
-, AFunction1(..), BackFunction1(..), flipFunc1, AFunction2(..), ProdVector(..)
+, AFunction1(..), BackFunction1(..), flipFunc1, AFunction2(..), ProdVector(..), Transpose(..)
 , mkAFunction2
 , identityFunc, negateFunc, scaleFunc
 , transposeFunc2
@@ -15,6 +16,7 @@ import Data.Kind (Type)
 import Data.VectorSpace (VectorSpace(Scalar))
 import Tensor (TensorProduct((⊗)))
 import Data.Maybe (catMaybes)
+import Data.Constraint (Dict(Dict))
 
 class BasicVector v where
     type VecBuilder v :: Type
@@ -73,6 +75,17 @@ type FullVectors v dv = (FullVector v, FullVector dv, Scalar v ~ Scalar dv)
 
 data AFunction1 du dv = AFunction1 { backF1 :: dv -> VecBuilder du }
 data BackFunction1 dv du = BackFunction1 { backF1' :: dv -> VecBuilder du }
+
+class Transpose (f :: Type -> Type -> Type) (g :: Type -> Type -> Type) where
+    transpose :: forall u v. f u v -> g v u
+    flipTranspose :: Dict (Transpose g f)
+
+instance Transpose AFunction1 BackFunction1 where
+    transpose (AFunction1 f) = BackFunction1 f
+    flipTranspose = Dict
+instance Transpose BackFunction1 AFunction1 where
+    transpose (BackFunction1 f) = AFunction1 f
+    flipTranspose = Dict
 
 flipFunc1 :: AFunction1 du dv -> BackFunction1 dv du
 flipFunc1 (AFunction1 f) = BackFunction1 f
