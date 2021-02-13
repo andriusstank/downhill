@@ -19,11 +19,10 @@ import Affine (AffineFunc(AffineFunc))
 import Tensor (TensorProduct((⊗)))
 import NodeMap (runRecoverSharing5)
 
-import qualified Prelude
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector, BasicVector, FullVector, fstF1, sndF1, intoFst, intoSnd, AFunction1)
+import Notensor (ProdVector, BasicVector, fstF1, sndF1, intoFst, intoSnd, AFunction1)
 import EType (VectorSum(VectorSum))
 
 type BVar b da dv = AffineFunc b (ExprArg (Expr5 da) da dv)

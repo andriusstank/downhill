@@ -42,6 +42,10 @@ import Notensor
     )
 import EType (VectorSum(VectorSum))
 
+-- IDEA: `TensorProduct (AFunction1 du dv) (BackValue du)` instance instead
+-- of `TensorProduct (AFunction1 du dv) du`, avoiding overlap issues
+newtype BackValue dx = BackValue dx
+
 data Head s da dz dx where
     SourceHead :: Head s da dz da
     InnerHead :: NodeKey s dx -> Head s da dz dx
@@ -50,7 +54,6 @@ data ForwardEdge s f da dz dv where
     ForwardEdge :: f du dv -> Head s da dz du -> ForwardEdge s f da dz dv
 
 type ForwardNode s f da dz = VectorSum (ForwardEdge s f da dz)
---type BackwardNode s f da dz = VectorSum (ForwardEdge s f dz da)
 
 data ForwardGraph s f da dz = ForwardGraph (NodeMap s (ForwardNode s f da dz)) (ForwardNode s f da dz dz)
 type BackwardGraph s da dz = ForwardGraph s BackFunction1 dz da
@@ -72,16 +75,16 @@ convertGraph env (VectorSum zs) = ForwardGraph (NodeMap.mapmap convertInnerNode 
           convertFinalEdge = \case
             Func2 f x -> ForwardEdge f (convertArg x)
 
-newtype BackValue dx = BackValue dx
-    deriving Generic
-
-goBackEdge' :: forall s da dz du dv. BasicVector du => NodeMap s BackValue -> dz -> Head s dz da dv -> BackFunction1 dv du -> VecBuilder du
-goBackEdge' ys dz tail f = backF1' f (goTail tail)
+lookupParentValue :: forall s da dz dv. NodeMap s BackValue -> dz -> Head s dz da dv -> dv
+lookupParentValue ys dz tail = (goTail tail)
     where goTail :: Head s dz da dx -> dx
           goTail = \case
             SourceHead -> dz
             InnerHead nodeName -> case NodeMap.lookup ys nodeName of
                 BackValue x -> x
+
+goBackEdge' :: forall s da dz du dv. BasicVector du => NodeMap s BackValue -> dz -> Head s dz da dv -> BackFunction1 dv du -> VecBuilder du
+goBackEdge' ys dz tail f = backF1' f (lookupParentValue ys dz tail)
 
 evalBackMap :: forall s da dz. NodeMap s (ForwardNode s BackFunction1 dz da) -> dz -> NodeMap s BackValue
 evalBackMap dxs dz = ys
