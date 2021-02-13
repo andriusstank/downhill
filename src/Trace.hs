@@ -101,7 +101,7 @@ _y = do
 _z :: IO ()
 _z = do
     NodeMap.SomeSharedExprWithMap smap expr <- _x ()
-    let y' = convertGraph smap expr
+    let y' = Graph smap expr
     let dy' = flipGraph y'
     putStrLn "back"
     ans2 <- evaluate (R 2 ⊗ dy')

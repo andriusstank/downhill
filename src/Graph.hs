@@ -16,7 +16,6 @@
  
 module Graph
     ( Graph(..)
-    , convertGraph
     , flipGraph
     )
 where
@@ -44,18 +43,8 @@ import EType (VectorSum(VectorSum))
 -- of `TensorProduct (AFunction1 du dv) du`, avoiding overlap issues
 newtype BackValue dx = BackValue { unBackValue :: dx }
 
-{-
-data Endpoint s da dx where
-    SourceNode :: Endpoint s da da
-    InnerNode :: NodeKey s dx -> Endpoint s da dx
--}
-
 type Endpoint s = ExprArg (NodeKey s)
 
-{-
-data Edge s e da dv where
-    Edge :: e du dv -> Endpoint s da du -> Edge s e da dv
--}
 type Edge s e = Term3 (NodeKey s) e
 
 type Node s e da = VectorSum (Edge s e da)
@@ -65,21 +54,6 @@ data Graph s e da dz = Graph (NodeMap s (Node s e da)) (Node s e da dz)
 data AnyEdge s f da dz = forall du dv. AnyEdge (Endpoint s dz dv) (f du dv) (Endpoint s da du)
 
 data NodeValues s da = NodeValues (NodeMap s BackValue) da
-
-convertGraph :: forall s da dz. NodeMap s (SharedExprS s da) -> SharedExprS s da dz -> Graph s AFunction1 da dz
-convertGraph env (VectorSum zs) = Graph (NodeMap.mapmap convertInnerNode env) (VectorSum (convertFinalEdge <$> zs))
-    where convertInnerNode :: forall dx. SharedExprS s da dx -> Node s AFunction1 da dx
-          convertInnerNode (VectorSum xs) = VectorSum (convertInnerEdge <$> xs)
-          convertInnerEdge :: forall dx. SharedTermS s da dx -> Edge s AFunction1 da dx
-          convertInnerEdge = \case
-            Func2 f x -> Func2 f (convertArg x)
-          convertArg :: SharedArgS s da du -> Endpoint s da du
-          convertArg = \case
-             ArgVar -> ArgVar
-             ArgExpr argName -> ArgExpr argName
-          convertFinalEdge :: SharedTermS s da dz -> Edge s AFunction1 da dz
-          convertFinalEdge = \case
-            Func2 f x -> Func2 f (convertArg x)
 
 lookupParentValue :: forall s dz dv. NodeValues s dz -> Endpoint s dz dv -> dv
 lookupParentValue (NodeValues ys dz) tail = (goTail tail)
