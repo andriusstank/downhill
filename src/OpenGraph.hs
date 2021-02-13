@@ -19,16 +19,17 @@ import qualified Sharing
 import Prelude hiding (lookup)
 import OpenMap (OpenMap, OpenKey)
 import EType (VectorSum (VectorSum))
+import Notensor (AFunction1)
 
 type OpenArg = ExprArg OpenKey
-type OpenTerm = Term3 OpenKey
+type OpenTerm = Term3 OpenKey AFunction1
 --type OpenExpr = Expr3 OpenKey
-type OpenExpr da = VectorSum (Term3 OpenKey da)
+type OpenExpr da = VectorSum (Term3 OpenKey AFunction1 da)
 
 
 goSharing4 :: forall da dv. Expr5 da dv -> TreeBuilder (OpenExpr da) (OpenExpr da dv)
 goSharing4 (Expr5 (VectorSum xs)) = do
-    let go' :: Term3 (Expr5 da) da dv -> TreeBuilder (OpenExpr da) (OpenTerm da dv)
+    let go' :: Term3 (Expr5 da) AFunction1 da dv -> TreeBuilder (OpenExpr da) (OpenTerm da dv)
         go' = goSharing4term
     xs' <- traverse go' xs
     return $ VectorSum xs'
@@ -49,7 +50,7 @@ goSharing4arg = \case
         (xRef, _sx) <- insertExpr3 sharingAction4 x
         return (ArgExpr xRef)
 
-goSharing4term :: forall da dv. Term3 (Expr5 da) da dv -> TreeBuilder (OpenExpr da) (OpenTerm da dv)
+goSharing4term :: forall da dv. Term3 (Expr5 da) AFunction1 da dv -> TreeBuilder (OpenExpr da) (OpenTerm da dv)
 goSharing4term = \case
     Func2 f arg -> do
         arg' <- goSharing4arg arg

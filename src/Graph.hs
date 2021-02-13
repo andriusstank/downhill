@@ -16,7 +16,6 @@
  
 module Graph
     ( Graph(..)
-    , Endpoint(..)
     , convertGraph
     , flipGraph
     )
@@ -45,12 +44,19 @@ import EType (VectorSum(VectorSum))
 -- of `TensorProduct (AFunction1 du dv) du`, avoiding overlap issues
 newtype BackValue dx = BackValue { unBackValue :: dx }
 
+{-
 data Endpoint s da dx where
     SourceNode :: Endpoint s da da
     InnerNode :: NodeKey s dx -> Endpoint s da dx
+-}
 
+type Endpoint s = ExprArg (NodeKey s)
+
+{-
 data Edge s e da dv where
     Edge :: e du dv -> Endpoint s da du -> Edge s e da dv
+-}
+type Edge s e = Term3 (NodeKey s) e
 
 type Node s e da = VectorSum (Edge s e da)
 
@@ -66,21 +72,21 @@ convertGraph env (VectorSum zs) = Graph (NodeMap.mapmap convertInnerNode env) (V
           convertInnerNode (VectorSum xs) = VectorSum (convertInnerEdge <$> xs)
           convertInnerEdge :: forall dx. SharedTermS s da dx -> Edge s AFunction1 da dx
           convertInnerEdge = \case
-            Func2 f x -> Edge f (convertArg x)
+            Func2 f x -> Func2 f (convertArg x)
           convertArg :: SharedArgS s da du -> Endpoint s da du
           convertArg = \case
-             ArgVar -> SourceNode
-             ArgExpr argName -> InnerNode argName
+             ArgVar -> ArgVar
+             ArgExpr argName -> ArgExpr argName
           convertFinalEdge :: SharedTermS s da dz -> Edge s AFunction1 da dz
           convertFinalEdge = \case
-            Func2 f x -> Edge f (convertArg x)
+            Func2 f x -> Func2 f (convertArg x)
 
 lookupParentValue :: forall s dz dv. NodeValues s dz -> Endpoint s dz dv -> dv
 lookupParentValue (NodeValues ys dz) tail = (goTail tail)
     where goTail :: Endpoint s dz dx -> dx
           goTail = \case
-            SourceNode -> dz
-            InnerNode nodeName -> case NodeMap.lookup ys nodeName of
+            ArgVar -> dz
+            ArgExpr nodeName -> case NodeMap.lookup ys nodeName of
                 BackValue x -> x
 
 evalBackEdge' :: forall s dz du dv. BasicVector du => NodeValues s dz -> Endpoint s dz dv -> BackFunction1 dv du -> VecBuilder du
@@ -89,7 +95,7 @@ evalBackEdge' nodes tail f = backF1' f (lookupParentValue nodes tail)
 evalNode :: forall s dz dx. NodeValues s dz -> Node s BackFunction1 dz dx -> BackValue dx
 evalNode nodes (VectorSum xs') = BackValue (sumBuilder (goEdge <$> xs'))
   where goEdge :: BasicVector dx => Edge s BackFunction1 dz dx -> VecBuilder dx
-        goEdge (Edge f tail) = evalBackEdge' nodes tail f
+        goEdge (Func2 f tail) = evalBackEdge' nodes tail f
 
 evalBackMap :: forall s dz. dz -> NodeMap s (Node s BackFunction1 dz) -> NodeMap s BackValue
 evalBackMap dz dxs = ys
@@ -107,7 +113,7 @@ instance BasicVector da => TensorProduct dz (Graph s BackFunction1 dz da) da whe
 nodeEdges :: forall s f da dz dx. NodeKey s dx -> Node s f da dx -> [AnyEdge s f da dz]
 nodeEdges name (VectorSum xs) = go <$> xs
     where go :: Edge s f da dx -> AnyEdge s f da dz
-          go (Edge f head) = AnyEdge (InnerNode name) f head
+          go (Func2 f head) = AnyEdge (ArgExpr name) f head
 
 allFwdEdges :: forall s f da dz. Graph s f da dz -> [AnyEdge s f da dz]
 allFwdEdges (Graph env (VectorSum es)) = finalEdges ++ innerEdges
@@ -117,15 +123,15 @@ allFwdEdges (Graph env (VectorSum es)) = finalEdges ++ innerEdges
           finalEdges :: [AnyEdge s f da dz]
           finalEdges = go <$> es
             where go :: Edge s f da dz -> AnyEdge s f da dz
-                  go (Edge f head) = AnyEdge SourceNode f head
+                  go (Func2 f head) = AnyEdge ArgVar f head
 
 classifyTail
   :: forall s f da dz.
      AnyEdge s f da dz
   -> Either (Edge s f da dz) (SomeItem s (Edge s f da))
 classifyTail (AnyEdge tail f head) = case tail of
-    SourceNode -> Left (Edge f head)
-    InnerNode x -> Right (SomeItem x (Edge f head))
+    ArgVar  -> Left (Func2 f head)
+    ArgExpr x -> Right (SomeItem x (Func2 f head))
 
 flipAnyEdge :: (forall u v. f u v -> g v u) -> AnyEdge s f da dz -> AnyEdge s g dz da
 flipAnyEdge flipF (AnyEdge tail f head) = AnyEdge head (flipF f) tail

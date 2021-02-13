@@ -60,7 +60,7 @@ liftFunc1
   -> AffineFunc u (ExprArg (Expr5 da) da du)
   -> AffineFunc v (ExprArg (Expr5 da) da dv)
 liftFunc1 f (AffineFunc x0 dx) = AffineFunc y0 expr
-    where term :: Term3 (Expr5 da) da dv
+    where term :: Term3 (Expr5 da) AFunction1 da dv
           term = Func2 df dx
           expr :: ExprArg (Expr5 da) da dv
           expr = ArgExpr (Expr5 (VectorSum [term]))

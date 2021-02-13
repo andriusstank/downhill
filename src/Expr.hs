@@ -22,10 +22,10 @@ data ExprArg p da dv where
     ArgVar :: ExprArg p da da
     ArgExpr :: p dv -> ExprArg p da dv
 
-data Term3 p da dv where
-    Func2 :: AFunction1 du dv -> ExprArg p da du -> Term3 p da dv
+data Term3 p f da dv where
+    Func2 :: f du dv -> ExprArg p da du -> Term3 p f da dv
 
-newtype Expr5 da dv = Expr5 { unExpr5 :: VectorSum (Term3 (Expr5 da) da) dv }
+newtype Expr5 da dv = Expr5 { unExpr5 :: VectorSum (Term3 (Expr5 da) AFunction1 da) dv }
 
 zeroE :: BasicVector dv => Expr5 da dv
 zeroE = Expr5 (VectorSum [])

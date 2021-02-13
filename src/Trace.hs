@@ -62,7 +62,7 @@ tracingFunc name value = AFunction1 back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVector dv => Expr5 da dv -> Term3 (Expr5 da) da dv
+exprToTerm :: FullVector dv => Expr5 da dv -> Term3 (Expr5 da) AFunction1 da dv
 exprToTerm = Func2 identityFunc . ArgExpr
 
 

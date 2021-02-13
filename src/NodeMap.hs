@@ -50,6 +50,7 @@ import Data.Data (Proxy(Proxy))
 import Data.Constraint (Dict(Dict))
 import qualified Data.HashMap.Lazy as HashMap
 import EType (VectorSum(VectorSum))
+import Notensor (AFunction1)
 
 data Unit dx = Unit
 
@@ -107,8 +108,8 @@ fromList = foldr prepend s0
           s0 = generate (const (List2 []))
 
 type SharedArgS s = ExprArg (NodeKey s)
-type SharedTermS s = Term3 (NodeKey s)
-type SharedExprS s da = VectorSum (Term3 (NodeKey s) da)
+type SharedTermS s = Term3 (NodeKey s) AFunction1
+type SharedExprS s da = VectorSum (Term3 (NodeKey s) AFunction1 da)
 
 data SomeSharedExprWithMap da dz where
     SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s da) -> SharedExprS s da dz -> SomeSharedExprWithMap da dz
@@ -118,7 +119,7 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
     where cvtexpr :: forall dx. OpenExpr da dx -> SharedExprS s da dx
           cvtexpr = \case
             VectorSum terms -> VectorSum (cvtterm <$> terms)
-          cvtterm :: forall dx. Term3 OpenKey da dx -> Term3 (NodeKey s) da dx
+          cvtterm :: forall dx. Term3 OpenKey AFunction1 da dx -> Term3 (NodeKey s) AFunction1 da dx
           cvtterm = \case
             Func2 f x' -> Func2 f (cvtarg x')
           cvtarg :: forall du. ExprArg OpenKey da du -> ExprArg (NodeKey s) da du
