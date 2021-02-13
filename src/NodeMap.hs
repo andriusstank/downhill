@@ -38,7 +38,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.VectorSpace (AdditiveGroup)
 import Tensor (AFunction)
 import Sharing (TreeBuilder, BuildAction(..))
-import Expr (ExprArg(ArgExpr, ArgVar), Term3(Func2), Expr5)
+import Expr (Term3(Func2), Expr5)
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
 import OpenGraph (OpenExpr)
@@ -49,7 +49,7 @@ import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
 import Data.Constraint (Dict(Dict))
 import qualified Data.HashMap.Lazy as HashMap
-import EType (VectorSum(VectorSum))
+import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode))
 import Notensor (AFunction1)
 
 data Unit dx = Unit
@@ -107,7 +107,7 @@ fromList = foldr prepend s0
           s0 :: NodeMap s (List2 f)
           s0 = generate (const (List2 []))
 
-type SharedArgS s = ExprArg (NodeKey s)
+type SharedArgS s = Endpoint (NodeKey s)
 type SharedTermS s = Term3 (NodeKey s) AFunction1
 type SharedExprS s da = VectorSum (Term3 (NodeKey s) AFunction1 da)
 
@@ -122,11 +122,11 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
           cvtterm :: forall dx. Term3 OpenKey AFunction1 da dx -> Term3 (NodeKey s) AFunction1 da dx
           cvtterm = \case
             Func2 f x' -> Func2 f (cvtarg x')
-          cvtarg :: forall du. ExprArg OpenKey da du -> ExprArg (NodeKey s) da du
+          cvtarg :: forall du. Endpoint OpenKey da du -> Endpoint (NodeKey s) da du
           cvtarg = \case
-            ArgVar -> ArgVar
-            ArgExpr key -> case tryLookup m key of
-                Just (key', _value) -> ArgExpr key'
+            SourceNode -> SourceNode
+            InnerNode key -> case tryLookup m key of
+                Just (key', _value) -> InnerNode key'
                 Nothing -> error "oh fuck"
           
 

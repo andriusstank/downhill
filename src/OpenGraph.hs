@@ -13,15 +13,15 @@ where
 
 
 
-import Expr(ExprArg(ArgExpr, ArgVar),  Term3(Func2), Expr5(Expr5))
+import Expr(Term3(Func2), Expr5(Expr5))
 import Sharing (BuildAction(BuildAction), TreeBuilder)
 import qualified Sharing
 import Prelude hiding (lookup)
 import OpenMap (OpenMap, OpenKey)
-import EType (VectorSum (VectorSum))
+import EType (VectorSum (VectorSum), Endpoint (SourceNode, InnerNode))
 import Notensor (AFunction1)
 
-type OpenArg = ExprArg OpenKey
+type OpenArg = Endpoint OpenKey
 type OpenTerm = Term3 OpenKey AFunction1
 --type OpenExpr = Expr3 OpenKey
 type OpenExpr da = VectorSum (Term3 OpenKey AFunction1 da)
@@ -43,12 +43,12 @@ insertExpr3 x y@(Expr5 (VectorSum _)) = do
     (k, z) <- Sharing.insertExpr x y
     return (k, z)
 
-goSharing4arg :: forall da dv. ExprArg (Expr5 da) da dv -> TreeBuilder (OpenExpr da) (OpenArg da dv)
+goSharing4arg :: forall da dv. Endpoint (Expr5 da) da dv -> TreeBuilder (OpenExpr da) (OpenArg da dv)
 goSharing4arg = \case
-    ArgVar -> return ArgVar 
-    ArgExpr  x ->  do
+    SourceNode -> return SourceNode 
+    InnerNode x ->  do
         (xRef, _sx) <- insertExpr3 sharingAction4 x
-        return (ArgExpr xRef)
+        return (InnerNode xRef)
 
 goSharing4term :: forall da dv. Term3 (Expr5 da) AFunction1 da dv -> TreeBuilder (OpenExpr da) (OpenTerm da dv)
 goSharing4term = \case
