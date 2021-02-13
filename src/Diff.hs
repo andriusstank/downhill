@@ -12,7 +12,7 @@ module Diff
 )
 where
 
-import Expr(Term3(Func2), zeroE, Expr5(Expr5))
+import Expr(zeroE, Expr5(Expr5))
 import Prelude (Monad(return), Num, IO, ($))
 import Affine (AffineFunc(AffineFunc))
 import Tensor (TensorProduct((⊗)))
@@ -22,7 +22,7 @@ import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
 import Notensor (ProdVector, BasicVector, fstF1, sndF1, intoFst, intoSnd, AFunction1)
-import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode))
+import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode), Edge(..))
 
 type BVar b da dv = AffineFunc b (Endpoint (Expr5 da) da dv)
 
@@ -59,8 +59,8 @@ liftFunc1
   -> AffineFunc u (Endpoint (Expr5 da) da du)
   -> AffineFunc v (Endpoint (Expr5 da) da dv)
 liftFunc1 f (AffineFunc x0 dx) = AffineFunc y0 expr
-    where term :: Term3 (Expr5 da) AFunction1 da dv
-          term = Func2 df dx
+    where term :: Edge (Expr5 da) AFunction1 da dv
+          term = Edge df dx
           expr :: Endpoint (Expr5 da) da dv
           expr = InnerNode (Expr5 (VectorSum [term]))
           (y0, df) = f x0
@@ -79,7 +79,7 @@ zipA
   => Endpoint (Expr5 da) da du
   -> Endpoint (Expr5 da) da dv
   -> Endpoint (Expr5 da) da (du, dv)
-zipA x y = InnerNode (Expr5 (VectorSum [Func2 intoFst x, Func2 intoSnd y]))
+zipA x y = InnerNode (Expr5 (VectorSum [Edge intoFst x, Edge intoSnd y]))
 
 zip :: (ProdVector du, ProdVector dv) => BVar b da du -> BVar c da dv -> BVar (b, c) da (du, dv)
 zip (AffineFunc x dx) (AffineFunc y dy) = AffineFunc (x, y) (zipA dx dy)

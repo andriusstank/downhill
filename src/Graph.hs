@@ -31,21 +31,20 @@ import Data.Either (partitionEithers)
 import NodeMap ()
 
 import qualified NodeMap
-import Expr (Term3(Func2))
 import Notensor
     ( BasicVectors, BasicVector(VecBuilder, sumBuilder)
     , AFunction2(backF, fwdF, AFunction2), AFunction1(AFunction1)
     , backF1, BackFunction1 (backF1'), flipFunc1
     )
-import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode))
+import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode), Edge(..))
 
 -- IDEA: `TensorProduct (AFunction1 du dv) (BackValue du)` instance instead
 -- of `TensorProduct (AFunction1 du dv) du`, avoiding overlap issues
 newtype BackValue dx = BackValue { unBackValue :: dx }
 
-type Edge s e = Term3 (NodeKey s) e
+-- type Edge s = Term3 (NodeKey s)
 
-type Node s e da = VectorSum (Edge s e da)
+type Node s e da = VectorSum (Edge (NodeKey s) e da)
 
 data Graph s e da dz = Graph (NodeMap s (Node s e da)) (Node s e da dz)
 
@@ -66,8 +65,8 @@ evalBackEdge' nodes tail f = backF1' f (lookupParentValue nodes tail)
 
 evalNode :: forall s dz dx. NodeValues s dz -> Node s BackFunction1 dz dx -> BackValue dx
 evalNode nodes (VectorSum xs') = BackValue (sumBuilder (goEdge <$> xs'))
-  where goEdge :: BasicVector dx => Edge s BackFunction1 dz dx -> VecBuilder dx
-        goEdge (Func2 f tail) = evalBackEdge' nodes tail f
+  where goEdge :: BasicVector dx => Edge (NodeKey s) BackFunction1 dz dx -> VecBuilder dx
+        goEdge (Edge f tail) = evalBackEdge' nodes tail f
 
 evalBackMap :: forall s dz. dz -> NodeMap s (Node s BackFunction1 dz) -> NodeMap s BackValue
 evalBackMap dz dxs = ys
@@ -84,8 +83,8 @@ instance BasicVector da => TensorProduct dz (Graph s BackFunction1 dz da) da whe
 
 nodeEdges :: forall s f da dz dx. NodeKey s dx -> Node s f da dx -> [AnyEdge s f da dz]
 nodeEdges name (VectorSum xs) = go <$> xs
-    where go :: Edge s f da dx -> AnyEdge s f da dz
-          go (Func2 f head) = AnyEdge (InnerNode name) f head
+    where go :: Edge (NodeKey s) f da dx -> AnyEdge s f da dz
+          go (Edge f head) = AnyEdge (InnerNode name) f head
 
 allFwdEdges :: forall s f da dz. Graph s f da dz -> [AnyEdge s f da dz]
 allFwdEdges (Graph env (VectorSum es)) = finalEdges ++ innerEdges
@@ -94,16 +93,16 @@ allFwdEdges (Graph env (VectorSum es)) = finalEdges ++ innerEdges
             where nodeEdges' (NodeMap.SomeItem name node) = nodeEdges name node
           finalEdges :: [AnyEdge s f da dz]
           finalEdges = go <$> es
-            where go :: Edge s f da dz -> AnyEdge s f da dz
-                  go (Func2 f head) = AnyEdge SourceNode f head
+            where go :: Edge (NodeKey s) f da dz -> AnyEdge s f da dz
+                  go (Edge f head) = AnyEdge SourceNode f head
 
 classifyTail
   :: forall s f da dz.
      AnyEdge s f da dz
-  -> Either (Edge s f da dz) (SomeItem s (Edge s f da))
+  -> Either (Edge (NodeKey s) f da dz) (SomeItem s (Edge (NodeKey s) f da))
 classifyTail (AnyEdge tail f head) = case tail of
-    SourceNode  -> Left (Func2 f head)
-    InnerNode x -> Right (SomeItem x (Func2 f head))
+    SourceNode  -> Left (Edge f head)
+    InnerNode x -> Right (SomeItem x (Edge f head))
 
 flipAnyEdge :: (forall u v. f u v -> g v u) -> AnyEdge s f da dz -> AnyEdge s g dz da
 flipAnyEdge flipF (AnyEdge tail f head) = AnyEdge head (flipF f) tail
@@ -116,14 +115,14 @@ edgeListToGraph
   -> [AnyEdge s f dz da]
   -> Graph s f dz da
 edgeListToGraph dictmap flippedEdges = Graph edgeMap (VectorSum initial)
-    where initial :: [Edge s f dz da]
-          inner :: [SomeItem s (Edge s f dz)]
+    where initial :: [Edge (NodeKey s) f dz da]
+          inner :: [SomeItem s (Edge (NodeKey s) f dz)]
           (initial, inner) = partitionEithers (classifyTail <$> flippedEdges)
-          edgeList :: NodeMap s (List2 (Edge s f dz))
+          edgeList :: NodeMap s (List2 (Edge (NodeKey s) f dz))
           edgeList = NodeMap.fromList inner
           edgeMap :: NodeMap s (Node s f dz)
           edgeMap = NodeMap.zipWith withDict dictmap edgeList
-          withDict :: NodeDict dx -> List2 (Edge s f dz) dx -> Node s f dz dx
+          withDict :: NodeDict dx -> List2 (Edge (NodeKey s) f dz) dx -> Node s f dz dx
           withDict NodeDict (List2 xs) = VectorSum xs
 
 backFromEdges

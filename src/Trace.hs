@@ -15,10 +15,9 @@ import Graph
 import Control.Monad (when)
 import qualified NodeMap
 import NodeMap (runRecoverSharing5)
-import Expr (Term3)
 import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, AFunction1(AFunction1))
 import GHC.Generics (Generic)
-import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode))
+import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode), Edge(..))
 
 newtype R = R { unR :: Integer }
     deriving (Show, Generic)
@@ -62,8 +61,8 @@ tracingFunc name value = AFunction1 back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVector dv => Expr5 da dv -> Term3 (Expr5 da) AFunction1 da dv
-exprToTerm = Func2 identityFunc . InnerNode
+exprToTerm :: FullVector dv => Expr5 da dv -> Edge (Expr5 da) AFunction1 da dv
+exprToTerm = Edge identityFunc . InnerNode
 
 
 testExpr :: IO (Expr5 R R)
@@ -71,8 +70,8 @@ testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
         x0, x1 :: Expr5 R R
-        x0 = Expr5 (VectorSum [Func2 f SourceNode])
-        x1 = Expr5 (VectorSum [Func2 g SourceNode])
+        x0 = Expr5 (VectorSum [Edge f SourceNode])
+        x1 = Expr5 (VectorSum [Edge g SourceNode])
         x2 = Expr5 (VectorSum [exprToTerm x0, exprToTerm x1])
         x3 = Expr5 (VectorSum [exprToTerm x1, exprToTerm x2])
         x4 = Expr5 (VectorSum [exprToTerm x2, exprToTerm x3])

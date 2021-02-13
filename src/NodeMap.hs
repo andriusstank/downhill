@@ -38,7 +38,7 @@ import Unsafe.Coerce (unsafeCoerce)
 import Data.VectorSpace (AdditiveGroup)
 import Tensor (AFunction)
 import Sharing (TreeBuilder, BuildAction(..))
-import Expr (Term3(Func2), Expr5)
+import Expr (Expr5)
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
 import OpenGraph (OpenExpr)
@@ -49,7 +49,7 @@ import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
 import Data.Constraint (Dict(Dict))
 import qualified Data.HashMap.Lazy as HashMap
-import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode))
+import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode), Edge(Edge))
 import Notensor (AFunction1)
 
 data Unit dx = Unit
@@ -108,8 +108,8 @@ fromList = foldr prepend s0
           s0 = generate (const (List2 []))
 
 type SharedArgS s = Endpoint (NodeKey s)
-type SharedTermS s = Term3 (NodeKey s) AFunction1
-type SharedExprS s da = VectorSum (Term3 (NodeKey s) AFunction1 da)
+type SharedTermS s = Edge (NodeKey s) AFunction1
+type SharedExprS s da = VectorSum (Edge (NodeKey s) AFunction1 da)
 
 data SomeSharedExprWithMap da dz where
     SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s da) -> SharedExprS s da dz -> SomeSharedExprWithMap da dz
@@ -119,9 +119,9 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
     where cvtexpr :: forall dx. OpenExpr da dx -> SharedExprS s da dx
           cvtexpr = \case
             VectorSum terms -> VectorSum (cvtterm <$> terms)
-          cvtterm :: forall dx. Term3 OpenKey AFunction1 da dx -> Term3 (NodeKey s) AFunction1 da dx
+          cvtterm :: forall dx. Edge OpenKey AFunction1 da dx -> Edge (NodeKey s) AFunction1 da dx
           cvtterm = \case
-            Func2 f x' -> Func2 f (cvtarg x')
+            Edge f x' -> Edge f (cvtarg x')
           cvtarg :: forall du. Endpoint OpenKey da du -> Endpoint (NodeKey s) da du
           cvtarg = \case
             SourceNode -> SourceNode
