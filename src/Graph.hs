@@ -42,11 +42,7 @@ import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 -- of `TensorProduct (AFunction1 du dv) du`, avoiding overlap issues
 newtype BackValue dx = BackValue { unBackValue :: dx }
 
--- type Edge s = Term3 (NodeKey s)
-
-type MyNode s e da = Node (Edge (NodeKey s) e da)
-
-data Graph s e da dz = Graph (NodeMap s (MyNode s e da)) (MyNode s e da dz)
+data Graph s e da dz = Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
 
 data AnyEdge s f da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (f du dv) (Endpoint (NodeKey s) da du)
 
@@ -63,25 +59,25 @@ lookupParentValue (NodeValues ys dz) tail = (goTail tail)
 evalBackEdge' :: forall s dz du dv. BasicVector du => NodeValues s dz -> Endpoint (NodeKey s) dz dv -> BackFunction1 dv du -> VecBuilder du
 evalBackEdge' nodes tail f = backF1' f (lookupParentValue nodes tail)
 
-evalNode :: forall s dz dx. NodeValues s dz -> MyNode s BackFunction1 dz dx -> BackValue dx
+evalNode :: forall s dz dx. NodeValues s dz -> Node (NodeKey s) BackFunction1 dz dx -> BackValue dx
 evalNode nodes (Node xs') = BackValue (sumBuilder (goEdge <$> xs'))
   where goEdge :: BasicVector dx => Edge (NodeKey s) BackFunction1 dz dx -> VecBuilder dx
         goEdge (Edge f tail) = evalBackEdge' nodes tail f
 
-evalBackMap :: forall s dz. dz -> NodeMap s (MyNode s BackFunction1 dz) -> NodeMap s BackValue
+evalBackMap :: forall s dz. dz -> NodeMap s (Node (NodeKey s) BackFunction1 dz) -> NodeMap s BackValue
 evalBackMap dz dxs = ys
     where ys = NodeMap.mapmap go dxs
-          go :: forall dx. MyNode s BackFunction1 dz dx -> BackValue dx
+          go :: forall dx. Node (NodeKey s) BackFunction1 dz dx -> BackValue dx
           go = evalNode (NodeValues ys dz)
 
-evalBackMap' :: forall s dz. dz -> NodeMap s (MyNode s BackFunction1 dz) -> NodeValues s dz
+evalBackMap' :: forall s dz. dz -> NodeMap s (Node (NodeKey s) BackFunction1 dz) -> NodeValues s dz
 evalBackMap' dz dxs = NodeValues (evalBackMap dz dxs) dz
 
 instance BasicVector da => TensorProduct dz (Graph s BackFunction1 dz da) da where
     dx ⊗ Graph env node = unBackValue (evalNode env' node)
         where env' = evalBackMap' dx env
 
-nodeEdges :: forall s f da dz dx. NodeKey s dx -> MyNode s f da dx -> [AnyEdge s f da dz]
+nodeEdges :: forall s f da dz dx. NodeKey s dx -> Node (NodeKey s) f da dx -> [AnyEdge s f da dz]
 nodeEdges name (Node xs) = go <$> xs
     where go :: Edge (NodeKey s) f da dx -> AnyEdge s f da dz
           go (Edge f head) = AnyEdge (InnerNode name) f head
@@ -120,9 +116,9 @@ edgeListToGraph dictmap flippedEdges = Graph edgeMap (Node initial)
           (initial, inner) = partitionEithers (classifyTail <$> flippedEdges)
           edgeList :: NodeMap s (List2 (Edge (NodeKey s) f dz))
           edgeList = NodeMap.fromList inner
-          edgeMap :: NodeMap s (MyNode s f dz)
+          edgeMap :: NodeMap s (Node (NodeKey s) f dz)
           edgeMap = NodeMap.zipWith withDict dictmap edgeList
-          withDict :: NodeDict dx -> List2 (Edge (NodeKey s) f dz) dx -> MyNode s f dz dx
+          withDict :: NodeDict dx -> List2 (Edge (NodeKey s) f dz) dx -> Node (NodeKey s) f dz dx
           withDict NodeDict (List2 xs) = Node xs
 
 backFromEdges
@@ -137,7 +133,7 @@ backFromEdges flipFunc dictmap edges = edgeListToGraph dictmap flippedEdges
 
 mkdict :: Graph s AFunction1 da dz -> NodeMap s NodeDict
 mkdict (Graph env _) = NodeMap.mapmap go env
-    where go :: MyNode s AFunction1 da dv -> NodeDict dv
+    where go :: Node (NodeKey s) AFunction1 da dv -> NodeDict dv
           go = \case
             Node _ -> NodeDict
 

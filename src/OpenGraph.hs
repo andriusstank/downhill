@@ -24,7 +24,7 @@ import Notensor (AFunction1)
 type OpenArg = Endpoint OpenKey
 type OpenTerm = Edge OpenKey AFunction1
 --type OpenExpr = Expr3 OpenKey
-type OpenExpr da = Node (Edge OpenKey AFunction1 da)
+type OpenExpr da = Node OpenKey AFunction1 da
 
 
 goSharing4 :: forall da dv. Expr5 da dv -> TreeBuilder (OpenExpr da) (OpenExpr da dv)
@@ -61,6 +61,6 @@ sharingAction4 = BuildAction goSharing4
 
 runRecoverSharing4 :: forall da dz. Expr5 da dz -> IO (OpenExpr da dz, OpenMap (OpenExpr da))
 runRecoverSharing4 x = case x of
-    Expr5 (VectorSum _) -> do
+    Expr5 (Node _) -> do
       let z = goSharing4 x :: (TreeBuilder (OpenExpr da) (OpenExpr da dz))
       Sharing.runTreeBuilder z

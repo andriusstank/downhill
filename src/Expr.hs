@@ -17,7 +17,7 @@ import Data.Constraint
 import Notensor (VecBuilder, FullVector, FullVectors, BasicVector, scaleFunc, BasicVectors, negateFunc, AFunction2(AFunction2), identityFunc, AFunction1)
 import EType (Node(Node), Endpoint (InnerNode), Edge(Edge))
 
-newtype Expr5 da dv = Expr5 { unExpr5 :: Node (Edge (Expr5 da) AFunction1 da) dv }
+newtype Expr5 da dv = Expr5 { unExpr5 :: Node (Expr5 da) AFunction1 da dv }
 
 zeroE :: BasicVector dv => Expr5 da dv
 zeroE = Expr5 (Node [])

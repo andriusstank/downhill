@@ -109,7 +109,7 @@ fromList = foldr prepend s0
 
 type SharedArgS s = Endpoint (NodeKey s)
 type SharedTermS s = Edge (NodeKey s) AFunction1
-type SharedExprS s da = Node (Edge (NodeKey s) AFunction1 da)
+type SharedExprS s da = Node (NodeKey s) AFunction1 da
 
 data SomeSharedExprWithMap da dz where
     SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s da) -> SharedExprS s da dz -> SomeSharedExprWithMap da dz
