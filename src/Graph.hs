@@ -43,7 +43,7 @@ import EType (VectorSum(VectorSum))
 
 -- IDEA: `TensorProduct (AFunction1 du dv) (BackValue du)` instance instead
 -- of `TensorProduct (AFunction1 du dv) du`, avoiding overlap issues
-newtype BackValue dx = BackValue dx
+newtype BackValue dx = BackValue { unBackValue :: dx }
 
 data Endpoint s da dx where
     SourceNode :: Endpoint s da da
@@ -57,6 +57,8 @@ type Node s e da = VectorSum (Edge s e da)
 data Graph s e da dz = Graph (NodeMap s (Node s e da)) (Node s e da dz)
 
 data AnyEdge s f da dz = forall du dv. AnyEdge (Endpoint s dz dv) (f du dv) (Endpoint s da du)
+
+data NodeValues s da = NodeValues (NodeMap s BackValue) da
 
 convertGraph :: forall s da dz. NodeMap s (SharedExprS s da) -> SharedExprS s da dz -> Graph s AFunction1 da dz
 convertGraph env (VectorSum zs) = Graph (NodeMap.mapmap convertInnerNode env) (VectorSum (convertFinalEdge <$> zs))
@@ -73,42 +75,45 @@ convertGraph env (VectorSum zs) = Graph (NodeMap.mapmap convertInnerNode env) (V
           convertFinalEdge = \case
             Func2 f x -> Edge f (convertArg x)
 
-lookupParentValue :: forall s dz dv. NodeMap s BackValue -> dz -> Endpoint s dz dv -> dv
-lookupParentValue ys dz tail = (goTail tail)
+lookupParentValue :: forall s dz dv. NodeValues s dz -> Endpoint s dz dv -> dv
+lookupParentValue (NodeValues ys dz) tail = (goTail tail)
     where goTail :: Endpoint s dz dx -> dx
           goTail = \case
             SourceNode -> dz
             InnerNode nodeName -> case NodeMap.lookup ys nodeName of
                 BackValue x -> x
 
-goBackEdge' :: forall s dz du dv. BasicVector du => NodeMap s BackValue -> dz -> Endpoint s dz dv -> BackFunction1 dv du -> VecBuilder du
-goBackEdge' ys dz tail f = backF1' f (lookupParentValue ys dz tail)
+evalBackEdge' :: forall s dz du dv. BasicVector du => NodeValues s dz -> Endpoint s dz dv -> BackFunction1 dv du -> VecBuilder du
+evalBackEdge' nodes tail f = backF1' f (lookupParentValue nodes tail)
 
-evalBackMap :: forall s dz. NodeMap s (Node s BackFunction1 dz) -> dz -> NodeMap s BackValue
-evalBackMap dxs dz = ys
+evalNode :: forall s dz dx. NodeValues s dz -> Node s BackFunction1 dz dx -> BackValue dx
+evalNode nodes (VectorSum xs') = BackValue (sumBuilder (goEdge <$> xs'))
+  where goEdge :: BasicVector dx => Edge s BackFunction1 dz dx -> VecBuilder dx
+        goEdge (Edge f tail) = evalBackEdge' nodes tail f
+
+evalBackMap :: forall s dz. dz -> NodeMap s (Node s BackFunction1 dz) -> NodeMap s BackValue
+evalBackMap dz dxs = ys
     where ys = NodeMap.mapmap go dxs
           go :: forall dx. Node s BackFunction1 dz dx -> BackValue dx
-          go (VectorSum xs') = BackValue (sumBuilder (goEdge <$> xs'))
-          goEdge :: BasicVector dx => Edge s BackFunction1 dz dx -> VecBuilder dx
-          goEdge = \case
-            Edge f tail -> goBackEdge' ys dz tail f
+          go = evalNode (NodeValues ys dz)
+
+evalBackMap' :: forall s dz. dz -> NodeMap s (Node s BackFunction1 dz) -> NodeValues s dz
+evalBackMap' dz dxs = NodeValues (evalBackMap dz dxs) dz
 
 instance BasicVector da => TensorProduct dz (Graph s BackFunction1 dz da) da where
-    dx ⊗ Graph env (VectorSum edges) = sumBuilder (go <$> edges)
-        where go :: Edge s BackFunction1 dz da -> VecBuilder da
-              go (Edge f tail) = goBackEdge' env' dx tail f
-              env' = evalBackMap env dx
+    dx ⊗ Graph env node = unBackValue (evalNode env' node)
+        where env' = evalBackMap' dx env
 
-forwardNodeEdges :: forall s f da dz dx. NodeKey s dx -> Node s f da dx -> [AnyEdge s f da dz]
-forwardNodeEdges name (VectorSum xs) = go <$> xs
+nodeEdges :: forall s f da dz dx. NodeKey s dx -> Node s f da dx -> [AnyEdge s f da dz]
+nodeEdges name (VectorSum xs) = go <$> xs
     where go :: Edge s f da dx -> AnyEdge s f da dz
           go (Edge f head) = AnyEdge (InnerNode name) f head
 
 allFwdEdges :: forall s f da dz. Graph s f da dz -> [AnyEdge s f da dz]
 allFwdEdges (Graph env (VectorSum es)) = finalEdges ++ innerEdges
     where innerEdges :: [AnyEdge s f da dz]
-          innerEdges = concatMap nodeEdges (NodeMap.toList env)
-            where nodeEdges (NodeMap.SomeItem name node) = forwardNodeEdges name node
+          innerEdges = concatMap nodeEdges' (NodeMap.toList env)
+            where nodeEdges' (NodeMap.SomeItem name node) = nodeEdges name node
           finalEdges :: [AnyEdge s f da dz]
           finalEdges = go <$> es
             where go :: Edge s f da dz -> AnyEdge s f da dz
@@ -150,9 +155,8 @@ backFromEdges
   -> [AnyEdge s f da dz]
   -> Graph s g dz da
 backFromEdges flipFunc dictmap edges = edgeListToGraph dictmap flippedEdges
-  where
-          flippedEdges :: [AnyEdge s g dz da]
-          flippedEdges = flipAnyEdge flipFunc <$> edges
+  where flippedEdges :: [AnyEdge s g dz da]
+        flippedEdges = flipAnyEdge flipFunc <$> edges
 
 mkdict :: Graph s AFunction1 da dz -> NodeMap s NodeDict
 mkdict (Graph env _) = NodeMap.mapmap go env
