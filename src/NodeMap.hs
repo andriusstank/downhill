@@ -49,7 +49,7 @@ import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
 import Data.Constraint (Dict(Dict))
 import qualified Data.HashMap.Lazy as HashMap
-import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode), Edge(Edge))
+import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
 import Notensor (AFunction1)
 
 data Unit dx = Unit
@@ -109,7 +109,7 @@ fromList = foldr prepend s0
 
 type SharedArgS s = Endpoint (NodeKey s)
 type SharedTermS s = Edge (NodeKey s) AFunction1
-type SharedExprS s da = VectorSum (Edge (NodeKey s) AFunction1 da)
+type SharedExprS s da = Node (Edge (NodeKey s) AFunction1 da)
 
 data SomeSharedExprWithMap da dz where
     SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s da) -> SharedExprS s da dz -> SomeSharedExprWithMap da dz
@@ -118,7 +118,7 @@ cvthelper :: forall s da dv. NodeSet s => NodeMap s (OpenExpr da) -> OpenExpr da
 cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
     where cvtexpr :: forall dx. OpenExpr da dx -> SharedExprS s da dx
           cvtexpr = \case
-            VectorSum terms -> VectorSum (cvtterm <$> terms)
+            Node terms -> Node (cvtterm <$> terms)
           cvtterm :: forall dx. Edge OpenKey AFunction1 da dx -> Edge (NodeKey s) AFunction1 da dx
           cvtterm = \case
             Edge f x' -> Edge f (cvtarg x')

@@ -17,7 +17,7 @@ import qualified NodeMap
 import NodeMap (runRecoverSharing5)
 import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, AFunction1(AFunction1))
 import GHC.Generics (Generic)
-import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode), Edge(..))
+import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 
 newtype R = R { unR :: Integer }
     deriving (Show, Generic)
@@ -70,14 +70,14 @@ testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
         x0, x1 :: Expr5 R R
-        x0 = Expr5 (VectorSum [Edge f SourceNode])
-        x1 = Expr5 (VectorSum [Edge g SourceNode])
-        x2 = Expr5 (VectorSum [exprToTerm x0, exprToTerm x1])
-        x3 = Expr5 (VectorSum [exprToTerm x1, exprToTerm x2])
-        x4 = Expr5 (VectorSum [exprToTerm x2, exprToTerm x3])
-        x5 = Expr5 (VectorSum [exprToTerm x3, exprToTerm x4])
-        x6 = Expr5 (VectorSum [exprToTerm x4, exprToTerm x5])
-        x7 = Expr5 (VectorSum [exprToTerm x5, exprToTerm x6])
+        x0 = Expr5 (Node [Edge f SourceNode])
+        x1 = Expr5 (Node [Edge g SourceNode])
+        x2 = Expr5 (Node [exprToTerm x0, exprToTerm x1])
+        x3 = Expr5 (Node [exprToTerm x1, exprToTerm x2])
+        x4 = Expr5 (Node [exprToTerm x2, exprToTerm x3])
+        x5 = Expr5 (Node [exprToTerm x3, exprToTerm x4])
+        x6 = Expr5 (Node [exprToTerm x4, exprToTerm x5])
+        x7 = Expr5 (Node [exprToTerm x5, exprToTerm x6])
     --    xs = [x0, x1, x2, x3, x4, x5, x6, x7]
     --traverse_ evaluate xs
     --names <- traverse makeStableName  xs

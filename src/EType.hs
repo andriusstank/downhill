@@ -10,5 +10,5 @@ data Endpoint p da dv where
 data Edge p f da dv where
     Edge :: f du dv -> Endpoint p da du -> Edge p f da dv
 
-data VectorSum term dv = BasicVector dv => VectorSum [term dv]
+data Node term dv = BasicVector dv => Node [term dv]
 

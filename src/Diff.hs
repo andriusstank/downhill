@@ -22,7 +22,7 @@ import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
 import Notensor (ProdVector, BasicVector, fstF1, sndF1, intoFst, intoSnd, AFunction1)
-import EType (VectorSum(VectorSum), Endpoint (SourceNode, InnerNode), Edge(..))
+import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 
 type BVar b da dv = AffineFunc b (Endpoint (Expr5 da) da dv)
 
@@ -62,7 +62,7 @@ liftFunc1 f (AffineFunc x0 dx) = AffineFunc y0 expr
     where term :: Edge (Expr5 da) AFunction1 da dv
           term = Edge df dx
           expr :: Endpoint (Expr5 da) da dv
-          expr = InnerNode (Expr5 (VectorSum [term]))
+          expr = InnerNode (Expr5 (Node [term]))
           (y0, df) = f x0
 
 
@@ -79,7 +79,7 @@ zipA
   => Endpoint (Expr5 da) da du
   -> Endpoint (Expr5 da) da dv
   -> Endpoint (Expr5 da) da (du, dv)
-zipA x y = InnerNode (Expr5 (VectorSum [Edge intoFst x, Edge intoSnd y]))
+zipA x y = InnerNode (Expr5 (Node [Edge intoFst x, Edge intoSnd y]))
 
 zip :: (ProdVector du, ProdVector dv) => BVar b da du -> BVar c da dv -> BVar (b, c) da (du, dv)
 zip (AffineFunc x dx) (AffineFunc y dy) = AffineFunc (x, y) (zipA dx dy)
