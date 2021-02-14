@@ -17,7 +17,8 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Tensor (
-    TensorProduct(..),
+    Vec(..),
+    TensorProduct(..), TensorProduct'',
     LinearFunction,
     AFunction(..), transposeFunc,
     LinearFunction'(..)
@@ -28,13 +29,15 @@ import Data.Kind (Type)
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
 import GHC.Generics (Generic)
 
-class TensorProduct u v w | u v -> w where
-  (⊗) :: u -> v -> w
+newtype Vec dx = Vec { unVec :: dx }
 
-class TensorProduct u v (u⊗v) => TensorProduct' u v where
+type TensorProduct'' u v w = (TensorProduct u v, u ⊗ v ~ w)
+
+class TensorProduct u v where
   type u ⊗ v :: Type
+  (⊗) :: u -> v -> u ⊗ v
 
-class TensorProduct dv v b => BVector b v dv where
+class TensorProduct'' (Vec dv) (Vec v) (Vec b) => BVector b v dv where
 
 -- f: u -> v
 -- dv ~ Dual b v
@@ -47,8 +50,8 @@ class
   , AdditiveGroup v
   , AdditiveGroup du
   , AdditiveGroup dv
-  , TensorProduct f u v
-  , TensorProduct dv f du
+  , TensorProduct'' f (Vec u) (Vec v)
+  , TensorProduct'' (Vec dv) f (Vec du)
   ) => LinearFunction f u v du dv where
 
 class
@@ -57,10 +60,10 @@ class
     transpose :: LinearFunction (f u du v dv) u v du dv => f u du v dv -> f dv v du u
     transposeC :: LinearFunction (f u du v dv) u v du dv :- LinearFunction (f dv v du u) dv du v u
 
-_testLinearFunction :: forall b f u v du dv. (Eq b, BVector b u du, BVector b v dv) => LinearFunction f u v du dv => f -> dv -> u -> Bool
+_testLinearFunction :: forall b f u v du dv. (Eq b, BVector b u du, BVector b v dv) => LinearFunction f u v du dv => f -> Vec dv -> Vec u -> Bool
 _testLinearFunction f dv u = lhs == rhs
-    where lhs = (dv ⊗ f :: du) ⊗ u :: b
-          rhs = dv ⊗ (f ⊗ u) :: b
+    where Vec lhs = (dv ⊗ f :: Vec du) ⊗ u :: Vec b
+          Vec rhs = dv ⊗ (f ⊗ u) :: Vec b
 
 data AFunction u du v dv where
     IndentityFunc :: AFunction u du u du
@@ -68,17 +71,19 @@ data AFunction u du v dv where
     ScaleFunc :: forall a v dv. (VectorSpace v, VectorSpace dv, a ~ Scalar v, a ~ Scalar dv) => a -> AFunction v dv v dv
     BlackBoxFunc :: (u -> v) -> (dv -> du) -> AFunction u du v dv
 
-instance TensorProduct (AFunction u du v dv) u v where
+instance TensorProduct (AFunction u du v dv) (Vec u) where
+    type (AFunction u du v dv) ⊗ (Vec u) = Vec v
     IndentityFunc ⊗ x = x
-    NegateFunc ⊗ x = negateV x
-    ScaleFunc a ⊗ v = a *^ v
-    (BlackBoxFunc f _) ⊗ x = f x
+    NegateFunc ⊗ Vec x = Vec (negateV x)
+    ScaleFunc a ⊗ Vec v = Vec (a *^ v)
+    (BlackBoxFunc f _) ⊗ Vec x = Vec (f x)
 
-instance TensorProduct dv (AFunction u du v dv) du where
+instance TensorProduct (Vec dv) (AFunction u du v dv) where
+    type (Vec dv) ⊗ (AFunction u du v dv) = Vec du
     x ⊗ IndentityFunc = x
-    x ⊗ NegateFunc = negateV x
-    v ⊗ ScaleFunc a = a *^ v
-    x ⊗ (BlackBoxFunc _ f) = f x
+    Vec x ⊗ NegateFunc = Vec (negateV x)
+    Vec v ⊗ ScaleFunc a = Vec (a *^ v)
+    Vec x ⊗ (BlackBoxFunc _ f) = Vec (f x)
 
 transposeFunc :: AFunction u v du dv -> AFunction dv du v u
 transposeFunc = \case

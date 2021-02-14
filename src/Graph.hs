@@ -21,7 +21,7 @@ module Graph
 where
 import Prelude hiding (head, tail)
 import Sharing()
-import Tensor(transposeFunc, LinearFunction, TensorProduct(..))
+import Tensor(transposeFunc, LinearFunction, TensorProduct(..), Vec (Vec, unVec))
 
 import NodeMap (NodeSet, SharedArgS, SharedTermS,  SharedExprS,  NodeMap, NodeKey, SomeItem(SomeItem), List2(List2))
 import Data.VectorSpace (sumV, AdditiveGroup)
@@ -38,43 +38,39 @@ import Notensor
     )
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 
--- IDEA: `TensorProduct (AFunction1 du dv) (BackValue du)` instance instead
--- of `TensorProduct (AFunction1 du dv) du`, avoiding overlap issues
-newtype BackValue dx = BackValue { unBackValue :: dx }
-
 data Graph s e da dz = Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
 
 data AnyEdge s f da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (f du dv) (Endpoint (NodeKey s) da du)
 
-data NodeValues s da = NodeValues (NodeMap s BackValue) da
+data NodeValues s da = NodeValues (NodeMap s Vec) (Vec da)
 
-lookupParentValue :: forall s dz dv. NodeValues s dz -> Endpoint (NodeKey s) dz dv -> dv
+lookupParentValue :: forall s dz dv. NodeValues s dz -> Endpoint (NodeKey s) dz dv -> Vec dv
 lookupParentValue (NodeValues ys dz) tail = (goTail tail)
-    where goTail :: Endpoint (NodeKey s) dz dx -> dx
+    where goTail :: Endpoint (NodeKey s) dz dx -> Vec dx
           goTail = \case
             SourceNode -> dz
-            InnerNode nodeName -> case NodeMap.lookup ys nodeName of
-                BackValue x -> x
+            InnerNode nodeName -> NodeMap.lookup ys nodeName
 
 evalBackEdge' :: forall s dz du dv. BasicVector du => NodeValues s dz -> Endpoint (NodeKey s) dz dv -> BackFunction1 dv du -> VecBuilder du
-evalBackEdge' nodes tail f = backF1' f (lookupParentValue nodes tail)
+evalBackEdge' nodes tail f = backF1' f (unVec $ lookupParentValue nodes tail)
 
-evalNode :: forall s dz dx. NodeValues s dz -> Node (NodeKey s) BackFunction1 dz dx -> BackValue dx
-evalNode nodes (Node xs') = BackValue (sumBuilder (goEdge <$> xs'))
+evalNode :: forall s dz dx. NodeValues s dz -> Node (NodeKey s) BackFunction1 dz dx -> Vec dx
+evalNode nodes (Node xs') = Vec (sumBuilder (goEdge <$> xs'))
   where goEdge :: BasicVector dx => Edge (NodeKey s) BackFunction1 dz dx -> VecBuilder dx
         goEdge (Edge f tail) = evalBackEdge' nodes tail f
 
-evalBackMap :: forall s dz. dz -> NodeMap s (Node (NodeKey s) BackFunction1 dz) -> NodeMap s BackValue
+evalBackMap :: forall s dz. Vec dz -> NodeMap s (Node (NodeKey s) BackFunction1 dz) -> NodeMap s Vec
 evalBackMap dz dxs = ys
     where ys = NodeMap.mapmap go dxs
-          go :: forall dx. Node (NodeKey s) BackFunction1 dz dx -> BackValue dx
+          go :: forall dx. Node (NodeKey s) BackFunction1 dz dx -> Vec dx
           go = evalNode (NodeValues ys dz)
 
-evalBackMap' :: forall s dz. dz -> NodeMap s (Node (NodeKey s) BackFunction1 dz) -> NodeValues s dz
+evalBackMap' :: forall s dz. Vec dz -> NodeMap s (Node (NodeKey s) BackFunction1 dz) -> NodeValues s dz
 evalBackMap' dz dxs = NodeValues (evalBackMap dz dxs) dz
 
-instance BasicVector da => TensorProduct dz (Graph s BackFunction1 dz da) da where
-    dx ⊗ Graph env node = unBackValue (evalNode env' node)
+instance BasicVector da => TensorProduct (Vec dz) (Graph s BackFunction1 dz da) where
+    type (Vec dz) ⊗ (Graph s BackFunction1 dz da) = Vec da
+    dx ⊗ Graph env node = evalNode env' node
         where env' = evalBackMap' dx env
 
 nodeEdges :: forall s f da dz dx. NodeKey s dx -> Node (NodeKey s) f da dx -> [AnyEdge s f da dz]

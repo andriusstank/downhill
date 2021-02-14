@@ -5,7 +5,7 @@
 {- OPTIONS_GHC -Wno-unused-imports -}
 
 module Trace where
-import Tensor(TensorProduct((⊗)))
+import Tensor(TensorProduct(..), Vec(..))
 import Data.VectorSpace (sumV, VectorSpace(..), AdditiveGroup(..))
 import Expr
 import System.IO (hPutStrLn, stderr)
@@ -103,6 +103,6 @@ _z = do
     let y' = Graph smap expr
     let dy' = flipGraph y'
     putStrLn "back"
-    ans2 <- evaluate (R 2 ⊗ dy')
+    ans2 <- evaluate (unVec (Vec (R 2) ⊗ dy'))
     print ans2
     return ()

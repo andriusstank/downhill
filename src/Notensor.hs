@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -14,7 +16,7 @@ module Notensor
 ) where
 import Data.Kind (Type)
 import Data.VectorSpace (VectorSpace(Scalar))
-import Tensor (TensorProduct((⊗)))
+import Tensor (TensorProduct(..), Vec(Vec))
 import Data.Maybe (catMaybes)
 import Data.Constraint (Dict(Dict))
 
@@ -113,11 +115,13 @@ scaleFunc :: FullVector du => Scalar du -> AFunction1 du du
 scaleFunc a = AFunction1 (scaleBuilder a)
 
 -- TODO: remove TensorProduct instances
-instance BasicVector v => TensorProduct (AFunction2 u du v dv) u v where
-    (AFunction2 f _) ⊗ x = sumBuilder [f x]
+instance BasicVector v => TensorProduct (AFunction2 u du v dv) (Vec u) where
+    type (AFunction2 u du v dv) ⊗ (Vec u) = Vec v
+    (AFunction2 f _) ⊗ Vec x = Vec (sumBuilder [f x])
 
-instance BasicVector du => TensorProduct dv (AFunction2 u du v dv) du where
-    x ⊗ (AFunction2 _ f) = sumBuilder [f x]
+instance BasicVector du => TensorProduct (Vec dv) (AFunction2 u du v dv) where
+    type (Vec dv) ⊗ (AFunction2 u du v dv) = Vec du
+    Vec x ⊗ (AFunction2 _ f) = Vec (sumBuilder [f x])
 
 {-
 data AFunction u du v dv where

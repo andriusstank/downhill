@@ -10,13 +10,13 @@
 module Affine where
 
 import Data.AffineSpace (AffineSpace((.-.), Diff))
-import Tensor (TensorProduct((⊗)))
+import Tensor (TensorProduct(..))
 import Data.AdditiveGroup (AdditiveGroup((^+^)))
 import Data.VectorSpace (AdditiveGroup((^-^), negateV, zeroV), VectorSpace(Scalar, (*^)))
 
 data AffineFunc b dv = AffineFunc b dv
 
-evalAffineFunc :: (AdditiveGroup b, TensorProduct dv v b) => AffineFunc b dv -> v -> b
+evalAffineFunc :: (AdditiveGroup b, TensorProduct'' dv v b) => AffineFunc b dv -> v -> b
 evalAffineFunc (AffineFunc y0 dydx) x = y0 ^+^ (dydx ⊗ x)
 
 instance (AdditiveGroup b, AdditiveGroup dv) => AdditiveGroup (AffineFunc b dv) where
