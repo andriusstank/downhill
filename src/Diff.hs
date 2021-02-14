@@ -42,7 +42,7 @@ backprop' dy dv = unsafePerformIO $ do
     NodeMap.SomeSharedExprWithMap smap expr <- runRecoverSharing5 dy :: IO (NodeMap.SomeSharedExprWithMap da dv)
     let x' = Graph.Graph smap expr -- :: Graph.ForwardGraph s a da v dv
         dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
-    return (unVec (Vec dv ⊗ dx'))
+    return (unVec (dx' ⊗ Vec dv))
 
 backprop :: forall b da dv. BasicVector da => BVar b da dv -> dv -> da
 backprop (AffineFunc _y0 y) dv = case y of

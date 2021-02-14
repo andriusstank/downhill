@@ -103,6 +103,6 @@ _z = do
     let y' = Graph smap expr
     let dy' = flipGraph y'
     putStrLn "back"
-    ans2 <- evaluate (unVec (Vec (R 2) ⊗ dy'))
+    ans2 <- evaluate (unVec (dy' ⊗ Vec (R 2)))
     print ans2
     return ()

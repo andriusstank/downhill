@@ -1,3 +1,7 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -6,8 +10,17 @@
 module Coolness
 where
 import Data.AdditiveGroup (sumV, AdditiveGroup)
-import Tensor (LinearFunction, LinearFunction'(transpose, transposeC), TensorProduct((⊗)), AFunction)
+import Tensor (LinearFunction, LinearFunction'(transpose, transposeC), AFunction, TensorProduct(..), Vec(..))
 import Data.Constraint (Dict(Dict), (:-)(Sub))
+import Data.Kind (Type)
+
+{-
+class TensorProduct u v w | u v -> w where
+  (⊗) :: u -> v -> w
+
+class TensorProduct u v (u⊗v) => TensorProduct' u v where
+  type u ⊗ v :: Type
+-}
 
 data Expr a da v dv where
     Variable :: Expr a da a da
@@ -15,21 +28,24 @@ data Expr a da v dv where
     Sum :: AdditiveGroup v => [Expr a da v dv] -> Expr a da v dv
 
 -- Evaluate
-instance TensorProduct (Expr a da v dv) a v where
+instance TensorProduct (Expr a da v dv) (Vec a) where
+    type Expr a da v dv ⊗ Vec a = Vec v
     expr ⊗ a = case expr of
         Variable -> a
         Func f x -> f ⊗ (x ⊗ a)
         Sum xs -> sumV [x ⊗ a | x <- xs]
 
 -- Substitute
-instance TensorProduct (Expr x dx v dv) (Expr a da x dx) (Expr a da v dv) where
+instance TensorProduct (Expr x dx v dv) (Expr a da x dx) where
+    type Expr x dx v dv ⊗ Expr a da x dx = Expr a da v dv
     expr ⊗ x = case expr of
         Variable -> x
         Func f y -> Func f (y ⊗ x)
         Sum ys -> Sum [y ⊗ x | y <- ys]
 
 -- Reverse mode evaluation
-instance AdditiveGroup da => TensorProduct dv (Expr a da v dv) da where
+instance AdditiveGroup da => TensorProduct (Vec dv) (Expr a da v dv) where
+    type Vec dv ⊗ (Expr a da v dv) = Vec da
     dv ⊗ expr = case expr of
         Variable -> dv
         Func f x -> (dv ⊗ f) ⊗ x

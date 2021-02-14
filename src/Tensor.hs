@@ -1,3 +1,4 @@
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
@@ -30,6 +31,9 @@ import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
 import GHC.Generics (Generic)
 
 newtype Vec dx = Vec { unVec :: dx }
+    deriving AdditiveGroup via (Vec dx)
+
+-- instance AdditiveGroup *
 
 type TensorProduct'' u v w = (TensorProduct u v, u ⊗ v ~ w)
 

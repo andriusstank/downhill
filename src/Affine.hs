@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE PolyKinds #-}
@@ -16,7 +17,7 @@ import Data.VectorSpace (AdditiveGroup((^-^), negateV, zeroV), VectorSpace(Scala
 
 data AffineFunc b dv = AffineFunc b dv
 
-evalAffineFunc :: (AdditiveGroup b, TensorProduct'' dv v b) => AffineFunc b dv -> v -> b
+evalAffineFunc :: (AdditiveGroup (dv ⊗ v), TensorProduct dv v) => AffineFunc (dv ⊗ v) dv -> v -> dv ⊗ v
 evalAffineFunc (AffineFunc y0 dydx) x = y0 ^+^ (dydx ⊗ x)
 
 instance (AdditiveGroup b, AdditiveGroup dv) => AdditiveGroup (AffineFunc b dv) where

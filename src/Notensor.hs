@@ -78,6 +78,10 @@ type FullVectors v dv = (FullVector v, FullVector dv, Scalar v ~ Scalar dv)
 data AFunction1 du dv = AFunction1 { backF1 :: dv -> VecBuilder du }
 data BackFunction1 dv du = BackFunction1 { backF1' :: dv -> VecBuilder du }
 
+instance TensorProduct (BackFunction1 dv du) (Vec dv) where
+    type BackFunction1 dv du ⊗ Vec dv = VecBuilder du
+    BackFunction1 f ⊗ Vec dv = f dv
+
 class Transpose (f :: Type -> Type -> Type) (g :: Type -> Type -> Type) where
     transpose :: forall u v. f u v -> g v u
     flipTranspose :: Dict (Transpose g f)
