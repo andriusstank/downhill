@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeFamilies #-}
 module Notensor
 ( BasicVector(..), BasicVectors, FullVector(..), FullVectors
-, AFunction1(..), BackFunction1(..), flipFunc1, AFunction2(..), ProdVector(..), Transpose(..)
+, BackFunc(..), FwdFunc(..), flipFunc1, AFunction2(..), ProdVector(..), Transpose(..)
 , mkAFunction2
 , identityFunc, negateFunc, scaleFunc
 , transposeFunc2
@@ -46,12 +46,12 @@ instance (ProdVector a, ProdVector b) => ProdVector (a, b) where
     zeroBuilder = (Nothing, Nothing)
     identityBuilder (x, y) = (Just (identityBuilder x), Just (identityBuilder y))
 
-fstF1 :: ProdVector du => AFunction1 (du, dv) du
-fstF1 = AFunction1 back
+fstF1 :: ProdVector du => BackFunc (du, dv) du
+fstF1 = BackFunc back
     where back x = (Just (identityBuilder x), Nothing)
 
-intoFst :: ProdVector du => AFunction1 du (du, dv)
-intoFst = AFunction1 fwd
+intoFst :: ProdVector du => BackFunc du (du, dv)
+intoFst = BackFunc fwd
     where fwd (x, _) = identityBuilder x
 
 fstF :: (ProdVector u, ProdVector du) => AFunction2 (u, v) (du, dv) u du
@@ -59,12 +59,12 @@ fstF = AFunction2 fwd back
     where fwd (x, _) = identityBuilder x
           back x = (Just (identityBuilder x), Nothing)
 
-sndF1 :: ProdVector dv => AFunction1 (du, dv) dv
-sndF1 = AFunction1 back
+sndF1 :: ProdVector dv => BackFunc (du, dv) dv
+sndF1 = BackFunc back
     where back x = (Nothing, Just (identityBuilder x))
 
-intoSnd :: ProdVector dv => AFunction1 dv (du, dv)
-intoSnd = AFunction1 fwd
+intoSnd :: ProdVector dv => BackFunc dv (du, dv)
+intoSnd = BackFunc fwd
     where fwd (_, x) = identityBuilder x
 
 sndF :: (ProdVector v, ProdVector dv) => AFunction2 (u, v) (du, dv) v dv
@@ -78,8 +78,8 @@ transposeFunc2 (AFunction2 fwd back) = AFunction2 back fwd
 type BasicVectors v dv = (BasicVector v, BasicVector dv)
 type FullVectors v dv = (FullVector v, FullVector dv, Scalar v ~ Scalar dv)
 
-data AFunction1 du dv = AFunction1 { backF1 :: dv -> VecBuilder du }
-data BackFunction1 dv du = BackFunction1 { backF1' :: dv -> VecBuilder du }
+data BackFunc u v = BackFunc (v -> VecBuilder u)
+data FwdFunc u v = FwdFunc (u -> VecBuilder v)
 
 newtype Vec' dx x = Vec' { unVec' :: x }
     deriving Show
@@ -89,46 +89,46 @@ newtype Covec' dx x = Covec' { uncovec' :: dx }
     deriving Show
     deriving AdditiveGroup via dx
 
-instance TensorProduct (BackFunction1 dv du) (Vec dv) where
-    type BackFunction1 dv du ⊗ Vec dv = VecBuilder du
-    BackFunction1 f ⊗ Vec dv = f dv
+instance TensorProduct (FwdFunc dv du) (Vec dv) where
+    type FwdFunc dv du ⊗ Vec dv = VecBuilder du
+    FwdFunc f ⊗ Vec dv = f dv
 
 
 class Transpose (f :: Type -> Type -> Type) (g :: Type -> Type -> Type) | f->g, g->f where
     transpose :: forall u v. f u v -> g v u
     flipTranspose :: Dict (Transpose g f)
 
-instance Transpose AFunction1 BackFunction1 where
-    transpose (AFunction1 f) = BackFunction1 f
+instance Transpose BackFunc FwdFunc where
+    transpose (BackFunc f) = FwdFunc f
     flipTranspose = Dict
-instance Transpose BackFunction1 AFunction1 where
-    transpose (BackFunction1 f) = AFunction1 f
+instance Transpose FwdFunc BackFunc where
+    transpose (FwdFunc f) = BackFunc f
     flipTranspose = Dict
 
-flipFunc1 :: AFunction1 du dv -> BackFunction1 dv du
-flipFunc1 (AFunction1 f) = BackFunction1 f
+flipFunc1 :: BackFunc du dv -> FwdFunc dv du
+flipFunc1 (BackFunc f) = FwdFunc f
 
 data AFunction2 u du v dv = AFunction2
     { fwdF :: u -> VecBuilder v
     , backF :: dv -> VecBuilder du
     }
 
-toFunc1 :: AFunction2 u du v dv -> AFunction1 du dv
-toFunc1 (AFunction2 _ back) = AFunction1 back
+toFunc1 :: AFunction2 u du v dv -> BackFunc du dv
+toFunc1 (AFunction2 _ back) = BackFunc back
 
 -- TODO: review all uses
 mkAFunction2 :: (FullVector v, FullVector du) => (u->v) -> (dv->du) -> AFunction2 u du v dv
 mkAFunction2 fwd back = AFunction2 (identityBuilder . fwd) (identityBuilder . back)
 
-negateFunc :: FullVector du => AFunction1 du du
-negateFunc = AFunction1 negateBuilder
+negateFunc :: FullVector du => BackFunc du du
+negateFunc = BackFunc negateBuilder
 
-identityFunc :: FullVector du => AFunction1 du du
-identityFunc = AFunction1 identityBuilder
+identityFunc :: FullVector du => BackFunc du du
+identityFunc = BackFunc identityBuilder
 
 
-scaleFunc :: FullVector du => Scalar du -> AFunction1 du du
-scaleFunc a = AFunction1 (scaleBuilder a)
+scaleFunc :: FullVector du => Scalar du -> BackFunc du du
+scaleFunc a = BackFunc (scaleBuilder a)
 
 -- TODO: remove TensorProduct instances
 instance BasicVector v => TensorProduct (AFunction2 u du v dv) (Vec u) where

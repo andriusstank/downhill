@@ -15,7 +15,7 @@ import Graph
 import Control.Monad (when)
 import qualified NodeMap
 import NodeMap (runRecoverSharing5)
-import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, AFunction1(AFunction1), flipFunc1)
+import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, BackFunc(BackFunc))
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 
@@ -53,23 +53,23 @@ instance FullVector R where
     negateBuilder = negateV
     scaleBuilder a = (a *^)
 
-tracingFunc :: String -> Integer -> AFunction1 R R
-tracingFunc name value = AFunction1 back
+tracingFunc :: String -> Integer -> BackFunc R R
+tracingFunc name value = BackFunc back
     where back (R x) = unsafePerformIO $ do
             x' <- evaluate x
             let y = value*x'
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVector dv => Expr5 AFunction1 da dv -> Edge (Expr5 AFunction1 da) AFunction1 da dv
+exprToTerm :: FullVector dv => Expr5 BackFunc da dv -> Edge (Expr5 BackFunc da) BackFunc da dv
 exprToTerm = Edge identityFunc . InnerNode
 
 
-testExpr :: IO (Expr5 AFunction1 R R)
+testExpr :: IO (Expr5 BackFunc R R)
 testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
-        x0, x1 :: Expr5 AFunction1 R R
+        x0, x1 :: Expr5 BackFunc R R
         x0 = Expr5 (Node [Edge f SourceNode])
         x1 = Expr5 (Node [Edge g SourceNode])
         x2 = Expr5 (Node [exprToTerm x0, exprToTerm x1])
@@ -86,7 +86,7 @@ testExpr = do
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-_x :: () -> IO (NodeMap.SomeSharedExprWithMap AFunction1 R R)
+_x :: () -> IO (NodeMap.SomeSharedExprWithMap BackFunc R R)
 _x () = runRecoverSharing5 =<< testExpr
 
 {-

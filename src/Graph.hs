@@ -30,7 +30,7 @@ import Data.Either (partitionEithers)
 import NodeMap ()
 
 import qualified NodeMap
-import Notensor(BackFunction1, BasicVector (VecBuilder, sumBuilder), Transpose(..))
+import Notensor(FwdFunc, BasicVector (VecBuilder, sumBuilder), Transpose(..))
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.Constraint (Dict(Dict))
 
@@ -40,8 +40,8 @@ data AnyEdge s e da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (e d
 
 data NodeValues s da = NodeValues (NodeMap s Vec) (Vec da)
 
-instance BasicVector da => TensorProduct (Graph s BackFunction1 dz da) (Vec dz) where
-    type (Graph s BackFunction1 dz da) ⊗ (Vec dz) = Vec da
+instance BasicVector da => TensorProduct (Graph s FwdFunc dz da) (Vec dz) where
+    type (Graph s FwdFunc dz da) ⊗ (Vec dz) = Vec da
     g ⊗ dx = evalGraph g dx
   
 lookupParent :: forall s dz dv. NodeValues s dz -> Endpoint (NodeKey s) dz dv -> Vec dv
@@ -51,18 +51,18 @@ lookupParent (NodeValues ys dz) tail = (goTail tail)
             SourceNode -> dz
             InnerNode nodeName -> NodeMap.lookup ys nodeName
 
-evalGraph :: forall s dx dz. Graph s BackFunction1 dz dx -> Vec dz -> Vec dx
+evalGraph :: forall s dx dz. Graph s FwdFunc dz dx -> Vec dz -> Vec dx
 evalGraph (Graph nodes finalNode) dz = evalNode finalNode
     where
           allValues :: NodeValues s dz
           allValues = NodeValues innerValues dz
           evalParent :: Endpoint (NodeKey s) dz dv -> Vec dv
           evalParent = lookupParent allValues
-          evalEdge :: (Edge (NodeKey s) BackFunction1 dz dv -> VecBuilder dv)
+          evalEdge :: (Edge (NodeKey s) FwdFunc dz dv -> VecBuilder dv)
           evalEdge (Edge f tail) = f ⊗ evalParent tail
-          evalNode :: (Node (NodeKey s) BackFunction1 dz dv -> Vec dv)
+          evalNode :: (Node (NodeKey s) FwdFunc dz dv -> Vec dv)
           evalNode (Node xs) = Vec (sumBuilder [evalEdge x | x <- xs])
-          evalGraphInnerNodes :: (NodeMap s (Node (NodeKey s) BackFunction1 dz) -> NodeMap s Vec)
+          evalGraphInnerNodes :: (NodeMap s (Node (NodeKey s) FwdFunc dz) -> NodeMap s Vec)
           evalGraphInnerNodes = NodeMap.mapmap evalNode
           innerValues :: NodeMap s Vec
           innerValues = evalGraphInnerNodes nodes
