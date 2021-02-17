@@ -10,7 +10,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes #-}
 {-# language ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 module NodeMap (
     NodeKey,
     SomeItem(..),
@@ -30,27 +29,15 @@ module NodeMap (
 
     fromList, List2(..)
 ) where
-import Data.HashMap.Lazy (HashMap)
-import GHC.StableName (StableName)
-import GHC.Exts (Any)
-import qualified Data.HashMap.Strict as Map
-import Unsafe.Coerce (unsafeCoerce)
-import Data.VectorSpace (AdditiveGroup)
-import Tensor (AFunction)
-import Sharing (TreeBuilder, BuildAction(..))
 import Expr (Expr5)
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
 import OpenGraph (OpenExpr)
 import qualified OpenGraph
-import qualified Sharing
 import qualified OpenMap
 import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
-import Data.Constraint (Dict(Dict))
-import qualified Data.HashMap.Lazy as HashMap
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
-import Notensor (AFunction1)
 
 data Unit dx = Unit
 
@@ -108,18 +95,18 @@ fromList = foldr prepend s0
           s0 = generate (const (List2 []))
 
 type SharedArgS s = Endpoint (NodeKey s)
-type SharedTermS s = Edge (NodeKey s) AFunction1
-type SharedExprS s da = Node (NodeKey s) AFunction1 da
+type SharedTermS s e = Edge (NodeKey s) e
+type SharedExprS s e da = Node (NodeKey s) e da
 
-data SomeSharedExprWithMap da dz where
-    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s da) -> SharedExprS s da dz -> SomeSharedExprWithMap da dz
+data SomeSharedExprWithMap e da dz where
+    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s e da) -> SharedExprS s e da dz -> SomeSharedExprWithMap e da dz
 
-cvthelper :: forall s da dv. NodeSet s => NodeMap s (OpenExpr da) -> OpenExpr da dv -> SomeSharedExprWithMap da dv
+cvthelper :: forall s e da dv. NodeSet s => NodeMap s (OpenExpr e da) -> OpenExpr e da dv -> SomeSharedExprWithMap e da dv
 cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
-    where cvtexpr :: forall dx. OpenExpr da dx -> SharedExprS s da dx
+    where cvtexpr :: forall dx. OpenExpr e da dx -> SharedExprS s e da dx
           cvtexpr = \case
             Node terms -> Node (cvtterm <$> terms)
-          cvtterm :: forall dx. Edge OpenKey AFunction1 da dx -> Edge (NodeKey s) AFunction1 da dx
+          cvtterm :: forall dx. Edge OpenKey e da dx -> Edge (NodeKey s) e da dx
           cvtterm = \case
             Edge f x' -> Edge f (cvtarg x')
           cvtarg :: forall du. Endpoint OpenKey da du -> Endpoint (NodeKey s) da du
@@ -130,11 +117,11 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
                 Nothing -> error "oh fuck"
           
 
-cvtmap :: (OpenExpr da dv, OpenMap (OpenExpr da)) -> SomeSharedExprWithMap da dv
+cvtmap :: (OpenExpr e da dv, OpenMap (OpenExpr e da)) -> SomeSharedExprWithMap e da dv
 cvtmap (x, m) = case uncheckedMakeNodeMap m of
     SomeNodeMap m' -> cvthelper m' x
 
-runRecoverSharing5 :: forall da dv. Expr5 da dv -> IO (SomeSharedExprWithMap da dv)
+runRecoverSharing5 :: forall e da dv. Expr5 e da dv -> IO (SomeSharedExprWithMap e da dv)
 runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4 x
 
 data SomeNodeMap f where

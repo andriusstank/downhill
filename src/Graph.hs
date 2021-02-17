@@ -13,7 +13,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# language ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
  
 module Graph
     ( Graph(..)
@@ -23,27 +22,19 @@ module Graph
 where
 import Prelude hiding (head, tail)
 import Sharing()
-import Tensor(transposeFunc, LinearFunction, TensorProduct(..), Vec (Vec, unVec))
+import Tensor(TensorProduct(..), Vec (Vec))
 
-import NodeMap (NodeSet, SharedArgS, SharedTermS,  SharedExprS,  NodeMap, NodeKey, SomeItem(SomeItem), List2(List2))
-import Data.VectorSpace (sumV, AdditiveGroup)
-import Data.Kind (Type)
-import GHC.Generics (Generic)
+import NodeMap (NodeSet,  NodeMap, NodeKey, SomeItem(SomeItem), List2(List2))
 import Data.Either (partitionEithers)
 import NodeMap ()
 
 import qualified NodeMap
-import Notensor
-    ( BasicVectors, BasicVector(VecBuilder, sumBuilder)
-    , AFunction2(backF, fwdF, AFunction2), AFunction1(AFunction1)
-    , backF1, BackFunction1 (backF1'), flipFunc1
-    )
+import Notensor(BackFunction1, BasicVector (VecBuilder, sumBuilder))
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
-import Data.Constraint (Dict(Dict))
 
 data Graph s e da dz = Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
 
-data AnyEdge s f da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (f du dv) (Endpoint (NodeKey s) da du)
+data AnyEdge s e da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (e du dv) (Endpoint (NodeKey s) da du)
 
 data NodeValues s da = NodeValues (NodeMap s Vec) (Vec da)
 
@@ -134,8 +125,8 @@ graphNodes (Graph env _) = NodeMap.mapmap go env
           go = \case
             Node _ -> NodeDict
 
-flipGraph :: (NodeSet s, BasicVector da) => Graph s AFunction1 da dz -> Graph s BackFunction1 dz da
-flipGraph g = backFromEdges flipFunc1 (graphNodes g) (allGraphEdges g)
+flipGraph :: (NodeSet s, BasicVector da) => (forall u v. f u v -> g v u) -> Graph s f da dz -> Graph s g dz da
+flipGraph flipF g = backFromEdges flipF (graphNodes g) (allGraphEdges g)
 
 mapEdges :: forall s f g da dz. (forall u v. f u v -> g u v) -> Graph s f da dz -> Graph s g da dz
 mapEdges f (Graph inner final) = Graph (NodeMap.mapmap go inner) (go final)

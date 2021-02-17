@@ -15,7 +15,7 @@ import Graph
 import Control.Monad (when)
 import qualified NodeMap
 import NodeMap (runRecoverSharing5)
-import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, AFunction1(AFunction1))
+import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, AFunction1(AFunction1), flipFunc1)
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 
@@ -61,15 +61,15 @@ tracingFunc name value = AFunction1 back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVector dv => Expr5 da dv -> Edge (Expr5 da) AFunction1 da dv
+exprToTerm :: FullVector dv => Expr5 AFunction1 da dv -> Edge (Expr5 AFunction1 da) AFunction1 da dv
 exprToTerm = Edge identityFunc . InnerNode
 
 
-testExpr :: IO (Expr5 R R)
+testExpr :: IO (Expr5 AFunction1 R R)
 testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
-        x0, x1 :: Expr5 R R
+        x0, x1 :: Expr5 AFunction1 R R
         x0 = Expr5 (Node [Edge f SourceNode])
         x1 = Expr5 (Node [Edge g SourceNode])
         x2 = Expr5 (Node [exprToTerm x0, exprToTerm x1])
@@ -86,7 +86,7 @@ testExpr = do
 
 -- >>> testExpr ⊗ (R 7)
 -- R 56
-_x :: () -> IO (NodeMap.SomeSharedExprWithMap R R)
+_x :: () -> IO (NodeMap.SomeSharedExprWithMap AFunction1 R R)
 _x () = runRecoverSharing5 =<< testExpr
 
 {-
@@ -101,7 +101,7 @@ _z :: IO ()
 _z = do
     NodeMap.SomeSharedExprWithMap smap expr <- _x ()
     let y' = Graph smap expr
-    let dy' = flipGraph y'
+    let dy' = flipGraph flipFunc1 y'
     putStrLn "back"
     ans2 <- evaluate (unVec (dy' ⊗ Vec (R 2)))
     print ans2

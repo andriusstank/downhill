@@ -21,10 +21,10 @@ import NodeMap (runRecoverSharing5)
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector, BasicVector, fstF1, sndF1, intoFst, intoSnd, AFunction1)
+import Notensor (ProdVector, BasicVector, fstF1, sndF1, intoFst, intoSnd, AFunction1, flipFunc1)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 
-type BVar b da dv = AffineFunc b (Endpoint (Expr5 da) da dv)
+type BVar b da dv = AffineFunc b (Endpoint (Expr5 AFunction1 da) da dv)
 
 type BVarS a = BVar a a a
 
@@ -37,11 +37,11 @@ constant x = AffineFunc x (InnerNode zeroE)
 var :: b -> BVar b dv dv
 var x = AffineFunc x SourceNode
 
-backprop' :: forall da dv. BasicVector da => Expr5 da dv -> dv -> da
+backprop' :: forall e da dv. (BasicVector da, e ~ AFunction1) => Expr5 e da dv -> dv -> da
 backprop' dy dv = unsafePerformIO $ do
-    NodeMap.SomeSharedExprWithMap smap expr <- runRecoverSharing5 dy :: IO (NodeMap.SomeSharedExprWithMap da dv)
+    NodeMap.SomeSharedExprWithMap smap expr <- runRecoverSharing5 dy :: IO (NodeMap.SomeSharedExprWithMap e da dv)
     let x' = Graph.Graph smap expr -- :: Graph.ForwardGraph s a da v dv
-        dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
+        dx' = Graph.flipGraph flipFunc1 x' -- :: Graph.BackwardGraph s' a da v dv
     return (unVec (dx' ⊗ Vec dv))
 
 backprop :: forall b da dv. BasicVector da => BVar b da dv -> dv -> da
@@ -56,12 +56,12 @@ liftFunc1
   :: forall u v da dv du. 
      BasicVector dv
   => (u -> (v, AFunction1 du dv))
-  -> AffineFunc u (Endpoint (Expr5 da) da du)
-  -> AffineFunc v (Endpoint (Expr5 da) da dv)
+  -> AffineFunc u (Endpoint (Expr5 AFunction1 da) da du)
+  -> AffineFunc v (Endpoint (Expr5 AFunction1 da) da dv)
 liftFunc1 f (AffineFunc x0 dx) = AffineFunc y0 expr
-    where term :: Edge (Expr5 da) AFunction1 da dv
+    where term :: Edge (Expr5 AFunction1 da) AFunction1 da dv
           term = Edge df dx
-          expr :: Endpoint (Expr5 da) da dv
+          expr :: Endpoint (Expr5 AFunction1 da) da dv
           expr = InnerNode (Expr5 (Node [term]))
           (y0, df) = f x0
 
@@ -76,9 +76,9 @@ snd = liftFunc1 go
 
 zipA
   :: forall da du dv. (ProdVector du, ProdVector dv)
-  => Endpoint (Expr5 da) da du
-  -> Endpoint (Expr5 da) da dv
-  -> Endpoint (Expr5 da) da (du, dv)
+  => Endpoint (Expr5 AFunction1 da) da du
+  -> Endpoint (Expr5 AFunction1 da) da dv
+  -> Endpoint (Expr5 AFunction1 da) da (du, dv)
 zipA x y = InnerNode (Expr5 (Node [Edge intoFst x, Edge intoSnd y]))
 
 zip :: (ProdVector du, ProdVector dv) => BVar b da du -> BVar c da dv -> BVar (b, c) da (du, dv)
