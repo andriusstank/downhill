@@ -18,6 +18,7 @@
 module Graph
     ( Graph(..)
     , flipGraph
+    , mapEdges
     )
 where
 import Prelude hiding (head, tail)
@@ -49,7 +50,7 @@ data NodeValues s da = NodeValues (NodeMap s Vec) (Vec da)
 instance BasicVector da => TensorProduct (Graph s BackFunction1 dz da) (Vec dz) where
     type (Graph s BackFunction1 dz da) ⊗ (Vec dz) = Vec da
     g ⊗ dx = evalGraph g dx
-
+  
 lookupParent :: forall s dz dv. NodeValues s dz -> Endpoint (NodeKey s) dz dv -> Vec dv
 lookupParent (NodeValues ys dz) tail = (goTail tail)
     where goTail :: Endpoint (NodeKey s) dz dx -> Vec dx
@@ -135,3 +136,10 @@ graphNodes (Graph env _) = NodeMap.mapmap go env
 
 flipGraph :: (NodeSet s, BasicVector da) => Graph s AFunction1 da dz -> Graph s BackFunction1 dz da
 flipGraph g = backFromEdges flipFunc1 (graphNodes g) (allGraphEdges g)
+
+mapEdges :: forall s f g da dz. (forall u v. f u v -> g u v) -> Graph s f da dz -> Graph s g da dz
+mapEdges f (Graph inner final) = Graph (NodeMap.mapmap go inner) (go final)
+  where go :: Node (NodeKey s) f da dv -> Node (NodeKey s) g da dv
+        go (Node xs) = Node [goEdge x | x <- xs]
+        goEdge :: Edge p f da dx -> Edge p g da dx
+        goEdge (Edge e x) = Edge (f e) x
