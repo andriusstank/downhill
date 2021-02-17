@@ -31,7 +31,8 @@ import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
 import GHC.Generics (Generic)
 
 newtype Vec dx = Vec { unVec :: dx }
-    deriving AdditiveGroup via (Vec dx)
+    deriving Show
+    deriving AdditiveGroup via dx
 
 -- instance AdditiveGroup *
 
