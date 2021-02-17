@@ -21,7 +21,7 @@ import NodeMap (runRecoverSharing5)
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector, BasicVector, fstF1, sndF1, intoFst, intoSnd, AFunction1, flipFunc1)
+import Notensor (ProdVector, BasicVector, fstF1, sndF1, intoFst, intoSnd, AFunction1)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 
 type BVar b da dv = AffineFunc b (Endpoint (Expr5 AFunction1 da) da dv)
@@ -41,7 +41,7 @@ backprop' :: forall e da dv. (BasicVector da, e ~ AFunction1) => Expr5 e da dv -
 backprop' dy dv = unsafePerformIO $ do
     NodeMap.SomeSharedExprWithMap smap expr <- runRecoverSharing5 dy :: IO (NodeMap.SomeSharedExprWithMap e da dv)
     let x' = Graph.Graph smap expr -- :: Graph.ForwardGraph s a da v dv
-        dx' = Graph.flipGraph flipFunc1 x' -- :: Graph.BackwardGraph s' a da v dv
+        dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
     return (unVec (dx' ⊗ Vec dv))
 
 backprop :: forall b da dv. BasicVector da => BVar b da dv -> dv -> da

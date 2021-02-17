@@ -34,6 +34,14 @@ newtype Vec dx = Vec { unVec :: dx }
     deriving Show
     deriving AdditiveGroup via dx
 
+newtype Vec' dx x = Vec' { unVec' :: x }
+    deriving Show
+    deriving AdditiveGroup via x
+
+newtype Covec' dx x = Covec' { uncovec' :: dx }
+    deriving Show
+    deriving AdditiveGroup via dx
+
 -- instance AdditiveGroup *
 
 type TensorProduct'' u v w = (TensorProduct u v, u ⊗ v ~ w)

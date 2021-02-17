@@ -101,7 +101,7 @@ _z :: IO ()
 _z = do
     NodeMap.SomeSharedExprWithMap smap expr <- _x ()
     let y' = Graph smap expr
-    let dy' = flipGraph flipFunc1 y'
+    let dy' = flipGraph y'
     putStrLn "back"
     ans2 <- evaluate (unVec (dy' ⊗ Vec (R 2)))
     print ans2

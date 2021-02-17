@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -29,10 +30,11 @@ import Data.Either (partitionEithers)
 import NodeMap ()
 
 import qualified NodeMap
-import Notensor(BackFunction1, BasicVector (VecBuilder, sumBuilder))
+import Notensor(BackFunction1, BasicVector (VecBuilder, sumBuilder), Transpose(..))
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
+import Data.Constraint (Dict(Dict))
 
-data Graph s e da dz = Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
+data Graph s e da dz = BasicVector da => Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
 
 data AnyEdge s e da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (e du dv) (Endpoint (NodeKey s) da du)
 
@@ -94,7 +96,7 @@ flipAnyEdge flipF (AnyEdge tail f head) = AnyEdge head (flipF f) tail
 data NodeDict dx = BasicVector dx => NodeDict
 
 edgeListToGraph
-  :: forall s f da dz. (NodeSet s, BasicVector da)
+  :: forall s f da dz. (NodeSet s, BasicVector da, BasicVector dz)
   => NodeMap s NodeDict
   -> [AnyEdge s f dz da]
   -> Graph s f dz da
@@ -110,7 +112,7 @@ edgeListToGraph dictmap flippedEdges = Graph edgeMap (Node initial)
           withDict NodeDict (List2 xs) = Node xs
 
 backFromEdges
-  :: forall s f g da dz. (NodeSet s, BasicVector da)
+  :: forall s f g da dz. (NodeSet s, BasicVector da, BasicVector dz)
   => (forall u v. f u v -> g v u)
   -> NodeMap s NodeDict
   -> [AnyEdge s f da dz]
@@ -125,8 +127,13 @@ graphNodes (Graph env _) = NodeMap.mapmap go env
           go = \case
             Node _ -> NodeDict
 
-flipGraph :: (NodeSet s, BasicVector da) => (forall u v. f u v -> g v u) -> Graph s f da dz -> Graph s g dz da
-flipGraph flipF g = backFromEdges flipF (graphNodes g) (allGraphEdges g)
+instance (NodeSet s, Transpose f g) => Transpose (Graph s f) (Graph s g) where
+  transpose = flipGraph
+  flipTranspose = case flipTranspose @f @g of
+    Dict -> Dict
+
+flipGraph :: (NodeSet s, Transpose f g) => Graph s f da dz -> Graph s g dz da
+flipGraph g@(Graph _ (Node _)) = backFromEdges transpose (graphNodes g) (allGraphEdges g)
 
 mapEdges :: forall s f g da dz. (forall u v. f u v -> g u v) -> Graph s f da dz -> Graph s g da dz
 mapEdges f (Graph inner final) = Graph (NodeMap.mapmap go inner) (go final)

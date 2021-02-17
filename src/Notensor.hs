@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
@@ -19,6 +21,7 @@ import Data.VectorSpace (VectorSpace(Scalar))
 import Tensor (TensorProduct(..), Vec(Vec))
 import Data.Maybe (catMaybes)
 import Data.Constraint (Dict(Dict))
+import Data.AdditiveGroup (AdditiveGroup)
 
 class BasicVector v where
     type VecBuilder v :: Type
@@ -78,11 +81,20 @@ type FullVectors v dv = (FullVector v, FullVector dv, Scalar v ~ Scalar dv)
 data AFunction1 du dv = AFunction1 { backF1 :: dv -> VecBuilder du }
 data BackFunction1 dv du = BackFunction1 { backF1' :: dv -> VecBuilder du }
 
+newtype Vec' dx x = Vec' { unVec' :: x }
+    deriving Show
+    deriving AdditiveGroup via x
+
+newtype Covec' dx x = Covec' { uncovec' :: dx }
+    deriving Show
+    deriving AdditiveGroup via dx
+
 instance TensorProduct (BackFunction1 dv du) (Vec dv) where
     type BackFunction1 dv du ⊗ Vec dv = VecBuilder du
     BackFunction1 f ⊗ Vec dv = f dv
 
-class Transpose (f :: Type -> Type -> Type) (g :: Type -> Type -> Type) where
+
+class Transpose (f :: Type -> Type -> Type) (g :: Type -> Type -> Type) | f->g, g->f where
     transpose :: forall u v. f u v -> g v u
     flipTranspose :: Dict (Transpose g f)
 
