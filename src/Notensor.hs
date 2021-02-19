@@ -10,11 +10,9 @@
 {-# LANGUAGE TypeFamilies #-}
 module Notensor
 ( BasicVector(..), BasicVectors, FullVector(..), FullVectors
-, BackFunc(..), FwdFunc(..), flipFunc1, AFunction2(..), ProdVector(..), Transpose(..)
-, mkAFunction2
+, BackFunc(..), FwdFunc(..), flipFunc1, ProdVector(..), Transpose(..)
 , identityFunc, negateFunc, scaleFunc
-, transposeFunc2
-, fstF, fstF1, sndF, sndF1, toFunc1, intoFst, intoSnd
+, fstF1, sndF1, intoFst, intoSnd
 ) where
 import Data.Kind (Type)
 import Data.VectorSpace (VectorSpace(Scalar))
@@ -54,10 +52,6 @@ intoFst :: ProdVector du => BackFunc du (du, dv)
 intoFst = BackFunc fwd
     where fwd (x, _) = identityBuilder x
 
-fstF :: (ProdVector u, ProdVector du) => AFunction2 (u, v) (du, dv) u du
-fstF = AFunction2 fwd back
-    where fwd (x, _) = identityBuilder x
-          back x = (Just (identityBuilder x), Nothing)
 
 sndF1 :: ProdVector dv => BackFunc (du, dv) dv
 sndF1 = BackFunc back
@@ -66,14 +60,6 @@ sndF1 = BackFunc back
 intoSnd :: ProdVector dv => BackFunc dv (du, dv)
 intoSnd = BackFunc fwd
     where fwd (_, x) = identityBuilder x
-
-sndF :: (ProdVector v, ProdVector dv) => AFunction2 (u, v) (du, dv) v dv
-sndF = AFunction2 fwd back
-    where fwd (_, x) = identityBuilder x
-          back x = (Nothing, Just (identityBuilder x))
-
-transposeFunc2 :: AFunction2 u du v dv -> AFunction2 dv v du u
-transposeFunc2 (AFunction2 fwd back) = AFunction2 back fwd
 
 type BasicVectors v dv = (BasicVector v, BasicVector dv)
 type FullVectors v dv = (FullVector v, FullVector dv, Scalar v ~ Scalar dv)
@@ -108,18 +94,6 @@ instance Transpose FwdFunc BackFunc where
 flipFunc1 :: BackFunc du dv -> FwdFunc dv du
 flipFunc1 (BackFunc f) = FwdFunc f
 
-data AFunction2 u du v dv = AFunction2
-    { fwdF :: u -> VecBuilder v
-    , backF :: dv -> VecBuilder du
-    }
-
-toFunc1 :: AFunction2 u du v dv -> BackFunc du dv
-toFunc1 (AFunction2 _ back) = BackFunc back
-
--- TODO: review all uses
-mkAFunction2 :: (FullVector v, FullVector du) => (u->v) -> (dv->du) -> AFunction2 u du v dv
-mkAFunction2 fwd back = AFunction2 (identityBuilder . fwd) (identityBuilder . back)
-
 negateFunc :: FullVector du => BackFunc du du
 negateFunc = BackFunc negateBuilder
 
@@ -129,23 +103,6 @@ identityFunc = BackFunc identityBuilder
 
 scaleFunc :: FullVector du => Scalar du -> BackFunc du du
 scaleFunc a = BackFunc (scaleBuilder a)
-
--- TODO: remove TensorProduct instances
-instance BasicVector v => TensorProduct (AFunction2 u du v dv) (Vec u) where
-    type (AFunction2 u du v dv) ⊗ (Vec u) = Vec v
-    (AFunction2 f _) ⊗ Vec x = Vec (sumBuilder [f x])
-
-instance BasicVector du => TensorProduct (Vec dv) (AFunction2 u du v dv) where
-    type (Vec dv) ⊗ (AFunction2 u du v dv) = Vec du
-    Vec x ⊗ (AFunction2 _ f) = Vec (sumBuilder [f x])
-
-{-
-data AFunction u du v dv where
-    IndentityFunc :: AFunction u du u du
-    NegateFunc :: (AdditiveGroup u, AdditiveGroup du) => AFunction u du u du
-    ScaleFunc :: forall a v dv. (VectorSpace v, VectorSpace dv, a ~ Scalar v, a ~ Scalar dv) => a -> AFunction v dv v dv
-    BlackBoxFunc :: (u -> v) -> (dv -> du) -> AFunction u du v dv
--}
 
 instance BasicVector Integer where
     type VecBuilder Integer = Integer

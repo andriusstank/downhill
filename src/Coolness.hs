@@ -12,7 +12,6 @@ where
 import Data.AdditiveGroup (sumV, AdditiveGroup)
 import Tensor (LinearFunction, LinearFunction'(transpose, transposeC), AFunction, TensorProduct(..), Vec(..))
 import Data.Constraint (Dict(Dict), (:-)(Sub))
-import Data.Kind (Type)
 
 {-
 class TensorProduct u v w | u v -> w where

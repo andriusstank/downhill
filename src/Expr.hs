@@ -14,7 +14,7 @@ where
 import Tensor
 import Data.VectorSpace (VectorSpace(..),  AdditiveGroup(..), sumV)
 import Data.Constraint
-import Notensor (VecBuilder, FullVector, FullVectors, BasicVector, scaleFunc, BasicVectors, negateFunc, AFunction2(AFunction2), identityFunc, BackFunc)
+import Notensor (VecBuilder, FullVector, FullVectors, BasicVector, scaleFunc, BasicVectors, negateFunc, identityFunc, BackFunc)
 import EType (Node(Node), Endpoint (InnerNode), Edge(Edge))
 
 newtype Expr5 e da dv = Expr5 { unExpr5 :: Node (Expr5 e da) e da dv }
