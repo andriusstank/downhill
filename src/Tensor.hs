@@ -20,9 +20,7 @@
 module Tensor (
     Vec(..),
     TensorProduct(..), TensorProduct'',
-    LinearFunction,
     AFunction(..), transposeFunc,
-    LinearFunction'(..)
 )
 where
 import Data.Constraint
@@ -50,33 +48,6 @@ class TensorProduct u v where
   type u ⊗ v :: Type
   (⊗) :: u -> v -> u ⊗ v
 
-class TensorProduct'' (Vec dv) (Vec v) (Vec b) => BVector b v dv where
-
--- f: u -> v
--- dv ~ Dual b v
--- du ~ Dual b u
---  f ⊗ u ::  v
--- dv ⊗ f :: du
--- (dv ⊗ f) ⊗ u == dv ⊗ (f ⊗ u)
-class
-  ( AdditiveGroup u
-  , AdditiveGroup v
-  , AdditiveGroup du
-  , AdditiveGroup dv
-  , TensorProduct'' f (Vec u) (Vec v)
-  , TensorProduct'' (Vec dv) f (Vec du)
-  ) => LinearFunction f u v du dv where
-
-class
-  ( 
-  ) => LinearFunction' f where
-    transpose :: LinearFunction (f u du v dv) u v du dv => f u du v dv -> f dv v du u
-    transposeC :: LinearFunction (f u du v dv) u v du dv :- LinearFunction (f dv v du u) dv du v u
-
-_testLinearFunction :: forall b f u v du dv. (Eq b, BVector b u du, BVector b v dv) => LinearFunction f u v du dv => f -> Vec dv -> Vec u -> Bool
-_testLinearFunction f dv u = lhs == rhs
-    where Vec lhs = (dv ⊗ f :: Vec du) ⊗ u :: Vec b
-          Vec rhs = dv ⊗ (f ⊗ u) :: Vec b
 
 data AFunction u du v dv where
     IndentityFunc :: AFunction u du u du
@@ -104,9 +75,3 @@ transposeFunc = \case
     NegateFunc -> NegateFunc
     ScaleFunc x -> ScaleFunc x
     BlackBoxFunc f g -> BlackBoxFunc g f
-
-instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction (AFunction u du v dv) u v du dv
-
-instance LinearFunction' AFunction where
-    transpose = transposeFunc
-    transposeC = Sub Dict

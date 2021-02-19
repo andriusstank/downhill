@@ -10,7 +10,7 @@
 module Coolness
 where
 import Data.AdditiveGroup (sumV, AdditiveGroup)
-import Tensor (LinearFunction, LinearFunction'(transpose, transposeC), AFunction, TensorProduct(..), Vec(..))
+import Tensor (AFunction, TensorProduct(..), Vec(..), TensorProduct'', transposeFunc)
 import Data.Constraint (Dict(Dict), (:-)(Sub))
 
 {-
@@ -51,6 +51,36 @@ instance AdditiveGroup da => TensorProduct (Vec dv) (Expr a da v dv) where
         Sum xs -> sumV [dv ⊗ x | x <- xs]
 
 instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction (Expr u du v dv) u v du dv
+
+
+-- f: u -> v
+-- dv ~ Dual b v
+-- du ~ Dual b u
+--  f ⊗ u ::  v
+-- dv ⊗ f :: du
+-- (dv ⊗ f) ⊗ u == dv ⊗ (f ⊗ u)
+class
+  ( AdditiveGroup u
+  , AdditiveGroup v
+  , AdditiveGroup du
+  , AdditiveGroup dv
+  , TensorProduct'' f (Vec u) (Vec v)
+  , TensorProduct'' (Vec dv) f (Vec du)
+  ) => LinearFunction f u v du dv where
+
+class TensorProduct'' (Vec dv) (Vec v) (Vec b) => BVector b v dv where
+
+class
+  ( 
+  ) => LinearFunction' f where
+    transpose :: LinearFunction (f u du v dv) u v du dv => f u du v dv -> f dv v du u
+    transposeC :: LinearFunction (f u du v dv) u v du dv :- LinearFunction (f dv v du u) dv du v u
+
+instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction (AFunction u du v dv) u v du dv
+
+instance LinearFunction' AFunction where
+    transpose = transposeFunc
+    transposeC = Sub Dict
 
 instance LinearFunction' Expr where
     transpose = \case
