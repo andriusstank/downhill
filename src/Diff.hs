@@ -1,3 +1,8 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TupleSections #-}
 {-# language ScopedTypeVariables #-}
 {-# language LambdaCase #-}
@@ -14,20 +19,28 @@ where
 
 import Expr(zeroE, Expr5(Expr5))
 import Prelude (Monad(return), Num, IO, ($))
-import Affine (AffineFunc(AffineFunc))
+import Affine (AffineFunc(AffineFunc), LinearFunc (sumF))
 import Tensor (TensorProduct(..), Vec(..))
 import NodeMap (runRecoverSharing5)
 
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector, BasicVector, fstF1, sndF1, intoFst, intoSnd, BackFunc)
+import Notensor (ProdVector, BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFunc, FullVector)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
+import Data.VectorSpace (Scalar)
+import Data.AdditiveGroup (sumV)
 
 type BVar b da dv = AffineFunc b (Endpoint (Expr5 BackFunc da) da dv)
 
 type BVarS a = BVar a a a
 
+--instance BasicVector (Endpoint (Expr5 BackFunc da) da dv) where
+--instance ProdVector (Endpoint (Expr5 BackFunc da) da dv) where
+--instance FullVector (Endpoint (Expr5 BackFunc da) da dv) where
+--instance VectorSpace (Endpoint (Expr5 BackFunc da) da dv) where
+--    type Scalar (Endpoint (Expr5 BackFunc da) da dv) = Double
+    
 bvarValue :: AffineFunc b dv -> b
 bvarValue (AffineFunc y0 _dy) = y0
 

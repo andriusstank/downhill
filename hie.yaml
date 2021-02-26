@@ -4,3 +4,5 @@ cradle:
       component: "lib:bp"
     - path: "./test"
       component: "test:bp-test"
+    - path: "./samples"
+      component: "exe:hello"

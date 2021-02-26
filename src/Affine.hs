@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -6,6 +8,9 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE RankNTypes #-}
+{-# language ScopedTypeVariables #-}
+{-# language UndecidableInstances #-}
+{-# language StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Affine where
@@ -14,13 +19,43 @@ import Data.AffineSpace (AffineSpace((.-.), Diff))
 import Tensor (TensorProduct(..))
 import Data.AdditiveGroup (AdditiveGroup((^+^)))
 import Data.VectorSpace (AdditiveGroup((^-^), negateV, zeroV), VectorSpace(Scalar, (*^)))
+import Notensor (BasicVector (VecBuilder, sumBuilder), FullVector(..), ProdVector(..), Dense(..))
+import EType (Endpoint)
+import Data.VectorSpace (sumV)
 
+newtype AsNum a = AsNum { unAsNum :: a }
+    deriving Show
+    deriving Num via a
+    deriving Fractional via a
+    deriving Floating via a
+
+instance Num a => AdditiveGroup (AsNum a) where
+    zeroV = 0
+    (^+^) = (+)
+    (^-^) = (-)
+    negateV = negate
+
+instance Num a => VectorSpace (AsNum a) where
+    type Scalar (AsNum a) = AsNum a
+    (*^) = (*)
+
+   
 data AffineFunc b dv = AffineFunc b dv
+
+instance (AdditiveGroup b, AdditiveGroup f) => BasicVector (AffineFunc b f) where
+    type VecBuilder (AffineFunc b f) = AffineFunc b f
+    sumBuilder = sumV
+
+instance (AdditiveGroup b, AdditiveGroup f) => ProdVector (AffineFunc b f) where
+  zeroBuilder = zeroV
+  identityBuilder = id
 
 class VectorSpace dv => LinearFunc dv where
     identityFunc :: dv
     scaleFunc :: Scalar dv -> dv -- scaleFunc x == x *^ identityFunc
+    sumF :: [dv] -> dv
 
+   
 evalAffineFunc :: (AdditiveGroup (dv ⊗ v), TensorProduct dv v) => AffineFunc (dv ⊗ v) dv -> v -> dv ⊗ v
 evalAffineFunc (AffineFunc y0 dydx) x = y0 ^+^ (dydx ⊗ x)
 
@@ -29,10 +64,6 @@ instance (AdditiveGroup b, AdditiveGroup dv) => AdditiveGroup (AffineFunc b dv) 
     negateV (AffineFunc y0 dy) = AffineFunc (negateV y0) (negateV dy)
     AffineFunc y0 dy ^-^ AffineFunc z0 dz = AffineFunc (y0 ^-^ z0) (dy ^-^ dz)
     AffineFunc y0 dy ^+^ AffineFunc z0 dz = AffineFunc (y0 ^+^ z0) (dy ^+^ dz)
-
-instance (VectorSpace b, VectorSpace dv, Scalar b ~ Scalar dv) => VectorSpace (AffineFunc b dv) where
-    type Scalar (AffineFunc b dv) = Scalar b
-    a *^ AffineFunc y0 dy = AffineFunc (a *^ y0) (a *^ dy)
 
 instance (Num b, VectorSpace dv, b ~ Scalar dv) => Num (AffineFunc b dv) where
     (AffineFunc f0 df) + (AffineFunc g0 dg) = AffineFunc (f0+g0) (df ^+^ dg)
@@ -43,7 +74,7 @@ instance (Num b, VectorSpace dv, b ~ Scalar dv) => Num (AffineFunc b dv) where
     signum (AffineFunc f0 _) = AffineFunc (signum f0) zeroV
     fromInteger x = AffineFunc (fromInteger x) zeroV
 
-sqr :: Num a => a -> a  -- TODO: inefficient squaring
+sqr :: Num a => a -> a
 sqr x = x*x
 
 rsqrt :: Floating a => a -> a
@@ -53,7 +84,7 @@ instance (Fractional b, VectorSpace dv, b ~ Scalar dv) => Fractional (AffineFunc
     fromRational x = AffineFunc (fromRational x) zeroV
     recip (AffineFunc x dx) = AffineFunc (recip x) (df *^ dx)
         where df = negate (recip (sqr x))
-    -- TODO: implement division
+    AffineFunc x dx / AffineFunc y dy = AffineFunc (x/y) ((recip y *^ dx) ^-^ ((x/sqr y) *^ dy))
 
 instance (Floating b, VectorSpace dv, b ~ Scalar dv) => Floating (AffineFunc b dv) where
     pi = AffineFunc pi zeroV

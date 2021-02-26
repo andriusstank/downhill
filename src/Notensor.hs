@@ -9,7 +9,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 module Notensor
-( BasicVector(..), BasicVectors, FullVector(..), FullVectors
+( BasicVector(..), BasicVectors, FullVector(..), FullVectors, Dense(..)
 , BackFunc(..), FwdFunc(..), flipFunc1, ProdVector(..), Transpose(..)
 , identityFunc, negateFunc, scaleFunc
 , fstF1, sndF1, intoFst, intoSnd
@@ -19,20 +19,56 @@ import Data.VectorSpace (VectorSpace(Scalar))
 import Tensor (TensorProduct(..), Vec(Vec))
 import Data.Maybe (catMaybes)
 import Data.Constraint (Dict(Dict))
-import Data.AdditiveGroup (AdditiveGroup)
+import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..), sumV)
 
 class BasicVector v where
     type VecBuilder v :: Type
     sumBuilder :: [VecBuilder v] -> v
 
+instance BasicVector Float where
+    type VecBuilder Float = Float
+    sumBuilder = sum
+
+instance BasicVector Double where
+    type VecBuilder Double = Double
+    sumBuilder = sum
+
 class BasicVector v => ProdVector v where
     zeroBuilder :: VecBuilder v
     identityBuilder :: v -> VecBuilder v
 
-class (ProdVector v, ProdVector v) => FullVector v where
+instance ProdVector Float where
+    zeroBuilder = 0
+    identityBuilder = id
+instance ProdVector Double where
+    zeroBuilder = 0
+    identityBuilder = id
+
+class ProdVector v => FullVector v where
     negateBuilder :: v -> VecBuilder v
     scaleBuilder :: Scalar v -> v -> VecBuilder v
 
+newtype Dense a = Dense a
+    deriving AdditiveGroup via a
+    deriving VectorSpace via a
+
+instance AdditiveGroup a => BasicVector (Dense a) where
+    type VecBuilder (Dense a) = a
+    sumBuilder = Dense . sumV
+instance AdditiveGroup a => ProdVector (Dense a) where
+    zeroBuilder = zeroV
+    identityBuilder (Dense x) = x
+instance VectorSpace a => FullVector (Dense a) where
+    negateBuilder (Dense a) = negateV a
+    scaleBuilder a (Dense v) = a *^ v
+
+instance FullVector Float where
+    negateBuilder = negate
+    scaleBuilder x = (x*)
+instance FullVector Double where
+    negateBuilder = negate
+    scaleBuilder x = (x*)
+    
 instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
     type VecBuilder (a, b) = (Maybe (VecBuilder a), Maybe (VecBuilder b))
     sumBuilder xs =
@@ -61,7 +97,7 @@ intoSnd :: ProdVector dv => BackFunc dv (du, dv)
 intoSnd = BackFunc fwd
     where fwd (_, x) = identityBuilder x
 
-type BasicVectors v dv = (BasicVector v, BasicVector dv)
+type BasicVectors v dv = (BasicVector v, BasicVector dv) -- TODO: remove?
 type FullVectors v dv = (FullVector v, FullVector dv, Scalar v ~ Scalar dv)
 
 data BackFunc u v = BackFunc (v -> VecBuilder u)
