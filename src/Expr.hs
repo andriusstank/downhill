@@ -19,7 +19,7 @@ import EType (Node(Node), Endpoint (InnerNode), Edge(Edge))
 
 data Expr5 e da dv where
     Expr5 :: Node (Expr5 e da) e da dv -> Expr5 e da dv
-    
+    Expr5Subs :: Expr5 e dx dv -> Expr5 e da dx -> Expr5 e da dv
 
 zeroE :: BasicVector dv => Expr5 e da dv
 zeroE = Expr5 (Node [])
