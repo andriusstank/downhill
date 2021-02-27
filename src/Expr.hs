@@ -8,18 +8,35 @@
 
 module Expr
 (
-    Expr5(..), zeroE, sumExpr2
+    Expr5(..), zeroE, sumExpr2, LinearFunc5(..)
 )
 where
 import Tensor
 import Data.VectorSpace (VectorSpace(..),  AdditiveGroup(..), sumV)
 import Data.Constraint
 import Notensor (VecBuilder, FullVector, FullVectors, BasicVector, scaleFunc, BasicVectors, negateFunc, identityFunc, BackFunc)
-import EType (Node(Node), Endpoint (InnerNode), Edge(Edge))
+import EType (Node(Node), Endpoint (InnerNode, SourceNode), Edge(Edge))
+import Control.Category (Category(..))
 
 data Expr5 e da dv where
     Expr5 :: Node (Expr5 e da) e da dv -> Expr5 e da dv
     Expr5Subs :: Expr5 e dx dv -> Expr5 e da dx -> Expr5 e da dv
+
+newtype LinearFunc5 e da dv = LinearFunc5 (Endpoint (Expr5 e da) da dv)
+
+instance FullVector dv => AdditiveGroup (LinearFunc5 BackFunc da dv) where
+    zeroV = LinearFunc5 (InnerNode zeroE)
+    negateV (LinearFunc5 x) = LinearFunc5 (negateV x)
+    LinearFunc5 x ^+^ LinearFunc5 y = LinearFunc5 (InnerNode (Expr5 (Node [Edge identityFunc x, Edge identityFunc y])))
+    LinearFunc5 x ^-^ LinearFunc5 y = LinearFunc5 (InnerNode (Expr5 (Node [Edge identityFunc x, Edge negateFunc y])))
+
+instance Category (LinearFunc5 e) where
+    id = LinearFunc5 SourceNode
+    LinearFunc5 x . LinearFunc5 y = LinearFunc5 (go x y)
+        where go :: Endpoint (Expr5 e b) b c -> Endpoint (Expr5 e a) a b -> Endpoint (Expr5 e a) a c
+              go SourceNode y' = y'
+              go x' SourceNode  = x'
+              go (InnerNode x') (InnerNode y') = InnerNode (Expr5Subs x' y')
 
 zeroE :: BasicVector dv => Expr5 e da dv
 zeroE = Expr5 (Node [])
