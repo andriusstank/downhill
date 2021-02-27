@@ -5,7 +5,7 @@
 {- OPTIONS_GHC -Wno-unused-imports -}
 
 module Trace where
-import Tensor(TensorProduct(..), Vec(..))
+import Tensor(Bilinear(..), Vec(..))
 import Data.VectorSpace (sumV, VectorSpace(..), AdditiveGroup(..))
 import Expr
 import System.IO (hPutStrLn, stderr)
@@ -84,7 +84,7 @@ testExpr = do
     --forM_ (zip [0..] names) $ \(i, name) -> putStrLn ("x" ++ show i ++ " " ++ show (hashStableName name))
     return x7
 
--- >>> testExpr ⊗ (R 7)
+-- >>> testExpr ✕ (R 7)
 -- R 56
 _x :: () -> IO (NodeMap.SomeSharedExprWithMap BackFunc R R)
 _x () = runRecoverSharing5 =<< testExpr
@@ -94,7 +94,7 @@ _y :: IO R
 _y = do
     SharedExprWithMap m' x <- _x()
     let y' = forgetSharing2 (x, m') :: Expr2 R R R R
-    return (y' ⊗ R 1)
+    return (y' ✕ R 1)
 -}
 
 _z :: IO ()
@@ -103,6 +103,6 @@ _z = do
     let y' = Graph smap expr
     let dy' = flipGraph y'
     putStrLn "back"
-    ans2 <- evaluate (unVec (dy' ⊗ Vec (R 2)))
+    ans2 <- evaluate (unVec (dy' ✕ Vec (R 2)))
     print ans2
     return ()

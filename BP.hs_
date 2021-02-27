@@ -29,24 +29,24 @@ data MatrixT a = MatrixT a a a a
 class LinearFunc f u v | f -> u v where
     eval :: f -> (u -> v)
 
-class TensorProduct u v where
-    type u ⊗ v :: Type
-    (⊗) :: u -> v -> u ⊗ v
+class Bilinear u v where
+    type u ✕ v :: Type
+    (✕) :: u -> v -> u ✕ v
 
 newtype LeftMul u v a = LeftMul u
 newtype RightMul u v a = RightMul v
 
-instance (TensorProduct u v, u⊗v ~ a) => LinearFunc (LeftMul u v a) v a where
-    eval (LeftMul u) = (u ⊗)
+instance (Bilinear u v, u✕v ~ a) => LinearFunc (LeftMul u v a) v a where
+    eval (LeftMul u) = (u ✕)
 
-instance (TensorProduct u v, u⊗v ~ a) => LinearFunc (RightMul u v a) u a where
-    eval (RightMul v) = (⊗ v)
+instance (Bilinear u v, u✕v ~ a) => LinearFunc (RightMul u v a) u a where
+    eval (RightMul v) = (✕ v)
 
-instance Num a => TensorProduct (Vector a) (Grad a) where
-    type (Vector a) ⊗ (Grad a) = a
-    Vector x y ⊗ Grad dx dy = x*dx + y*dy
+instance Num a => Bilinear (Vector a) (Grad a) where
+    type (Vector a) ✕ (Grad a) = a
+    Vector x y ✕ Grad dx dy = x*dx + y*dy
 
--- class (v ⊗ dv ~ a, dv ⊗ v ~ a) => LinearSpace a v dv where
+-- class (v ✕ dv ~ a, dv ✕ v ~ a) => LinearSpace a v dv where
 
 {-
 instance Num a => LinearFunc (Grad a) (Vector a) a where
@@ -78,16 +78,16 @@ class
     back :: f -> Back f
 -}
 
--- dv ⊗ (f ⊗ u) == (dv ⊗ f) ⊗ u
+-- dv ✕ (f ✕ u) == (dv ✕ f) ✕ u
 class
-  ( TensorProduct f u
-  , TensorProduct dv f
-  , v ~ (f ⊗ u)
-  , (dv ⊗ f) ~ du
-  , du ⊗ u ~ a
-  , dv ⊗ v ~ a
+  ( Bilinear f u
+  , Bilinear dv f
+  , v ~ (f ✕ u)
+  , (dv ✕ f) ~ du
+  , du ✕ u ~ a
+  , dv ✕ v ~ a
   ) => BackpropFunc f a u v du dv where
---instance TensorProduct 
+--instance Bilinear 
 
 data BVarLinearPart a da b v dv where
     Root :: BVarLinearPart v dv b v dv
@@ -105,7 +105,7 @@ backprop dv = \case
     Const -> zeroV
     Expression parents -> sumV (backpropEdge <$> parents)
         where backpropEdge :: BVarParent a da b v dv -> da
-              backpropEdge (BVarParent u f) = backprop (dv ⊗ f) u
+              backpropEdge (BVarParent u f) = backprop (dv ✕ f) u
 
 {-
 test1 :: forall f a u du v dv. BackpropFunc f a u du v dv => f -> u -> dv -> a

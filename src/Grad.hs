@@ -5,5 +5,5 @@ where
 
 import Tensor
 
-class TensorProduct'' dv f du => LinearGradFunc f du dv where
+class Bilinear'' dv f du => LinearGradFunc f du dv where
 

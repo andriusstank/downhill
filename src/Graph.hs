@@ -23,7 +23,7 @@ module Graph
 where
 import Prelude hiding (head, tail)
 import Sharing()
-import Tensor(TensorProduct(..), Vec (Vec))
+import Tensor(Bilinear(..), Vec (Vec))
 
 import NodeMap (NodeSet,  NodeMap, NodeKey, SomeItem(SomeItem), List2(List2))
 import Data.Either (partitionEithers)
@@ -40,9 +40,9 @@ data AnyEdge s e da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (e d
 
 data NodeValues s da = NodeValues (NodeMap s Vec) (Vec da)
 
-instance BasicVector da => TensorProduct (Graph s FwdFunc dz da) (Vec dz) where
-    type (Graph s FwdFunc dz da) ⊗ (Vec dz) = Vec da
-    g ⊗ dx = evalGraph g dx
+instance BasicVector da => Bilinear (Graph s FwdFunc dz da) (Vec dz) where
+    type (Graph s FwdFunc dz da) ✕ (Vec dz) = Vec da
+    g ✕ dx = evalGraph g dx
   
 lookupParent :: forall s dz dv. NodeValues s dz -> Endpoint (NodeKey s) dz dv -> Vec dv
 lookupParent (NodeValues ys dz) tail = (goTail tail)
@@ -59,7 +59,7 @@ evalGraph (Graph nodes finalNode) dz = evalNode finalNode
           evalParent :: Endpoint (NodeKey s) dz dv -> Vec dv
           evalParent = lookupParent allValues
           evalEdge :: (Edge (NodeKey s) FwdFunc dz dv -> VecBuilder dv)
-          evalEdge (Edge f tail) = f ⊗ evalParent tail
+          evalEdge (Edge f tail) = f ✕ evalParent tail
           evalNode :: (Node (NodeKey s) FwdFunc dz dv -> Vec dv)
           evalNode (Node xs) = Vec (sumBuilder [evalEdge x | x <- xs])
           evalGraphInnerNodes :: (NodeMap s (Node (NodeKey s) FwdFunc dz) -> NodeMap s Vec)

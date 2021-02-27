@@ -16,7 +16,7 @@ module Notensor
 ) where
 import Data.Kind (Type)
 import Data.VectorSpace (VectorSpace(Scalar))
-import Tensor (TensorProduct(..), Vec(Vec))
+import Tensor (Bilinear(..), Vec(Vec))
 import Data.Maybe (catMaybes)
 import Data.Constraint (Dict(Dict))
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..), sumV)
@@ -111,9 +111,9 @@ newtype Covec' dx x = Covec' { uncovec' :: dx }
     deriving Show
     deriving AdditiveGroup via dx
 
-instance TensorProduct (FwdFunc dv du) (Vec dv) where
-    type FwdFunc dv du ⊗ Vec dv = VecBuilder du
-    FwdFunc f ⊗ Vec dv = f dv
+instance Bilinear (FwdFunc dv du) (Vec dv) where
+    type FwdFunc dv du ✕ Vec dv = VecBuilder du
+    FwdFunc f ✕ Vec dv = f dv
 
 
 class Transpose (f :: Type -> Type -> Type) (g :: Type -> Type -> Type) | f->g, g->f where

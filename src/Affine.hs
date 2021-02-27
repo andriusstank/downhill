@@ -13,15 +13,19 @@
 {-# language StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ConstraintKinds #-}
 module Affine where
 
-import Data.AffineSpace (AffineSpace((.-.), Diff))
-import Tensor (TensorProduct(..))
+import Data.AffineSpace (AffineSpace((.-.), Diff, (.+^)))
+import Tensor (Bilinear(..))
 import Data.AdditiveGroup (AdditiveGroup((^+^)))
 import Data.VectorSpace (AdditiveGroup((^-^), negateV, zeroV), VectorSpace(Scalar, (*^)))
 import Notensor (BasicVector (VecBuilder, sumBuilder), FullVector(..), ProdVector(..), Dense(..))
 import EType (Endpoint)
 import Data.VectorSpace (sumV)
+import Data.Kind
+import Data.Constraint (Dict(Dict))
 
 newtype AsNum a = AsNum { unAsNum :: a }
     deriving Show
@@ -56,8 +60,8 @@ class VectorSpace dv => LinearFunc dv where
     sumF :: [dv] -> dv
 
    
-evalAffineFunc :: (AdditiveGroup (dv ⊗ v), TensorProduct dv v) => AffineFunc (dv ⊗ v) dv -> v -> dv ⊗ v
-evalAffineFunc (AffineFunc y0 dydx) x = y0 ^+^ (dydx ⊗ x)
+evalAffineFunc :: (AdditiveGroup (dv ✕ v), Bilinear dv v) => AffineFunc (dv ✕ v) dv -> v -> dv ✕ v
+evalAffineFunc (AffineFunc y0 dydx) x = y0 ^+^ (dydx ✕ x)
 
 instance (AdditiveGroup b, AdditiveGroup dv) => AdditiveGroup (AffineFunc b dv) where
     zeroV = AffineFunc zeroV zeroV
@@ -104,3 +108,40 @@ instance (Floating b, VectorSpace dv, b ~ Scalar dv) => Floating (AffineFunc b d
 --instance () => Num (AffineFunc b (Expr3 p a da v dv)) where
 --    (AffineFunc f0 df) + (AffineFunc g0 dg) = AffineFunc (f0+g0) (df ^+^ dg)
 
+-- a -> b
+data AffineFunc2 a dv = AffineFunc2 (dv ✕ a) dv
+
+evalAffineFunc2 :: forall a dv. (AdditiveGroup (dv ✕ a), Bilinear dv a) => AffineFunc2 a dv -> a -> (dv ✕ a)
+evalAffineFunc2 (AffineFunc2 y0 dydx) x = y0 ^+^ (dydx ✕ x)
+
+-- u -> du ✕ u . v -> dv ✕ v
+-- z0 + dz*y0 + dz*dy*x
+composeAffineFunc
+  :: forall u v w dv dw. (v ~ (dv ✕ u), w ~ (dw ✕ v), w ~ (dw ✕ dv ✕ u), AdditiveGroup w, Bilinear dw v, Bilinear dw dv)
+  => AffineFunc2 v dw -> AffineFunc2 u dv -> AffineFunc2 u (dw ✕ dv)
+composeAffineFunc fz@(AffineFunc2 z0 dz) (AffineFunc2 y0 dy) = AffineFunc2 z0' (dz ✕ dy)
+    where y0' :: v
+          y0' = y0
+          z0' = evalAffineFunc2 fz y0'
+--composeAffineFunc (AffineFunc2 z0 dz) (AffineFunc2 y0 dy) = AffineFunc2 (z0 ^+^ (dz ✕ y0)) (dz ✕ dy)
+
+data AffineFunc3 f a b = AffineFunc3 b (f a (Diff b))
+
+class LinearFunc3 (f :: Type -> Type -> Type) where
+    type LinearCtx f :: Type -> Constraint 
+    bilinearDict :: forall a b. LinearCtx f b => Dict (Bilinear (f a b) a, b ~ (f a b ✕ a))
+
+data FwdGrad a v where
+    FwdGrad :: v -> FwdGrad (Scalar v) v
+
+instance VectorSpace v => Bilinear (FwdGrad a v) a where
+    type FwdGrad a v ✕ a = v
+    FwdGrad v ✕ a = a *^ v
+
+instance LinearFunc3 FwdGrad where
+    type LinearCtx FwdGrad = VectorSpace
+    bilinearDict = Dict
+
+evalAffineFunc3 :: forall a b f. (AffineSpace b, LinearFunc3 f, LinearCtx f (Diff b)) => AffineFunc3 f a b -> a -> b
+evalAffineFunc3 (AffineFunc3 b f) a = case bilinearDict @f @a @(Diff b) of
+    Dict -> b .+^ (f ✕ a)

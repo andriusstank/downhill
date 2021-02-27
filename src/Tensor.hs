@@ -19,7 +19,7 @@
 
 module Tensor (
     Vec(..),
-    TensorProduct(..), TensorProduct'',
+    Bilinear(..), Bilinear'',
     AFunction(..), transposeFunc,
 )
 where
@@ -42,11 +42,11 @@ newtype Covec' dx x = Covec' { uncovec' :: dx }
 
 -- instance AdditiveGroup *
 
-type TensorProduct'' u v w = (TensorProduct u v, u ⊗ v ~ w)
+type Bilinear'' u v w = (Bilinear u v, u ✕ v ~ w)
 
-class TensorProduct u v where
-  type u ⊗ v :: Type
-  (⊗) :: u -> v -> u ⊗ v
+class Bilinear u v where
+  type u ✕ v :: Type
+  (✕) :: u -> v -> u ✕ v
 
 
 data AFunction u du v dv where
@@ -55,19 +55,19 @@ data AFunction u du v dv where
     ScaleFunc :: forall a v dv. (VectorSpace v, VectorSpace dv, a ~ Scalar v, a ~ Scalar dv) => a -> AFunction v dv v dv
     BlackBoxFunc :: (u -> v) -> (dv -> du) -> AFunction u du v dv
 
-instance TensorProduct (AFunction u du v dv) (Vec u) where
-    type (AFunction u du v dv) ⊗ (Vec u) = Vec v
-    IndentityFunc ⊗ x = x
-    NegateFunc ⊗ Vec x = Vec (negateV x)
-    ScaleFunc a ⊗ Vec v = Vec (a *^ v)
-    (BlackBoxFunc f _) ⊗ Vec x = Vec (f x)
+instance Bilinear (AFunction u du v dv) (Vec u) where
+    type (AFunction u du v dv) ✕ (Vec u) = Vec v
+    IndentityFunc ✕ x = x
+    NegateFunc ✕ Vec x = Vec (negateV x)
+    ScaleFunc a ✕ Vec v = Vec (a *^ v)
+    (BlackBoxFunc f _) ✕ Vec x = Vec (f x)
 
-instance TensorProduct (Vec dv) (AFunction u du v dv) where
-    type (Vec dv) ⊗ (AFunction u du v dv) = Vec du
-    x ⊗ IndentityFunc = x
-    Vec x ⊗ NegateFunc = Vec (negateV x)
-    Vec v ⊗ ScaleFunc a = Vec (a *^ v)
-    Vec x ⊗ (BlackBoxFunc _ f) = Vec (f x)
+instance Bilinear (Vec dv) (AFunction u du v dv) where
+    type (Vec dv) ✕ (AFunction u du v dv) = Vec du
+    x ✕ IndentityFunc = x
+    Vec x ✕ NegateFunc = Vec (negateV x)
+    Vec v ✕ ScaleFunc a = Vec (a *^ v)
+    Vec x ✕ (BlackBoxFunc _ f) = Vec (f x)
 
 transposeFunc :: AFunction u v du dv -> AFunction dv du v u
 transposeFunc = \case
