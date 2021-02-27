@@ -21,13 +21,6 @@ constant x = BVar (AffineFunc x zeroV)
 var :: Num (GradOf a) => a -> BVar a
 var x = BVar (AffineFunc x 1)
 
-instance (Num a, AdditiveGroup (GradOf a)) => Num (BVar a) where
-  BVar (AffineFunc x dx) + BVar (AffineFunc y dy) = BVar (AffineFunc (x+y) (dx ^+^ dy))
-  --(*) = _
-  --abs = _
-  --signum = _
-  --fromInteger = _
-  --negate = _
 
 instance AdditiveGroup (BVar a) where
     (^+^) = undefined

@@ -119,7 +119,7 @@ evalAffineFunc2 (AffineFunc2 y0 dydx) x = y0 ^+^ (dydx ✕ x)
 composeAffineFunc
   :: forall u v w dv dw. (v ~ (dv ✕ u), w ~ (dw ✕ v), w ~ (dw ✕ dv ✕ u), AdditiveGroup w, Bilinear dw v, Bilinear dw dv)
   => AffineFunc2 v dw -> AffineFunc2 u dv -> AffineFunc2 u (dw ✕ dv)
-composeAffineFunc fz@(AffineFunc2 z0 dz) (AffineFunc2 y0 dy) = AffineFunc2 z0' (dz ✕ dy)
+composeAffineFunc fz@(AffineFunc2 _z0 dz) (AffineFunc2 y0 dy) = AffineFunc2 z0' (dz ✕ dy)
     where y0' :: v
           y0' = y0
           z0' = evalAffineFunc2 fz y0'

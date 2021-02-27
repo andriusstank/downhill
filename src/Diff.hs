@@ -19,17 +19,15 @@ where
 
 import Expr(zeroE, Expr5(Expr5))
 import Prelude (Monad(return), Num, IO, ($))
-import Affine (AffineFunc(AffineFunc), LinearFunc (sumF))
+import Affine (AffineFunc(AffineFunc))
 import Tensor (Bilinear(..), Vec(..))
 import NodeMap (runRecoverSharing5)
 
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector, BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFunc, FullVector)
+import Notensor (ProdVector, BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFunc)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
-import Data.VectorSpace (Scalar)
-import Data.AdditiveGroup (sumV)
 
 type BVar b da dv = AffineFunc b (Endpoint (Expr5 BackFunc da) da dv)
 

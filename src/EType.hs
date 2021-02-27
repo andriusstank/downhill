@@ -3,8 +3,6 @@
 module EType where
 
 import Notensor (BasicVector(..))
-import Data.AdditiveGroup (AdditiveGroup)
-import Data.VectorSpace (VectorSpace)
 
 data Endpoint p da dv where
     SourceNode :: Endpoint p da da
