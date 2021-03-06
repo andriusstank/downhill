@@ -1,0 +1,3 @@
+AffineSpace -> AffineSpace: f(u+du) = f(u) + df(du).
+Sparse gradients: zero should be cheap, VecBuilder is not enough.
+Next: higher order derivatives, BVar as Num.

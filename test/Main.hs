@@ -1,20 +1,21 @@
-import Diff(bvarValue, BVarS, var, constant, backpropS)
+import Diff(bvarValue, BVarS, backpropS)
 import Test.Tasty (defaultMain, testGroup, TestTree)
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 
 import qualified Test.Tasty as Tasty
+import BVar.Num (NumBVar(..), backpropNum, constant, var, numbvarValue)
 
 basicTests = testGroup "Basic tests"
   [ testCase "Derivative of constant == 0" $ testConstant
   , testCase "Derivative of identity == 1" $ testIdentity
   , testCase "Derivative of simple polynomial" $ testPoly
   ]
-  where testConstant = backpropS (constant 3 :: BVarS Integer) @?= 0
-        testIdentity = backpropS (var 3 :: BVarS Integer) @?= 1 
+  where testConstant = backpropNum (constant 3 :: NumBVar Integer) @?= 0
+        testIdentity = backpropNum (var 3 :: NumBVar Integer) @?= 1 
         testPoly =
-            let x = var 5 :: BVarS Integer
-                y = 3*x :: BVarS Integer
-            in backpropS ((2+3*x) * (5+7*x)) @?= 29 + 42 * bvarValue x
+            let x = var 5 :: NumBVar Integer
+                y = 3*x :: NumBVar Integer
+            in backpropNum ((2+3*x) * (5+7*x)) @?= 29 + 42 * numbvarValue x
 
 tests :: TestTree
 tests = testGroup "Tests" [basicTests]

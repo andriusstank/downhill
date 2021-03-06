@@ -11,7 +11,7 @@
 module Notensor
 ( BasicVector(..), BasicVectors, FullVector(..), FullVectors, Dense(..)
 , BackFunc(..), FwdFunc(..), flipFunc1, ProdVector(..), Transpose(..)
-, identityFunc, negateFunc, scaleFunc
+, LinearEdge(..)
 , fstF1, sndF1, intoFst, intoSnd
 ) where
 import Data.Kind (Type)
@@ -130,15 +130,15 @@ instance Transpose FwdFunc BackFunc where
 flipFunc1 :: BackFunc du dv -> FwdFunc dv du
 flipFunc1 (BackFunc f) = FwdFunc f
 
-negateFunc :: FullVector du => BackFunc du du
-negateFunc = BackFunc negateBuilder
+class LinearEdge e where
+    negateFunc :: FullVector du => e du du
+    scaleFunc :: FullVector du => Scalar du -> e du du
+    identityFunc :: FullVector du => e du du
 
-identityFunc :: FullVector du => BackFunc du du
-identityFunc = BackFunc identityBuilder
-
-
-scaleFunc :: FullVector du => Scalar du -> BackFunc du du
-scaleFunc a = BackFunc (scaleBuilder a)
+instance LinearEdge BackFunc where
+    scaleFunc a = BackFunc (scaleBuilder a)
+    negateFunc = BackFunc negateBuilder
+    identityFunc = BackFunc identityBuilder
 
 instance BasicVector Integer where
     type VecBuilder Integer = Integer

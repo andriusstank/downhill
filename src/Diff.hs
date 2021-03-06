@@ -17,7 +17,7 @@ module Diff
 )
 where
 
-import Expr(zeroE, Expr5(Expr5))
+import Expr(Expr5(Expr5), LinearFunc5(LinearFunc5))
 import Prelude (Monad(return), Num, IO, ($))
 import Affine (AffineFunc(AffineFunc))
 import Tensor (Bilinear(..), Vec(..))
@@ -26,10 +26,11 @@ import NodeMap (runRecoverSharing5)
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector, BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFunc)
+import Notensor (ProdVector, BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFunc, FullVector)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
+import Data.VectorSpace (AdditiveGroup(zeroV))
 
-type BVar b da dv = AffineFunc b (Endpoint (Expr5 BackFunc da) da dv)
+type BVar b da dv = AffineFunc b (LinearFunc5 BackFunc da dv)
 
 type BVarS a = BVar a a a
 
@@ -42,11 +43,11 @@ type BVarS a = BVar a a a
 bvarValue :: AffineFunc b dv -> b
 bvarValue (AffineFunc y0 _dy) = y0
 
-constant :: BasicVector dv => b -> BVar b da dv
-constant x = AffineFunc x (InnerNode zeroE)
+constant :: FullVector dv => b -> BVar b da dv
+constant x = AffineFunc x zeroV
 
 var :: b -> BVar b dv dv
-var x = AffineFunc x SourceNode
+var x = AffineFunc x (LinearFunc5 SourceNode)
 
 backprop' :: forall da dv. BasicVector da => Expr5 BackFunc da dv -> dv -> da
 backprop' dy dv = unsafePerformIO $ do
@@ -56,7 +57,7 @@ backprop' dy dv = unsafePerformIO $ do
     return (unVec (dx' ✕ Vec dv))
 
 backprop :: forall b da dv. BasicVector da => BVar b da dv -> dv -> da
-backprop (AffineFunc _y0 y) dv = case y of
+backprop (AffineFunc _y0 (LinearFunc5 y)) dv = case y of
     SourceNode -> dv
     InnerNode x -> backprop' x dv
 
@@ -67,9 +68,9 @@ liftFunc1
   :: forall u v da dv du. 
      BasicVector dv
   => (u -> (v, BackFunc du dv))
-  -> AffineFunc u (Endpoint (Expr5 BackFunc da) da du)
-  -> AffineFunc v (Endpoint (Expr5 BackFunc da) da dv)
-liftFunc1 f (AffineFunc x0 dx) = AffineFunc y0 expr
+  -> AffineFunc u (LinearFunc5 BackFunc da du)
+  -> AffineFunc v (LinearFunc5 BackFunc da dv)
+liftFunc1 f (AffineFunc x0 (LinearFunc5 dx)) = AffineFunc y0 (LinearFunc5 expr)
     where term :: Edge (Expr5 BackFunc da) BackFunc da dv
           term = Edge df dx
           expr :: Endpoint (Expr5 BackFunc da) da dv
@@ -87,10 +88,10 @@ snd = liftFunc1 go
 
 zipA
   :: forall da du dv. (ProdVector du, ProdVector dv)
-  => Endpoint (Expr5 BackFunc da) da du
-  -> Endpoint (Expr5 BackFunc da) da dv
-  -> Endpoint (Expr5 BackFunc da) da (du, dv)
-zipA x y = InnerNode (Expr5 (Node [Edge intoFst x, Edge intoSnd y]))
+  => LinearFunc5 BackFunc da du
+  -> LinearFunc5 BackFunc da dv
+  -> LinearFunc5 BackFunc da (du, dv)
+zipA (LinearFunc5 x) (LinearFunc5 y) = LinearFunc5 (InnerNode (Expr5 (Node [Edge intoFst x, Edge intoSnd y])))
 
 zip :: (ProdVector du, ProdVector dv) => BVar b da du -> BVar c da dv -> BVar (b, c) da (du, dv)
 zip (AffineFunc x dx) (AffineFunc y dy) = AffineFunc (x, y) (zipA dx dy)

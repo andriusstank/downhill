@@ -4,35 +4,61 @@
 {-# LANGUAGE TypeOperators #-}
 {-# language ScopedTypeVariables #-}
 
+{-# LANGUAGE DerivingVia #-}
 module BVar.Num
 where
 import Affine (AffineFunc(AffineFunc))
 import Data.Kind (Type)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
-import Tensor (Bilinear(..))
+import Data.AffineSpace (AffineSpace(..))
+import Expr (LinearFunc5(LinearFunc5))
+import Notensor (FullVector(..), ProdVector(..), BasicVector(..), BackFunc)
+import EType (Endpoint(SourceNode))
+import Diff (backprop)
 
 type family GradOf a :: Type
 
-newtype BVar a = BVar (AffineFunc a (GradOf a))
+newtype AsNum a = AsNum { unAsNum :: a }
+    deriving Num via a
 
-constant :: AdditiveGroup (GradOf a) => a -> BVar a
-constant x = BVar (AffineFunc x zeroV)
+instance Num a => AdditiveGroup (AsNum a) where
+    zeroV = AsNum 0
+    negateV (AsNum x) = AsNum (negate x)
+    AsNum x ^+^ AsNum y = AsNum (x+y)
+    AsNum x ^-^ AsNum y = AsNum (x-y)
 
-var :: Num (GradOf a) => a -> BVar a
-var x = BVar (AffineFunc x 1)
+instance Num a => VectorSpace (AsNum a) where
+    type Scalar (AsNum a) = AsNum a
+    AsNum a *^ AsNum v = AsNum (a*v)
 
+instance Num a => AffineSpace (AsNum a) where
+    type Diff (AsNum a) = AsNum a
+    AsNum x .-. AsNum y = AsNum (x-y)
+    AsNum x .+^ AsNum y = AsNum (x+y)
 
-instance AdditiveGroup (BVar a) where
-    (^+^) = undefined
-    (^-^) = undefined
-    zeroV = undefined
-    negateV = undefined
+instance Num a => BasicVector (AsNum a) where
+    type VecBuilder (AsNum a) = AsNum a
+    sumBuilder = sum
 
-instance (VectorSpace (GradOf a), VectorSpace a, Scalar (GradOf a) ~ Scalar a, GradOf a ~ (GradOf (Scalar a) ✕ a), Bilinear (GradOf (Scalar a)) a) => VectorSpace (BVar a) where
-    type Scalar (BVar a) = BVar (Scalar a)
-    BVar (AffineFunc a da) *^ BVar (AffineFunc v dv) = BVar (AffineFunc (a*^v) (part1 ^+^ part2))
-        where part1 :: GradOf a
-              part1 = a *^ dv
-              part2 :: GradOf a
-              part2 = da ✕ v
+instance Num a => ProdVector (AsNum a) where
+    zeroBuilder = 0
+    identityBuilder = Prelude.id
 
+instance Num a => FullVector (AsNum a) where
+    negateBuilder = negate
+    scaleBuilder = (*)
+
+newtype NumBVar a = NumBVar (AffineFunc a (LinearFunc5 BackFunc (AsNum a) (AsNum a)))
+    deriving Num via (AffineFunc (AsNum a) (LinearFunc5 BackFunc (AsNum a) (AsNum a)))
+
+constant :: Num a => a -> NumBVar a
+constant x = NumBVar (AffineFunc x zeroV)
+
+var :: Num a => a -> NumBVar a
+var x = NumBVar (AffineFunc x (LinearFunc5 SourceNode))
+
+backpropNum :: Num a => NumBVar a -> a
+backpropNum (NumBVar x) = unAsNum $ backprop x 1
+
+numbvarValue :: NumBVar a -> a
+numbvarValue (NumBVar (AffineFunc y0 _dy)) = y0
