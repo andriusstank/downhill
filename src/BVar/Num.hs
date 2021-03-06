@@ -20,6 +20,8 @@ type family GradOf a :: Type
 
 newtype AsNum a = AsNum { unAsNum :: a }
     deriving Num via a
+    deriving Fractional via a
+    deriving Floating via a
 
 instance Num a => AdditiveGroup (AsNum a) where
     zeroV = AsNum 0
@@ -50,6 +52,8 @@ instance Num a => FullVector (AsNum a) where
 
 newtype NumBVar a = NumBVar (AffineFunc a (LinearFunc5 BackFunc (AsNum a) (AsNum a)))
     deriving Num via (AffineFunc (AsNum a) (LinearFunc5 BackFunc (AsNum a) (AsNum a)))
+    deriving Fractional via (AffineFunc (AsNum a) (LinearFunc5 BackFunc (AsNum a) (AsNum a)))
+    deriving Floating via (AffineFunc (AsNum a) (LinearFunc5 BackFunc (AsNum a) (AsNum a)))
 
 constant :: Num a => a -> NumBVar a
 constant x = NumBVar (AffineFunc x zeroV)

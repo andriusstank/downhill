@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
@@ -18,9 +19,16 @@ import NodeMap (runRecoverSharing5)
 import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, BackFunc(BackFunc))
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
+import BVar.Num(var, backpropNum)
 
 newtype R = R { unR :: Integer }
     deriving (Show, Generic)
+
+f0 :: Floating a => a -> a
+f0 x = sin (2*x)
+
+df :: Floating a => (forall x. Floating x => x -> x) -> a -> a
+df f = backpropNum . f . var
 
 instance AdditiveGroup R where
     zeroV = unsafePerformIO $ do
