@@ -47,21 +47,14 @@ instance Num a => VectorSpace (AsNum a) where
     (*^) = (*)
 
    
+-- IDEA: dv is a function of b (AffineFunc' d b = AffineFunc b (d b)) and then we can have VectorSpace instance
+-- with Scalar (AffineFunc' b) = AffineFunc' (Scalar b)
 data AffineFunc b dv = AffineFunc b dv
-
-instance (AdditiveGroup b, AdditiveGroup f) => BasicVector (AffineFunc b f) where
-    type VecBuilder (AffineFunc b f) = AffineFunc b f
-    sumBuilder = sumV
-
-instance (AdditiveGroup b, AdditiveGroup f) => ProdVector (AffineFunc b f) where
-  zeroBuilder = zeroV
-  identityBuilder = id
 
 class VectorSpace dv => LinearFunc dv where
     identityFunc :: dv
     scaleFunc' :: Scalar dv -> dv -- scaleFunc x == x *^ identityFunc
     sumF :: [dv] -> dv
-
    
 evalAffineFunc :: (AdditiveGroup (dv ✕ v), Bilinear dv v) => AffineFunc (dv ✕ v) dv -> v -> dv ✕ v
 evalAffineFunc (AffineFunc y0 dydx) x = y0 ^+^ (dydx ✕ x)
@@ -80,6 +73,7 @@ instance (Num b, VectorSpace dv, b ~ Scalar dv) => Num (AffineFunc b dv) where
     abs (AffineFunc f0 df) = AffineFunc (abs f0) (signum f0 *^ df) -- TODO: ineffiency: multiplication by 1
     signum (AffineFunc f0 _) = AffineFunc (signum f0) zeroV
     fromInteger x = AffineFunc (fromInteger x) zeroV
+
 
 sqr :: Num a => a -> a
 sqr x = x*x

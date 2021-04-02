@@ -15,7 +15,6 @@ module Notensor
 , fstF1, sndF1, intoFst, intoSnd
 ) where
 import Data.Kind (Type)
-import Data.VectorSpace (VectorSpace(Scalar))
 import Tensor (Bilinear(..), Vec(Vec))
 import Data.Maybe (catMaybes)
 import Data.Constraint (Dict(Dict))
