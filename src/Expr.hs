@@ -21,7 +21,7 @@ import Control.Category (Category(..))
 
 data Expr5 e da dv where
     Expr5 :: Node (Expr5 e da) e da dv -> Expr5 e da dv
-    Expr5Subs :: Expr5 e dx dv -> Expr5 e da dx -> Expr5 e da dv
+    Expr5Subs :: LinearFunc5 e dx dv -> Expr5 e da dx -> Expr5 e da dv
 
 newtype LinearFunc5 e da dv = LinearFunc5 (Endpoint (Expr5 e da) da dv)
 
@@ -41,7 +41,7 @@ instance Category (LinearFunc5 e) where
         where go :: Endpoint (Expr5 e b) b c -> Endpoint (Expr5 e a) a b -> Endpoint (Expr5 e a) a c
               go SourceNode y' = y'
               go x' SourceNode  = x'
-              go (InnerNode x') (InnerNode y') = InnerNode (Expr5Subs x' y')
+              go (InnerNode x') (InnerNode y') = InnerNode (Expr5Subs (LinearFunc5 (InnerNode x')) y')
 
 zeroE :: BasicVector dv => Expr5 e da dv
 zeroE = Expr5 (Node [])

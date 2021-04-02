@@ -9,7 +9,7 @@ module OpenGraph (
     runRecoverSharing4
 )
 where
-import Expr(Expr5(Expr5, Expr5Subs))
+import Expr(Expr5(Expr5, Expr5Subs), LinearFunc5(LinearFunc5))
 import Sharing (BuildAction(BuildAction), TreeBuilder)
 import qualified Sharing
 import Prelude hiding (lookup)
@@ -27,9 +27,12 @@ goSharing4 src = \case
             go' = goSharing4term src
         xs' <- traverse go' xs
         return $ Node xs'
-    Expr5Subs f g -> do
-        (gRef, _sg) <- insertExpr3 (sharingAction4 src) g
-        goSharing4 (InnerNode gRef) f
+    Expr5Subs (LinearFunc5 f) g -> do
+        case f of
+            SourceNode -> goSharing4 src g
+            InnerNode f' -> do
+                (gRef, _sg) <- insertExpr3 (sharingAction4 src) g
+                goSharing4 (InnerNode gRef) f'
 
 insertExpr3
   :: forall e dx g dv.
@@ -56,7 +59,8 @@ goSharing4term src = \case
 sharingAction4 :: OpenArg da dx -> BuildAction (Expr5 e dx) (OpenExpr e da)
 sharingAction4 src = BuildAction (goSharing4 src)
 
-runRecoverSharing4 :: forall e da dz. Expr5 e da dz -> IO (OpenExpr e da dz, OpenMap (OpenExpr e da))
+runRecoverSharing4 :: forall e da dz. Expr5 e da dz -> IO (Endpoint (Node OpenKey e da) da dz, OpenMap (OpenExpr e da))
 runRecoverSharing4 x = do
     let z = goSharing4 SourceNode x :: (TreeBuilder (OpenExpr e da) (OpenExpr e da dz))
-    Sharing.runTreeBuilder z
+    (x', m) <- Sharing.runTreeBuilder z
+    return (InnerNode x', m)

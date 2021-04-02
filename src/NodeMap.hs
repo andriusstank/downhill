@@ -99,10 +99,10 @@ type SharedTermS s e = Edge (NodeKey s) e
 type SharedExprS s e da = Node (NodeKey s) e da
 
 data SomeSharedExprWithMap e da dz where
-    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s e da) -> SharedExprS s e da dz -> SomeSharedExprWithMap e da dz
+    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s e da) -> Endpoint (Node (NodeKey s) e da) da dz -> SomeSharedExprWithMap e da dz
 
-cvthelper :: forall s e da dv. NodeSet s => NodeMap s (OpenExpr e da) -> OpenExpr e da dv -> SomeSharedExprWithMap e da dv
-cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
+cvthelper :: forall s e da dv. NodeSet s => NodeMap s (OpenExpr e da) -> Endpoint (Node OpenKey e da) da dv -> SomeSharedExprWithMap e da dv
+cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtarg' x)
     where cvtexpr :: forall dx. OpenExpr e da dx -> SharedExprS s e da dx
           cvtexpr = \case
             Node terms -> Node (cvtterm <$> terms)
@@ -115,11 +115,15 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
             InnerNode key -> case tryLookup m key of
                 Just (key', _value) -> InnerNode key'
                 Nothing -> error "oh fuck"
+          cvtarg' :: Endpoint (Node OpenKey e da) da dv -> Endpoint (Node (NodeKey s) e da) da dv
+          cvtarg' = \case
+            SourceNode -> SourceNode
+            InnerNode node -> InnerNode (cvtexpr node)
           
 
-cvtmap :: (OpenExpr e da dv, OpenMap (OpenExpr e da)) -> SomeSharedExprWithMap e da dv
+cvtmap :: (Endpoint (Node OpenKey e da) da dv, OpenMap (OpenExpr e da)) -> SomeSharedExprWithMap e da dv
 cvtmap (x, m) = case uncheckedMakeNodeMap m of
-    SomeNodeMap m' -> cvthelper m' x
+        SomeNodeMap m' -> cvthelper m' x
 
 runRecoverSharing5 :: forall e da dv. Expr5 e da dv -> IO (SomeSharedExprWithMap e da dv)
 runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4 x
