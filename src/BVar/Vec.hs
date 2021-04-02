@@ -6,12 +6,14 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+
 module BVar.Vec
 where
 import Prelude hiding (id)
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
 import Data.Kind (Type)
-import Affine (AffineFunc(AffineFunc),LinearFunc (scaleFunc'))
+import Affine (AffineFunc(AffineFunc))
 import Tensor (Bilinear(..))
 import Expr (LinearFunc5(LinearFunc5), Expr5(..))
 import Notensor (BackFunc(BackFunc), FullVector, LinearEdge (scaleFunc), BasicVector (VecBuilder))
@@ -24,6 +26,7 @@ newtype VecBVar a v = VecBVar (AffineFunc v (LinearFunc5 BackFunc a (GradOf v)))
 
 deriving via (AffineFunc v (LinearFunc5 BackFunc a (GradOf v))) instance (AdditiveGroup v, FullVector (GradOf v)) => AdditiveGroup (VecBVar a v)
 
+{-
 foo :: dv -> v -> VecBuilder (GradOf (Scalar dv))
 foo dv v = undefined -- dv ✕ v
 
@@ -36,6 +39,8 @@ instance (dv ~ GradOf v, VectorSpace v, FullVector dv, Scalar v ~ Scalar dv, Bil
                 where e1, e2 :: Edge (Expr5 BackFunc a) BackFunc a dv
                       e1 = Edge (scaleFunc @BackFunc a0) dv
                       e2 = Edge (BackFunc (\dv -> foo dv v0)) da -- ???
+-}
+
 
 constant :: (dv ~ GradOf v, FullVector dv, AdditiveGroup dv) => v -> VecBVar a v
 constant x = VecBVar (AffineFunc x zeroV)
