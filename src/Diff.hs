@@ -31,7 +31,6 @@ import System.IO.Unsafe (unsafePerformIO)
 import Notensor (ProdVector, BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFunc, FullVector)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(zeroV))
-import Graph (graph)
 
 type BVar b da dv = AffineFunc b (LinearFunc5 BackFunc da dv)
 
@@ -55,7 +54,7 @@ var x = AffineFunc x (LinearFunc5 SourceNode)
 backprop' :: forall da dv. BasicVector da => Expr5 BackFunc da dv -> dv -> da
 backprop' dy dv = unsafePerformIO $ do
     NodeMap.SomeSharedExprWithMap smap expr <- runRecoverSharing5 dy :: IO (NodeMap.SomeSharedExprWithMap BackFunc da dv)
-    let x' = graph smap expr -- :: Graph.ForwardGraph s a da v dv
+    let x' = Graph.NonTrivialGraph (Graph.Graph smap expr) -- :: Graph.ForwardGraph s a da v dv
         dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
     return (unVec (dx' ✕ Vec dv))
 

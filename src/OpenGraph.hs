@@ -6,7 +6,8 @@
 
 module OpenGraph (
     OpenArg, OpenTerm, OpenExpr,
-    runRecoverSharing4
+    OpenGraph(..),
+    runRecoverSharing4, runRecoverSharing4'
 )
 where
 import Expr(Expr5(Expr5, Expr5Subs), LinearFunc5(LinearFunc5))
@@ -59,8 +60,20 @@ goSharing4term src = \case
 sharingAction4 :: OpenArg da dx -> BuildAction (Expr5 e dx) (OpenExpr e da)
 sharingAction4 src = BuildAction (goSharing4 src)
 
-runRecoverSharing4 :: forall e da dz. Expr5 e da dz -> IO (Endpoint (Node OpenKey e da) da dz, OpenMap (OpenExpr e da))
+data OpenGraph e a z where
+    TrivialOpenGraph :: OpenGraph e a a
+    NontrivialOpenGraph :: Node OpenKey e a z -> OpenMap (OpenExpr e a) -> OpenGraph e a z
+
+-- remove this
+runRecoverSharing4 :: forall e da dz. Expr5 e da dz -> IO (Node OpenKey e da dz, OpenMap (OpenExpr e da))
 runRecoverSharing4 x = do
     let z = goSharing4 SourceNode x :: (TreeBuilder (OpenExpr e da) (OpenExpr e da dz))
-    (x', m) <- Sharing.runTreeBuilder z
-    return (InnerNode x', m)
+    Sharing.runTreeBuilder z
+
+-- keep this
+runRecoverSharing4' :: forall e da dz. LinearFunc5 e da dz -> IO (OpenGraph e da dz)
+runRecoverSharing4' (LinearFunc5 x) = case x of
+    SourceNode -> return TrivialOpenGraph
+    InnerNode node -> do
+        (final_node, graph) <- runRecoverSharing4 node
+        return (NontrivialOpenGraph final_node graph)

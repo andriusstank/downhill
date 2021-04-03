@@ -29,10 +29,10 @@ module NodeMap (
 
     fromList, List2(..)
 ) where
-import Expr (Expr5)
+import Expr (Expr5,LinearFunc5 (LinearFunc5))
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
-import OpenGraph (OpenExpr)
+import OpenGraph (OpenExpr, OpenGraph (TrivialOpenGraph, NontrivialOpenGraph))
 import qualified OpenGraph
 import qualified OpenMap
 import Data.Reflection (reify, Reifies(reflect))
@@ -99,10 +99,11 @@ type SharedTermS s e = Edge (NodeKey s) e
 type SharedExprS s e da = Node (NodeKey s) e da
 
 data SomeSharedExprWithMap e da dz where
-    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s e da) -> Endpoint (Node (NodeKey s) e da) da dz -> SomeSharedExprWithMap e da dz
+    TrivialSharedExprWithMap :: SomeSharedExprWithMap e da da
+    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s e da) -> SharedExprS s e da dz -> SomeSharedExprWithMap e da dz
 
-cvthelper :: forall s e da dv. NodeSet s => NodeMap s (OpenExpr e da) -> Endpoint (Node OpenKey e da) da dv -> SomeSharedExprWithMap e da dv
-cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtarg' x)
+cvthelper :: forall s e da dv. NodeSet s => NodeMap s (OpenExpr e da) -> Node OpenKey e da dv -> SomeSharedExprWithMap e da dv
+cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
     where cvtexpr :: forall dx. OpenExpr e da dx -> SharedExprS s e da dx
           cvtexpr = \case
             Node terms -> Node (cvtterm <$> terms)
@@ -115,18 +116,15 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtarg' x)
             InnerNode key -> case tryLookup m key of
                 Just (key', _value) -> InnerNode key'
                 Nothing -> error "oh fuck"
-          cvtarg' :: Endpoint (Node OpenKey e da) da dv -> Endpoint (Node (NodeKey s) e da) da dv
-          cvtarg' = \case
-            SourceNode -> SourceNode
-            InnerNode node -> InnerNode (cvtexpr node)
-          
 
-cvtmap :: (Endpoint (Node OpenKey e da) da dv, OpenMap (OpenExpr e da)) -> SomeSharedExprWithMap e da dv
-cvtmap (x, m) = case uncheckedMakeNodeMap m of
+cvtmap :: OpenGraph e da dv -> SomeSharedExprWithMap e da dv
+cvtmap = \case
+    TrivialOpenGraph  -> TrivialSharedExprWithMap
+    NontrivialOpenGraph x m -> case uncheckedMakeNodeMap m of
         SomeNodeMap m' -> cvthelper m' x
 
 runRecoverSharing5 :: forall e da dv. Expr5 e da dv -> IO (SomeSharedExprWithMap e da dv)
-runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4 x
+runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4' (LinearFunc5 (InnerNode x))
 
 data SomeNodeMap f where
     SomeNodeMap :: NodeSet s => NodeMap s f -> SomeNodeMap f

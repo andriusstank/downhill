@@ -1,2 +1,4 @@
 AffineSpace -> AffineSpace: f(u+du) = f(u) + df(du).
 Sparse gradients: zero should be cheap, VecBuilder is not enough.
+refactor: combine LinearFunc5 and Expr5 into single type
+relay nodes: wrapping, unwrapping propagate VecBuilders

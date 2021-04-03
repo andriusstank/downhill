@@ -40,6 +40,7 @@ data NonTrivialGraph s e da dz = BasicVector da => Graph (NodeMap s (Node (NodeK
 
 data Graph s e da dz where
   TrivialGraph :: Graph s e da da
+  -- TODO: fix caps NonTrivialGraph -> NontrivialGraph
   NonTrivialGraph :: NonTrivialGraph s e da dz -> Graph s e da dz
 
 data AnyEdge s e da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (e du dv) (Endpoint (NodeKey s) da du)
