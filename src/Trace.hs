@@ -69,7 +69,7 @@ tracingFunc name value = BackFunc back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVector dv => Expr5 BackFunc da dv -> Edge' (Expr5 BackFunc da) BackFunc da dv
+exprToTerm :: FullVector dv => Expr5 BackFunc da dv -> Edge' BackFunc BackFunc da dv
 exprToTerm = Edge' identityFunc . InnerNode'
 
 

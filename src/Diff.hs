@@ -73,9 +73,9 @@ liftFunc1
   -> AffineFunc u (LinearFunc5 BackFunc da du)
   -> AffineFunc v (LinearFunc5 BackFunc da dv)
 liftFunc1 f (AffineFunc x0 (LinearFunc5 dx)) = AffineFunc y0 (LinearFunc5 expr)
-    where term :: Edge' (Expr5 BackFunc da) BackFunc da dv
+    where term :: Edge' BackFunc BackFunc da dv
           term = Edge' df dx
-          expr :: Endpoint' (Expr5 BackFunc da) da dv
+          expr :: Endpoint' BackFunc da dv
           expr = InnerNode' (Expr5 (Node' [term]))
           (y0, df) = f x0
 

@@ -7,6 +7,7 @@
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Expr
 (
     Expr5(..), zeroE, sumExpr2, LinearFunc5(..),
@@ -20,20 +21,20 @@ import Notensor (VecBuilder, FullVector, FullVectors, BasicVector, scaleFunc, Ba
 import EType (Node(Node), Endpoint (InnerNode, SourceNode), Edge(Edge))
 import Control.Category (Category(..))
 
-data Endpoint' p da dv where
-    SourceNode' :: Endpoint' p da da
-    InnerNode' :: p dv -> Endpoint' p da dv
+data Endpoint' e da dv where
+    SourceNode' :: Endpoint' e da da
+    InnerNode' :: Expr5 e da dv -> Endpoint' e da dv
 
-data Edge' p f da dv where
-    Edge' :: f du dv -> Endpoint' p da du -> Edge' p f da dv
+data Edge' e f da dv where
+    Edge' :: f du dv -> Endpoint' e da du -> Edge' e f da dv
 
-data Node' p f da dv = BasicVector dv => Node' [Edge' p f da dv]
+data Node' e f da dv = BasicVector dv => Node' [Edge' e f da dv]
 
 data Expr5 e da dv where
-    Expr5 :: Node' (Expr5 e da) e da dv -> Expr5 e da dv
+    Expr5 :: Node' e e da dv -> Expr5 e da dv
     Expr5Subs :: LinearFunc5 e dx dv -> Expr5 e da dx -> Expr5 e da dv
 
-newtype LinearFunc5 e da dv = LinearFunc5 (Endpoint' (Expr5 e da) da dv)
+newtype LinearFunc5 e da dv = LinearFunc5 (Endpoint' e da dv)
 
 instance (LinearEdge e, FullVector dv) => AdditiveGroup (LinearFunc5 e da dv) where
     zeroV = LinearFunc5 (InnerNode' zeroE)
@@ -48,7 +49,7 @@ instance (LinearEdge e, FullVector dv) => VectorSpace (LinearFunc5 e da dv) wher
 instance Category (LinearFunc5 e) where
     id = LinearFunc5 SourceNode'
     LinearFunc5 x . LinearFunc5 y = LinearFunc5 (go x y)
-        where go :: Endpoint' (Expr5 e b) b c -> Endpoint' (Expr5 e a) a b -> Endpoint' (Expr5 e a) a c
+        where go :: Endpoint' e b c -> Endpoint' e a b -> Endpoint' e a c
               go SourceNode' y' = y'
               go x' SourceNode'  = x'
               go (InnerNode' x') (InnerNode' y') = InnerNode' (Expr5Subs (LinearFunc5 (InnerNode' x')) y')
@@ -66,14 +67,14 @@ instance FullVector dv => VectorSpace (Expr5 BackFunc da dv) where
     type Scalar (Expr5 BackFunc da dv) = Scalar dv
     a *^ v = Expr5 (Node' [Edge' (scaleFunc a) (InnerNode' v)])
 
-instance (LinearEdge e, FullVector dv) => AdditiveGroup (Endpoint' (Expr5 e da) da dv) where
+instance (LinearEdge e, FullVector dv) => AdditiveGroup (Endpoint' e da dv) where
     zeroV = InnerNode' zeroV
     negateV x = InnerNode' (Expr5 (Node' [Edge' negateFunc x]))
     x ^+^ y = InnerNode' (Expr5 (Node' [Edge' identityFunc x, Edge' identityFunc y]))
     x ^-^ y = InnerNode' (Expr5 (Node' [Edge' identityFunc x, Edge' negateFunc y]))
 
-instance FullVector dv => VectorSpace (Endpoint' (Expr5 BackFunc da) da dv) where
-    type Scalar (Endpoint' (Expr5 BackFunc da) da dv) = Scalar (Expr5 BackFunc da dv)
+instance FullVector dv => VectorSpace (Endpoint' BackFunc da dv) where
+    type Scalar (Endpoint' BackFunc da dv) = Scalar (Expr5 BackFunc da dv)
     a *^ x = InnerNode' (Expr5 (Node' [Edge' (scaleFunc a) x]))
 
 sumExpr2 :: FullVector dv => [Expr5 BackFunc da dv] -> Expr5 BackFunc da dv

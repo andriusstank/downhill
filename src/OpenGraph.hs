@@ -25,7 +25,7 @@ type OpenExpr e da = Node OpenKey e da
 goSharing4 :: forall e dx da dv. OpenArg da dx -> Expr5 e dx dv -> TreeBuilder (OpenExpr e da) (OpenExpr e da dv)
 goSharing4 src = \case
     Expr5 (Node' xs) -> do
-        let go' :: Edge' (Expr5 e dx) e dx dv -> TreeBuilder (OpenExpr e da) (OpenTerm e da dv)
+        let go' :: Edge' e e dx dv -> TreeBuilder (OpenExpr e da) (OpenTerm e da dv)
             go' = goSharing4term src
         xs' <- traverse go' xs
         return $ Node xs'
@@ -45,14 +45,14 @@ insertExpr3 x y = do
     (k, z) <- Sharing.insertExpr x y
     return (k, z)
 
-goSharing4arg :: forall e dx da dv. OpenArg da dx -> Endpoint' (Expr5 e dx) dx dv -> TreeBuilder (OpenExpr e da) (OpenArg da dv)
+goSharing4arg :: forall e dx da dv. OpenArg da dx -> Endpoint' e dx dv -> TreeBuilder (OpenExpr e da) (OpenArg da dv)
 goSharing4arg src = \case
     SourceNode' -> return src
     InnerNode' x ->  do
         (xRef, _sx) <- insertExpr3 (sharingAction4 src) x
         return (InnerNode xRef)
 
-goSharing4term :: forall e dx da dv. OpenArg da dx -> Edge' (Expr5 e dx) e dx dv -> TreeBuilder (OpenExpr e da) (OpenTerm e da dv)
+goSharing4term :: forall e dx da dv. OpenArg da dx -> Edge' e e dx dv -> TreeBuilder (OpenExpr e da) (OpenTerm e da dv)
 goSharing4term src = \case
     Edge' f arg -> do
         arg' <- goSharing4arg src arg
