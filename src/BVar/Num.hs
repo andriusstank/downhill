@@ -11,7 +11,7 @@ import Affine (AffineFunc(AffineFunc))
 import Data.Kind (Type)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
-import Expr (LinearFunc5(LinearFunc5))
+import Expr (LinearFunc5(LinearFunc5), Endpoint' (SourceNode'))
 import Notensor (FullVector(..), ProdVector(..), BasicVector(..), BackFunc)
 import EType (Endpoint(SourceNode))
 import Diff (backprop)
@@ -59,7 +59,7 @@ constant :: Num a => a -> NumBVar a
 constant x = NumBVar (AffineFunc x zeroV)
 
 var :: Num a => a -> NumBVar a
-var x = NumBVar (AffineFunc x (LinearFunc5 SourceNode))
+var x = NumBVar (AffineFunc x (LinearFunc5 SourceNode'))
 
 backpropNum :: Num a => NumBVar a -> a
 backpropNum (NumBVar x) = unAsNum $ backprop x 1

@@ -19,7 +19,7 @@ module Diff
 )
 where
 
-import Expr(Expr5(Expr5), LinearFunc5(LinearFunc5))
+import Expr(Expr5(Expr5), LinearFunc5(LinearFunc5), Endpoint' (..), Edge'(..), Node'(..))
 import Prelude (Monad(return), Num, IO, ($))
 import Affine (AffineFunc(AffineFunc))
 import Tensor (Bilinear(..), Vec(..))
@@ -49,7 +49,7 @@ constant :: FullVector dv => b -> BVar b da dv
 constant x = AffineFunc x zeroV
 
 var :: b -> BVar b dv dv
-var x = AffineFunc x (LinearFunc5 SourceNode)
+var x = AffineFunc x (LinearFunc5 SourceNode')
 
 backprop' :: forall da dv. BasicVector da => Expr5 BackFunc da dv -> dv -> da
 backprop' dy dv = unsafePerformIO $ do
@@ -60,8 +60,8 @@ backprop' dy dv = unsafePerformIO $ do
 
 backprop :: forall b da dv. BasicVector da => BVar b da dv -> dv -> da
 backprop (AffineFunc _y0 (LinearFunc5 y)) dv = case y of
-    SourceNode -> dv
-    InnerNode x -> backprop' x dv
+    SourceNode' -> dv
+    InnerNode' x -> backprop' x dv
 
 backpropS :: (BasicVector da, Num dv) => BVar b da dv -> da
 backpropS x = backprop x 1
@@ -73,10 +73,10 @@ liftFunc1
   -> AffineFunc u (LinearFunc5 BackFunc da du)
   -> AffineFunc v (LinearFunc5 BackFunc da dv)
 liftFunc1 f (AffineFunc x0 (LinearFunc5 dx)) = AffineFunc y0 (LinearFunc5 expr)
-    where term :: Edge (Expr5 BackFunc da) BackFunc da dv
-          term = Edge df dx
-          expr :: Endpoint (Expr5 BackFunc da) da dv
-          expr = InnerNode (Expr5 (Node [term]))
+    where term :: Edge' (Expr5 BackFunc da) BackFunc da dv
+          term = Edge' df dx
+          expr :: Endpoint' (Expr5 BackFunc da) da dv
+          expr = InnerNode' (Expr5 (Node' [term]))
           (y0, df) = f x0
 
 
@@ -93,7 +93,7 @@ zipA
   => LinearFunc5 BackFunc da du
   -> LinearFunc5 BackFunc da dv
   -> LinearFunc5 BackFunc da (du, dv)
-zipA (LinearFunc5 x) (LinearFunc5 y) = LinearFunc5 (InnerNode (Expr5 (Node [Edge intoFst x, Edge intoSnd y])))
+zipA (LinearFunc5 x) (LinearFunc5 y) = LinearFunc5 (InnerNode' (Expr5 (Node' [Edge' intoFst x, Edge' intoSnd y])))
 
 zip :: (ProdVector du, ProdVector dv) => BVar b da du -> BVar c da dv -> BVar (b, c) da (du, dv)
 zip (AffineFunc x dx) (AffineFunc y dy) = AffineFunc (x, y) (zipA dx dy)

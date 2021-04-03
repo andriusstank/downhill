@@ -69,8 +69,8 @@ tracingFunc name value = BackFunc back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVector dv => Expr5 BackFunc da dv -> Edge (Expr5 BackFunc da) BackFunc da dv
-exprToTerm = Edge identityFunc . InnerNode
+exprToTerm :: FullVector dv => Expr5 BackFunc da dv -> Edge' (Expr5 BackFunc da) BackFunc da dv
+exprToTerm = Edge' identityFunc . InnerNode'
 
 
 testExpr :: IO (Expr5 BackFunc R R)
@@ -78,14 +78,14 @@ testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
         x0, x1 :: Expr5 BackFunc R R
-        x0 = Expr5 (Node [Edge f SourceNode])
-        x1 = Expr5 (Node [Edge g SourceNode])
-        x2 = Expr5 (Node [exprToTerm x0, exprToTerm x1])
-        x3 = Expr5 (Node [exprToTerm x1, exprToTerm x2])
-        x4 = Expr5 (Node [exprToTerm x2, exprToTerm x3])
-        x5 = Expr5 (Node [exprToTerm x3, exprToTerm x4])
-        x6 = Expr5 (Node [exprToTerm x4, exprToTerm x5])
-        x7 = Expr5 (Node [exprToTerm x5, exprToTerm x6])
+        x0 = Expr5 (Node' [Edge' f SourceNode'])
+        x1 = Expr5 (Node' [Edge' g SourceNode'])
+        x2 = Expr5 (Node' [exprToTerm x0, exprToTerm x1])
+        x3 = Expr5 (Node' [exprToTerm x1, exprToTerm x2])
+        x4 = Expr5 (Node' [exprToTerm x2, exprToTerm x3])
+        x5 = Expr5 (Node' [exprToTerm x3, exprToTerm x4])
+        x6 = Expr5 (Node' [exprToTerm x4, exprToTerm x5])
+        x7 = Expr5 (Node' [exprToTerm x5, exprToTerm x6])
     --    xs = [x0, x1, x2, x3, x4, x5, x6, x7]
     --traverse_ evaluate xs
     --names <- traverse makeStableName  xs

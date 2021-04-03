@@ -29,7 +29,7 @@ module NodeMap (
 
     fromList, List2(..)
 ) where
-import Expr (Expr5,LinearFunc5 (LinearFunc5))
+import Expr (Expr5,LinearFunc5 (LinearFunc5), Endpoint' (InnerNode'))
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
 import OpenGraph (OpenExpr, OpenGraph (TrivialOpenGraph, NontrivialOpenGraph))
@@ -124,7 +124,7 @@ cvtmap = \case
         SomeNodeMap m' -> cvthelper m' x
 
 runRecoverSharing5 :: forall e da dv. Expr5 e da dv -> IO (SomeSharedExprWithMap e da dv)
-runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4' (LinearFunc5 (InnerNode x))
+runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4' (LinearFunc5 (InnerNode' x))
 
 data SomeNodeMap f where
     SomeNodeMap :: NodeSet s => NodeMap s f -> SomeNodeMap f
