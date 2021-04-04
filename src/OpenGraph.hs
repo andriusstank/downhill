@@ -32,26 +32,30 @@ data InsertionResultArg a x v where
 
 data ExprResult e a v where
     NoInsertExpr :: ExprResult e a a
-    DoInsertExpr :: OpenExpr e a v -> ExprResult e a v
+    DoInsertExpr :: TreeBuilder (OpenExpr e a) (OpenExpr e a v) -> ExprResult e a v
+
+unExprResult :: ExprResult e a v -> TreeBuilder (OpenExpr e a) (OpenExpr e a v)
+unExprResult = \case
+    DoInsertExpr x -> x
 
 insertExpr3 :: OpenArg da dx -> Expr5 e dx dv -> TreeBuilder (OpenExpr e da) (OpenKey dv, OpenExpr e da dv)
 insertExpr3 x y = do
-    (k, z) <- Sharing.insertExpr (BuildAction' (goSharing4 x y)) y
+    (k, z) <- Sharing.insertExpr (BuildAction' (unExprResult $ goSharing4 x y)) y
     return (k, z)
 
-goSharing4 :: forall e dx da dv. OpenArg da dx -> Expr5 e dx dv -> TreeBuilder (OpenExpr e da) (OpenExpr e da dv)
+goSharing4 :: forall e x a v. OpenArg a x -> Expr5 e x v -> ExprResult e a v
 goSharing4 src = \case
-    Expr5 xs -> do
-        let go' :: Edge' e dx dv -> TreeBuilder (OpenExpr e da) (OpenTerm e da dv)
+    Expr5 xs -> DoInsertExpr $ do
+        let go' :: Edge' e x v -> TreeBuilder (OpenExpr e a) (OpenTerm e a v)
             go' = goSharing4term src
         xs' <- traverse go' xs
         return $ Node xs'
-    Expr5Subs f g -> do
+    Expr5Subs f g -> DoInsertExpr $ do
         case f of
-            SourceNode' -> goSharing4 src g
+            SourceNode' -> unExprResult $ goSharing4 src g
             InnerNode' f' -> do
                 (gRef, _sg) <- insertExpr3 src g
-                goSharing4 (InnerNode gRef) f'
+                unExprResult $ goSharing4 (InnerNode gRef) f'
 
 goSharing4arg :: forall e dx da dv. OpenArg da dx -> Endpoint' e dx dv -> TreeBuilder (OpenExpr e da) (OpenArg da dv)
 goSharing4arg src = \case
@@ -74,6 +78,6 @@ runRecoverSharing4' :: forall e da dz. LinearFunc5 e da dz -> IO (OpenGraph e da
 runRecoverSharing4' x = case x of
     SourceNode' -> return TrivialOpenGraph
     InnerNode' node -> do
-        let z = goSharing4 SourceNode node :: (TreeBuilder (OpenExpr e da) (OpenExpr e da dz))
+        let z = unExprResult $ goSharing4 SourceNode node :: (TreeBuilder (OpenExpr e da) (OpenExpr e da dz))
         (final_node, graph) <- Sharing.runTreeBuilder z
         return (NontrivialOpenGraph final_node graph)
