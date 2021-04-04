@@ -28,8 +28,6 @@ data Endpoint' e da dv where
 data Edge' e da dv where
     Edge' :: e du dv -> Endpoint' e da du -> Edge' e da dv
 
---data Node' e da dv = BasicVector dv => Node' [Edge' e da dv]
-
 data Expr5 e da dv where
     Expr5 :: BasicVector dv => [Edge' e da dv] -> Expr5 e da dv
     Expr5Subs :: LinearFunc5 e dx dv -> Expr5 e da dx -> Expr5 e da dv

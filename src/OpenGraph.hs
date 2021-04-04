@@ -22,6 +22,18 @@ type OpenArg = Endpoint OpenKey
 type OpenTerm e = Edge OpenKey e
 type OpenExpr e da = Node OpenKey e da
 
+data InsertionResult g a v where
+    NoInsert :: InsertionResult g a a
+    DoInsert :: OpenKey v -> g v -> InsertionResult g a v
+
+data InsertionResultArg a x v where
+    NoInsertArg :: InsertionResultArg a a a
+    DoInsertArg :: OpenArg a v -> InsertionResultArg a x v
+
+data ExprResult e a v where
+    NoInsertExpr :: ExprResult e a a
+    DoInsertExpr :: OpenExpr e a v -> ExprResult e a v
+
 goSharing4 :: forall e dx da dv. OpenArg da dx -> Expr5 e dx dv -> TreeBuilder (OpenExpr e da) (OpenExpr e da dv)
 goSharing4 src = \case
     Expr5 xs -> do
@@ -33,16 +45,12 @@ goSharing4 src = \case
         case f of
             SourceNode' -> goSharing4 src g
             InnerNode' f' -> do
-                (gRef, _sg) <- insertExpr3 (sharingAction4 src) g
+                (gRef, _sg) <- insertExpr3 src g
                 goSharing4 (InnerNode gRef) f'
 
-insertExpr3
-  :: forall e dx g dv.
-     BuildAction (Expr5 e dx) g
-  -> Expr5 e dx dv
-  -> TreeBuilder g (OpenKey dv, g dv)
+insertExpr3 :: OpenArg da dx -> Expr5 e dx dv -> TreeBuilder (OpenExpr e da) (OpenKey dv, OpenExpr e da dv)
 insertExpr3 x y = do
-    (k, z) <- Sharing.insertExpr x y
+    (k, z) <- Sharing.insertExpr (sharingAction4 x) y
     return (k, z)
 
 goSharing4arg :: forall e dx da dv. OpenArg da dx -> Endpoint' e dx dv -> TreeBuilder (OpenExpr e da) (OpenArg da dv)
