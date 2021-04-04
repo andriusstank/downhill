@@ -16,7 +16,7 @@
 module Sharing (
     -- * Tree
     TreeBuilder,
-    BuildAction(..),
+    BuildAction(..), BuildAction'(..),
     insertExpr,
     runTreeBuilder,
 )
@@ -64,14 +64,15 @@ insertTreeBuilder' name computeAction = do
         Nothing -> insertTreeBuilder name computeAction
 
 newtype BuildAction f g = BuildAction (forall dv. f dv -> TreeBuilder g (g dv))
+newtype BuildAction' g v = BuildAction' { unBuildAction' :: TreeBuilder g (g v) }
 
 insertExpr
-  :: BuildAction f g
+  :: BuildAction' g dv
   -> f dv
   -> TreeBuilder g (OpenKey dv, g dv)
-insertExpr (BuildAction value) expr = do
+insertExpr (BuildAction' value) expr = do
     name <- TreeCache (lift (OpenMap.makeOpenKey expr))
-    insertTreeBuilder' name (value expr)
+    insertTreeBuilder' name value
 
 runTreeBuilder :: forall f g dv. TreeBuilder f (g dv) -> IO (g dv, OpenMap f)
 runTreeBuilder rs_x = runStateT (unTreeCache rs_x) OpenMap.empty

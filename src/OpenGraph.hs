@@ -12,7 +12,7 @@ module OpenGraph (
 )
 where
 import Expr(Expr5(Expr5, Expr5Subs), LinearFunc5, Edge'(..), Endpoint'(..))
-import Sharing (BuildAction(BuildAction), TreeBuilder)
+import Sharing (BuildAction(BuildAction), TreeBuilder, BuildAction'(..))
 import qualified Sharing
 import Prelude hiding (lookup)
 import OpenMap (OpenMap, OpenKey)
@@ -34,12 +34,9 @@ data ExprResult e a v where
     NoInsertExpr :: ExprResult e a a
     DoInsertExpr :: OpenExpr e a v -> ExprResult e a v
 
-sharingAction4 :: OpenArg da dx -> BuildAction (Expr5 e dx) (OpenExpr e da)
-sharingAction4 x = BuildAction (goSharing4 x)
-
 insertExpr3 :: OpenArg da dx -> Expr5 e dx dv -> TreeBuilder (OpenExpr e da) (OpenKey dv, OpenExpr e da dv)
 insertExpr3 x y = do
-    (k, z) <- Sharing.insertExpr (sharingAction4 x) y
+    (k, z) <- Sharing.insertExpr (BuildAction' (goSharing4 x y)) y
     return (k, z)
 
 goSharing4 :: forall e dx da dv. OpenArg da dx -> Expr5 e dx dv -> TreeBuilder (OpenExpr e da) (OpenExpr e da dv)
