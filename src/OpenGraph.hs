@@ -62,12 +62,14 @@ goSharing4 src = \case
             go' = goSharing4term src
         xs' <- traverse go' xs
         return $ Node xs'
-    Expr5Subs f g -> DoInsertExpr $ do
+    Expr5Subs f g ->
         case f of
-            SourceNode' -> unExprResult $ goSharing4 src g
-            InnerNode' f' -> do
-                (gRef, _sg) <- unInsertExprResult (insertExpr3 src g)
-                unExprResult $ goSharing4 (InnerNode gRef) f'
+            SourceNode' -> goSharing4 src g
+            InnerNode' f' -> case insertExpr3 src g of
+                NoInsertInsertExpr z -> goSharing4 z f'
+                DoInsertInsertExpr z -> DoInsertExpr $ do
+                    (gRef, _sg) <- z
+                    unExprResult $ goSharing4 (InnerNode gRef) f'
 
 goSharing4arg :: forall e dx da dv. OpenArg da dx -> Endpoint' e dx dv -> TreeBuilder (OpenExpr e da) (OpenArg da dv)
 goSharing4arg src = \case
