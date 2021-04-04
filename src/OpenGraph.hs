@@ -34,6 +34,14 @@ data ExprResult e a v where
     NoInsertExpr :: ExprResult e a a
     DoInsertExpr :: OpenExpr e a v -> ExprResult e a v
 
+sharingAction4 :: OpenArg da dx -> BuildAction (Expr5 e dx) (OpenExpr e da)
+sharingAction4 x = BuildAction (goSharing4 x)
+
+insertExpr3 :: OpenArg da dx -> Expr5 e dx dv -> TreeBuilder (OpenExpr e da) (OpenKey dv, OpenExpr e da dv)
+insertExpr3 x y = do
+    (k, z) <- Sharing.insertExpr (sharingAction4 x) y
+    return (k, z)
+
 goSharing4 :: forall e dx da dv. OpenArg da dx -> Expr5 e dx dv -> TreeBuilder (OpenExpr e da) (OpenExpr e da dv)
 goSharing4 src = \case
     Expr5 xs -> do
@@ -48,26 +56,18 @@ goSharing4 src = \case
                 (gRef, _sg) <- insertExpr3 src g
                 goSharing4 (InnerNode gRef) f'
 
-insertExpr3 :: OpenArg da dx -> Expr5 e dx dv -> TreeBuilder (OpenExpr e da) (OpenKey dv, OpenExpr e da dv)
-insertExpr3 x y = do
-    (k, z) <- Sharing.insertExpr (sharingAction4 x) y
-    return (k, z)
-
 goSharing4arg :: forall e dx da dv. OpenArg da dx -> Endpoint' e dx dv -> TreeBuilder (OpenExpr e da) (OpenArg da dv)
 goSharing4arg src = \case
     SourceNode' -> return src
-    InnerNode' x ->  do
-        (xRef, _sx) <- insertExpr3 (sharingAction4 src) x
-        return (InnerNode xRef)
+    InnerNode' g ->  do
+        (gRef, _sg) <- insertExpr3 src g
+        return (InnerNode gRef)
 
 goSharing4term :: forall e dx da dv. OpenArg da dx -> Edge' e dx dv -> TreeBuilder (OpenExpr e da) (OpenTerm e da dv)
 goSharing4term src = \case
     Edge' f arg -> do
         arg' <- goSharing4arg src arg
         return (Edge f arg')
-
-sharingAction4 :: OpenArg da dx -> BuildAction (Expr5 e dx) (OpenExpr e da)
-sharingAction4 src = BuildAction (goSharing4 src)
 
 data OpenGraph e a z where
     TrivialOpenGraph :: OpenGraph e a a
