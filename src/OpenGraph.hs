@@ -41,18 +41,21 @@ unExprResult = \case
 
 data InsertExprResult e a v where
     NoInsertInsertExpr :: OpenArg a v -> InsertExprResult e a v
-    DoInsertInsertExpr :: TreeBuilder (OpenExpr e a) (OpenKey v, OpenExpr e a v) -> InsertExprResult e a v
+    DoInsertInsertExpr :: TreeBuilder (OpenExpr e a) (OpenKey v) -> InsertExprResult e a v
 
-unInsertExprResult :: InsertExprResult e a v -> TreeBuilder (OpenExpr e a) (OpenKey v, OpenExpr e a v)
+unInsertExprResult :: InsertExprResult e a v -> TreeBuilder (OpenExpr e a) (OpenArg a v)
 unInsertExprResult = \case
-    DoInsertInsertExpr x -> x
+    NoInsertInsertExpr x -> case x of
+        SourceNode -> return SourceNode
+        InnerNode node -> return (InnerNode node)
+    DoInsertInsertExpr x -> InnerNode <$> x
 
 insertExpr3 :: OpenArg a x -> Expr5 e x v -> InsertExprResult e a v
 insertExpr3 x y = case goSharing4 x y of
     NoInsertExpr z -> NoInsertInsertExpr z
     DoInsertExpr z -> DoInsertInsertExpr $ do
                 (k, zz) <- Sharing.insertExpr (BuildAction' z) y
-                return (k, zz)
+                return k
 
 goSharing4 :: forall e x a v. OpenArg a x -> Expr5 e x v -> ExprResult e a v
 goSharing4 src = \case
@@ -68,7 +71,7 @@ goSharing4 src = \case
             InnerNode' f' -> case insertExpr3 src g of
                 NoInsertInsertExpr z -> goSharing4 z f'
                 DoInsertInsertExpr z -> DoInsertExpr $ do
-                    (gRef, _sg) <- z
+                    gRef <- z
                     unExprResult $ goSharing4 (InnerNode gRef) f'
 
 goSharing4arg :: forall e dx da dv. OpenArg da dx -> Endpoint' e dx dv -> TreeBuilder (OpenExpr e da) (OpenArg da dv)
@@ -78,7 +81,7 @@ goSharing4arg src = \case
         case insertExpr3 src g of
             NoInsertInsertExpr z -> return z
             DoInsertInsertExpr z -> do
-                (gRef, _sg) <- z
+                gRef <- z
                 return (InnerNode gRef)
 
 goSharing4term :: forall e dx da dv. OpenArg da dx -> Edge' e dx dv -> TreeBuilder (OpenExpr e da) (OpenTerm e da dv)
