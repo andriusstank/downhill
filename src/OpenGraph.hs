@@ -54,8 +54,19 @@ insertExpr3 :: OpenArg a x -> Expr5 e x v -> InsertExprResult e a v
 insertExpr3 x y = case goSharing4 x y of
     NoInsertExpr z -> NoInsertInsertExpr z
     DoInsertExpr z -> DoInsertInsertExpr $ do
-                (k, zz) <- Sharing.insertExpr (BuildAction' z) y
+                (k, _zz) <- Sharing.insertExpr (BuildAction' z) y
                 return k
+
+insertExpr3'' :: (f v -> ExprResult e a v -> InsertExprResult e a v)
+insertExpr3'' y w = case w of
+    NoInsertExpr z -> NoInsertInsertExpr z
+    DoInsertExpr z -> DoInsertInsertExpr $ do
+                (k, _zz) <- Sharing.insertExpr (BuildAction' z) y
+                return k
+
+
+insertExpr3' :: OpenArg a x -> Expr5 e x v -> TreeBuilder (OpenExpr e a) (OpenArg a v)
+insertExpr3' src x = unInsertExprResult (insertExpr3 src x)
 
 goSharing4 :: forall e x a v. OpenArg a x -> Expr5 e x v -> ExprResult e a v
 goSharing4 src = \case
@@ -73,6 +84,11 @@ goSharing4 src = \case
                 DoInsertInsertExpr z -> DoInsertExpr $ do
                     gRef <- z
                     unExprResult $ goSharing4 (InnerNode gRef) f'
+
+-- goSharing4' :: forall e x a v. OpenArg a x -> Expr5 e x v -> TreeBuilder (OpenExpr e a) (OpenArg a v)
+-- goSharing4' src x = case goSharing4 src x of
+--     NoInsertExpr y -> return y
+--     DoInsertExpr y -> InnerNode . _ <$> y
 
 goSharing4arg :: forall e dx da dv. OpenArg da dx -> Endpoint' e dx dv -> TreeBuilder (OpenExpr e da) (OpenArg da dv)
 goSharing4arg src = \case
