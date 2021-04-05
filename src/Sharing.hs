@@ -68,7 +68,7 @@ newtype BuildAction' g v = BuildAction' { unBuildAction' :: TreeBuilder g (g v) 
 
 insertExpr
   :: BuildAction' g dv
-  -> f dv
+  -> f dv -- TODO: polymorphic in f - bad, f should be fixed for whole graph
   -> TreeBuilder g (OpenKey dv, g dv)
 insertExpr (BuildAction' value) expr = do
     name <- TreeCache (lift (OpenMap.makeOpenKey expr))

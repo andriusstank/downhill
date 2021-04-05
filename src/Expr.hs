@@ -31,7 +31,7 @@ data Edge' e da dv where
 data Expr5 e da dv where
     Expr5Var :: Expr5 e da da
     Expr5 :: BasicVector dv => [Edge' e da dv] -> Expr5 e da dv
-    Expr5Subs :: LinearFunc5 e dx dv -> Expr5 e da dx -> Expr5 e da dv
+    Expr5Subs :: Expr5 e dx dv -> Expr5 e da dx -> Expr5 e da dv
 
 --newtype LinearFunc5 e a v = LinearFunc5 (Endpoint' e a v)
 type LinearFunc5 = Endpoint'
@@ -42,7 +42,7 @@ instance Category (LinearFunc5 e) where
         where go :: Endpoint' e b c -> Endpoint' e a b -> Endpoint' e a c
               go SourceNode' y' = y'
               go x' SourceNode'  = x'
-              go (InnerNode' x') (InnerNode' y') = InnerNode' (Expr5Subs (InnerNode' x') y')
+              go (InnerNode' x') (InnerNode' y') = InnerNode' (Expr5Subs x' y')
 
 zeroE :: BasicVector dv => Expr5 e da dv
 zeroE = Expr5 []
