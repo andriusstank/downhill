@@ -14,15 +14,16 @@ module NodeMap (
     NodeKey,
     SomeItem(..),
     NodeMap,
+    SomeNodeMap(..),
     SharedArgS,
     SharedTermS,
     SharedExprS,
     mapmap, mapmapWithKey,
     toList,
     zipWith,
-    lookup,
+    lookup, tryLookup,
     generate,
-    runRecoverSharing5,
+    --runRecoverSharing5,
     SomeSharedExprWithMap(..),
     uncheckedMakeNodeMap,
     NodeSet,
@@ -123,8 +124,8 @@ cvtmap = \case
     NontrivialOpenGraph x m -> case uncheckedMakeNodeMap m of
         SomeNodeMap m' -> cvthelper m' x
 
-runRecoverSharing5 :: forall e da dv. Expr5 e da dv -> IO (SomeSharedExprWithMap e da dv)
-runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4' (InnerNode' x)
+--runRecoverSharing5 :: forall e da dv. Expr5 e da dv -> IO (SomeSharedExprWithMap e da dv)
+--runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4' (InnerNode' x)
 
 data SomeNodeMap f where
     SomeNodeMap :: NodeSet s => NodeMap s f -> SomeNodeMap f
@@ -134,6 +135,7 @@ data NodeSetWrapper s
 instance Reifies s (OpenMap Unit) => NodeSet (NodeSetWrapper s) where
     nodesetDict = reflect @s Proxy
 
+-- TODO: why "unchecked" in name?
 uncheckedMakeNodeMap :: forall f. OpenMap f -> SomeNodeMap f
 uncheckedMakeNodeMap x = reify nodes go
     where nodes :: OpenMap Unit
@@ -141,3 +143,4 @@ uncheckedMakeNodeMap x = reify nodes go
           go :: forall s. Reifies s (OpenMap Unit) => Proxy s -> SomeNodeMap f
           go _proxy = SomeNodeMap @(NodeSetWrapper s) (NodeMap x)
 
+--nodemapKnot :: forall f g. OpenMap f -> (forall s x. NodeMap s g -> f x -> g x) -> SomeNodeMap g

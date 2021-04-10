@@ -15,11 +15,13 @@ import Sharing ()
 import Graph
 import Control.Monad (when)
 import qualified NodeMap
-import NodeMap (runRecoverSharing5)
+import NodeMap ()
 import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, BackFunc(BackFunc))
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum)
+import ExprWalker (runWalk')
+import Simplify (goA)
 
 newtype R = R { unR :: Integer }
     deriving (Show, Generic)
@@ -94,8 +96,10 @@ testExpr = do
 
 -- >>> testExpr ✕ (R 7)
 -- R 56
-_x :: () -> IO (NodeMap.SomeSharedExprWithMap BackFunc R R)
-_x () = runRecoverSharing5 =<< testExpr
+_x :: () -> IO _
+_x () = do
+    tree <- runWalk' =<< testExpr
+    return (goA tree)
 
 {-
 _y :: IO R
@@ -107,10 +111,11 @@ _y = do
 
 _z :: IO ()
 _z = do
-    NodeMap.SomeSharedExprWithMap smap expr <- _x ()
-    let y' = NonTrivialGraph (Graph smap expr)
-    let dy' = flipGraph y'
-    putStrLn "back"
-    ans2 <- evaluate (unVec (dy' ✕ Vec (R 2)))
-    print ans2
-    return ()
+    g <- _x ()
+    case g of
+        SomeGraph y' -> do
+            let dy' = flipGraph y'
+            putStrLn "back"
+            ans2 <- evaluate (unVec (dy' ✕ Vec (R 2)))
+            print ans2
+            return ()

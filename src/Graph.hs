@@ -16,7 +16,7 @@
 {-# language ScopedTypeVariables #-}
  
 module Graph
-    ( Graph(..)
+    ( Graph(..), SomeGraph(..)
     , graph
     , NonTrivialGraph(..)
     , flipGraph
@@ -42,6 +42,9 @@ data Graph s e da dz where
   TrivialGraph :: Graph s e da da
   -- TODO: fix caps NonTrivialGraph -> NontrivialGraph
   NonTrivialGraph :: NonTrivialGraph s e da dz -> Graph s e da dz
+
+data SomeGraph e a z where
+  SomeGraph :: NodeSet s => Graph s e a z -> SomeGraph e a z
 
 data AnyEdge s e da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (e du dv) (Endpoint (NodeKey s) da du)
 

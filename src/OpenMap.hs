@@ -5,7 +5,7 @@
 module OpenMap
     ( OpenKey, OpenMap
     , SomeOpenItem(SomeOpenItem)
-    , mapmap, mapmapWithKey, lookup, toList
+    , mapmap, mapmapWithKey, mapmapMaybe, lookup, toList
     , empty, insert, adjust
     , intersectionWith
     , makeOpenKey
@@ -15,7 +15,7 @@ where
 import Prelude (Monad(return), IO, (.), Functor(fmap), (<$>), Maybe)
 import GHC.StableName (StableName)
 import Data.HashMap.Lazy (HashMap)
-import GHC.Base (Any)
+import GHC.Base (Any, Maybe (Just, Nothing))
 import qualified Data.HashMap.Lazy as HashMap
 import Unsafe.Coerce (unsafeCoerce)
 import Control.Exception (evaluate)
@@ -34,6 +34,12 @@ empty = OpenMap HashMap.empty
 mapmap :: forall f g. (forall dv. f dv -> g dv) -> OpenMap f -> OpenMap g
 mapmap f = OpenMap . fmap go . unOpenMap
     where go (SomeExpr y) = SomeExpr (f y)
+
+mapmapMaybe :: forall f g. (forall dv. f dv -> Maybe (g dv)) -> OpenMap f -> OpenMap g
+mapmapMaybe f = OpenMap . HashMap.mapMaybe go . unOpenMap
+    where go (SomeExpr y) = case f y of
+            Just fy -> Just (SomeExpr fy)
+            Nothing -> Nothing
 
 mapmapWithKey :: forall f g. (forall dx. OpenKey dx -> f dx -> g dx) -> OpenMap f -> OpenMap g
 mapmapWithKey f = OpenMap . HashMap.mapWithKey go . unOpenMap

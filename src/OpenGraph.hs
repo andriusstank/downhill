@@ -8,7 +8,8 @@ module OpenGraph (
     OpenArg, OpenTerm, OpenExpr,
     OpenGraph(..),
     --runRecoverSharing4,
-    runRecoverSharing4'
+    --runRecoverSharing4',
+    --runRecoverSharing6
 )
 where
 import Expr(Expr5(Expr5, Expr5Subs, Expr5Var), LinearFunc5, Edge'(..), Endpoint'(..))
@@ -17,6 +18,8 @@ import qualified Sharing
 import Prelude hiding (lookup)
 import OpenMap (OpenMap, OpenKey)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
+import ExprWalker
+import qualified OpenMap
 
 type OpenArg = Endpoint OpenKey
 type OpenTerm e = Edge OpenKey e
@@ -83,12 +86,14 @@ goSharing4 src = \case
             go' = goSharing4term src
         xs' <- traverse go' xs
         return $ Node xs'
-    Expr5Subs f' g -> case insertExpr3 src g of
-                NoInsertInsertExpr z -> goSharing4 z f'
+
+{-
+        case insertExpr3 src g of
+                NoInsertInsertExpr z -> goSharing4 z f
                 DoInsertInsertExpr z -> DoInsertExpr $ do
                     gRef <- z
-                    unExprResult' $ goSharing4 (InnerNode gRef) f'
-
+                    unExprResult' $ goSharing4 (InnerNode gRef) f
+-}
 goSharing5 :: forall e x a v. OpenArg a x -> Expr5 e x v -> TreeBuilder (OpenExpr e a) (OpenArg a v)
 goSharing5 src x = case goSharing4 src x of
     NoInsertExpr z -> return z
@@ -116,22 +121,59 @@ data OpenGraph e a z where
     TrivialOpenGraph :: OpenGraph e a a
     NontrivialOpenGraph :: Node OpenKey e a z -> OpenMap (OpenExpr e a) -> OpenGraph e a z
 
-runRecoverSharing4' :: forall e da dz. LinearFunc5 e da dz -> IO (OpenGraph e da dz)
-runRecoverSharing4' x = case x of
+--data TwoGraphs e a z = TwoGraphs (NodeKey a z) (OpenMap (CachedNode e a)) (OpenMap (OpenExpr e a))
+
+runRecoverSharing4'' :: forall e da dz. LinearFunc5 e da dz -> IO (OpenGraph e da dz)
+runRecoverSharing4'' x = case x of
     SourceNode' -> return TrivialOpenGraph
     InnerNode' node -> do
         let z = unExprResult' $ goSharing4 SourceNode node :: (TreeBuilder (OpenExpr e da) (OpenExpr e da dz))
         (final_node, graph) <- Sharing.runTreeBuilder z
         return (NontrivialOpenGraph final_node graph)
 
+runRecoverSharing4' = runRecoverSharing5
+
+cvtNode :: forall e a z. Node'' e a z -> Node OpenKey e a z
+cvtNode (Node'' xs) = Node (cvtEdge <$> xs)
+    where cvtEdge :: Edge'' e da dz -> Edge OpenKey e da dz
+          cvtEdge = \case
+            Edge'' f x -> case x of
+                InnerKey x' -> Edge f (InnerNode x')
+
+cvtCNode :: CachedNode e da dv -> Node OpenKey e da dv
+cvtCNode (CachedInnerNode node) = cvtNode node
+
+cvtGraph :: OpenMap (CachedNode e da) -> OpenMap (OpenExpr e da)
+cvtGraph _ = OpenMap.empty -- OpenMap.mapmap cvtCNode
+
+-- TODO: types
 {-
+reduceGraph :: forall e a. OpenMap (CachedNode e a) -> OpenMap (CachedNode e a)
+reduceGraph xm = ym
+    where ym = OpenMap.mapmapWithKey go xm
+          go :: OpenKey v -> CachedNode e a v -> CachedNode e a
+          go node = case node of
+            CachedSourceNode -> SourceNode
+            CachedClone (InnerKey src) -> case OpenMap.lookup ym src of
+                Just y -> y
+                Nothing -> error "oh fuck in reduceGraph"
+            CachedInnerNode _ -> node
+-}
 runRecoverSharing5 :: forall e da dz. LinearFunc5 e da dz -> IO (OpenGraph e da dz)
 runRecoverSharing5 x = case x of
     SourceNode' -> return TrivialOpenGraph
     InnerNode' node -> do
-        let go = goSharing5 SourceNode  node
-        (final_node, graph) <- Sharing.runTreeBuilder go
-        case final_node of
-            SourceNode -> return TrivialOpenGraph
-            InnerNode node -> return (NontrivialOpenGraph _node graph)
--}
+        let go = walkNode' node
+        ((final_node_key, final_node_value), graph) <- Sharing.runTreeBuilder go
+        case final_node_value of
+            CachedSourceNode -> return TrivialOpenGraph
+            CachedClone _ -> error "runRecoverSharing5: not implemented"
+            CachedInnerNode node -> return (NontrivialOpenGraph (cvtNode node) (cvtGraph graph))
+
+lftoexpr :: LinearFunc5 e a z -> Expr5 e a z
+lftoexpr = \case
+    SourceNode' -> Expr5Var 
+    InnerNode' x -> x
+
+runRecoverSharing6 :: forall e a z. LinearFunc5 e a z -> TreeBuilder (CachedNode e a) (OpenKey z, CachedNode e a z)
+runRecoverSharing6 x = walkNode' (lftoexpr x)

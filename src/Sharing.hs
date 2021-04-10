@@ -33,6 +33,7 @@ import Control.Exception (evaluate)
 import Types
 import OpenMap (OpenKey, OpenMap)
 import qualified OpenMap
+import Expr(Expr5)
 
 newtype TreeBuilder f r = TreeCache { unTreeCache :: StateT (OpenMap f) IO r }
     deriving (Functor, Applicative, Monad)
@@ -66,10 +67,11 @@ insertTreeBuilder' name computeAction = do
 newtype BuildAction f g = BuildAction (forall dv. f dv -> TreeBuilder g (g dv))
 newtype BuildAction' g v = BuildAction' { unBuildAction' :: TreeBuilder g (g v) }
 
+-- TODO: rename, it's really lookup + maybe insert
 insertExpr
-  :: BuildAction' g dv
-  -> f dv -- TODO: polymorphic in f - bad, f should be fixed for whole graph
-  -> TreeBuilder g (OpenKey dv, g dv)
+  :: BuildAction' g v
+  -> (Expr5 e a) v
+  -> TreeBuilder g (OpenKey v, g v)
 insertExpr (BuildAction' value) expr = do
     name <- TreeCache (lift (OpenMap.makeOpenKey expr))
     insertTreeBuilder' name value

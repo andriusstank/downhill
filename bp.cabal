@@ -30,6 +30,8 @@ library
                        Notensor,
                        EType,
                        Coolness,
+                       ExprWalker,
+                       Simplify,
                        BVar.Num
   -- other-modules:
   -- other-extensions:

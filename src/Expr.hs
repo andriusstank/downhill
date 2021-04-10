@@ -30,10 +30,11 @@ data Edge' e da dv where
 
 data Expr5 e da dv where
     Expr5Var :: Expr5 e da da
-    Expr5 :: BasicVector dv => [Edge' e da dv] -> Expr5 e da dv
+    Expr5 :: BasicVector dv => [Edge' e da dv] -> Expr5 e da dv -- TODO: rename to Sum
     Expr5Subs :: Expr5 e dx dv -> Expr5 e da dx -> Expr5 e da dv
 
 --newtype LinearFunc5 e a v = LinearFunc5 (Endpoint' e a v)
+-- TODO: remove LinearFunc5, use Expr5 everywhere
 type LinearFunc5 = Endpoint'
 
 instance Category (LinearFunc5 e) where
