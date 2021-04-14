@@ -11,17 +11,19 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 
 {-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 module Diff
 (
     BVar, BVarS, bvarValue,
     constant, var,
     backprop, backpropS,
     fst, snd, zip
+
 )
 where
 
-import Expr(Expr5(Expr5), LinearFunc5, Endpoint' (..), Edge'(..))
-import Prelude (Monad(return), Num, IO, ($), (=<<))
+import Expr(Expr5(Expr5), LinearFunc5, Endpoint' (..), Edge'(..), AnyExpr(AnyExpr))
+import Prelude (Monad(return), Num, IO, ($), (=<<), Int, undefined, id, (.))
 import Affine (AffineFunc(AffineFunc))
 import Tensor (Bilinear(..), Vec(..))
 import NodeMap ()
@@ -29,12 +31,13 @@ import NodeMap ()
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector, BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFunc, FullVector)
+import Notensor (ProdVector, BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFunc (BackFunc), FullVector)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(zeroV))
 import ExprWalker (runWalk')
 import Graph (SomeGraph(SomeGraph))
 import Simplify (goA)
+import Data.Coerce (coerce, Coercible)
 
 type BVar b da dv = AffineFunc b (LinearFunc5 BackFunc da dv)
 

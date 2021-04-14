@@ -8,31 +8,46 @@
 
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE RankNTypes #-}
 module Expr
 (
     Expr5(..), zeroE, sumExpr2, LinearFunc5,
-    Endpoint'(..), Edge'(..)
+    Endpoint'(..), Edge'(..),
+    AnyExpr(..)
 )
 where
+import Prelude hiding ((.))
 import Tensor
 import Data.VectorSpace (VectorSpace(..),  AdditiveGroup(..), sumV)
 import Data.Constraint
 import Notensor (VecBuilder, FullVector, FullVectors, BasicVector, scaleFunc, BasicVectors, negateFunc, identityFunc, BackFunc, LinearEdge)
 import EType (Node(Node), Endpoint (InnerNode, SourceNode), Edge(Edge))
 import Control.Category (Category(..))
+import Data.Coerce (coerce)
+import Data.Kind (Type)
 
 data Endpoint' e da dv where
     SourceNode' :: Endpoint' e da da
     InnerNode' :: Expr5 e da dv -> Endpoint' e da dv
 
-data Edge' e da dv where
-    Edge' :: e du dv -> Endpoint' e da du -> Edge' e da dv
-
+data Edge' e a v where
+    Edge' :: e u v -> Endpoint' e a u -> Edge' e a v
+    
 data Expr5 e a v where
     Expr5Var :: Expr5 e a a
     Expr5 :: BasicVector v => [Edge' e a v] -> Expr5 e a v -- TODO: rename to Sum
     Expr5Subs :: Expr5 e x v -> Expr5 e a x -> Expr5 e a v
-    Expr5Coerce :: Expr5 e a x -> Expr5 e a v
+
+newtype AnyExpr e a v = AnyExpr (forall x. e v x -> Edge' e a x)
+
+anyVar :: AnyExpr e a a
+anyVar = AnyExpr (\f -> Edge' f SourceNode')
+
+anyRelay :: Category e => e u v -> AnyExpr e a u -> AnyExpr e a v
+anyRelay f (AnyExpr g) = AnyExpr (\x -> g (x . f))
+
+realExpr :: Expr5 e a v -> AnyExpr e a v
+realExpr x = AnyExpr (\f -> Edge' f (InnerNode' x))
 
 --newtype LinearFunc5 e a v = LinearFunc5 (Endpoint' e a v)
 -- TODO: remove LinearFunc5, use Expr5 everywhere
