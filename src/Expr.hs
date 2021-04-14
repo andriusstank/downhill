@@ -28,10 +28,11 @@ data Endpoint' e da dv where
 data Edge' e da dv where
     Edge' :: e du dv -> Endpoint' e da du -> Edge' e da dv
 
-data Expr5 e da dv where
-    Expr5Var :: Expr5 e da da
-    Expr5 :: BasicVector dv => [Edge' e da dv] -> Expr5 e da dv -- TODO: rename to Sum
-    Expr5Subs :: Expr5 e dx dv -> Expr5 e da dx -> Expr5 e da dv
+data Expr5 e a v where
+    Expr5Var :: Expr5 e a a
+    Expr5 :: BasicVector v => [Edge' e a v] -> Expr5 e a v -- TODO: rename to Sum
+    Expr5Subs :: Expr5 e x v -> Expr5 e a x -> Expr5 e a v
+    Expr5Coerce :: Expr5 e a x -> Expr5 e a v
 
 --newtype LinearFunc5 e a v = LinearFunc5 (Endpoint' e a v)
 -- TODO: remove LinearFunc5, use Expr5 everywhere

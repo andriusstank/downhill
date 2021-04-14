@@ -4,6 +4,8 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE TypeApplications #-}
 {-# language ScopedTypeVariables #-}
+
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 module ExprWalker
 where
 
@@ -20,6 +22,7 @@ data Node'' e a v = BasicVector v => Node'' [Edge'' e a v]
 data CachedNode (e :: Type -> Type -> Type) a v where
     CachedSourceNode :: CachedNode e a a
     CachedClone :: NodeKey a v -> CachedNode e a v
+    CachedCoerce :: NodeKey a x -> CachedNode e a v
     CachedInnerNode :: Node'' e a v -> CachedNode e a v
 
 data NodeKey a v where
@@ -47,6 +50,9 @@ walkAncestors src = \case
         g' <- walkNode src g
         (_, z) <- Sharing.insertExpr (walkAncestors g' f) f
         return z
+    Expr5Coerce g -> BuildAction' $ do
+        g' <- walkNode src g
+        return (CachedCoerce g')
 
 walkEdge :: NodeKey a x -> Edge' e x v -> TreeBuilder (CachedNode e a) (Edge'' e a v)
 walkEdge src (Edge' f arg) =

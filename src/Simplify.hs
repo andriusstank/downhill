@@ -32,6 +32,7 @@ data SimpleNode s (e :: Type -> Type -> Type) a v where
 data ReducedNode s a v where
     ReducedSourceNode :: ReducedNode s a a
     ReducedInnerNode :: NodeMap.NodeKey s v -> ReducedNode s a v
+    ReducedCoerceNode :: NodeMap.NodeKey s x -> ReducedNode s a v
 
 
 goB :: forall s e a z. BasicVector a => CachedTree e a z -> NodeMap s (Node'' e a) -> Graph s e a z
@@ -47,6 +48,9 @@ goB (CachedTree allNodes finalNode) innerNodes = NonTrivialGraph (Graph newInner
                     CachedInnerNode _ -> case NodeMap.tryLookup innerNodes key of
                         Nothing -> error "bug: inner node not found"
                         Just (skey, _) -> ReducedInnerNode skey
+                    CachedCoerce (InnerKey node) -> case OpenMap.lookup reduce node of
+                        Nothing -> error "bug: node not found"
+                        Just x -> _ x node
           cvtEndpoint :: NodeKey a v -> Endpoint (NodeMap.NodeKey s) a v
           cvtEndpoint (InnerKey key) = case OpenMap.lookup reduce key of
               Nothing -> error "node not found"
@@ -75,5 +79,6 @@ goA tree@(CachedTree cnodes finalNode) =
                     CachedSourceNode -> Nothing
                     CachedInnerNode x -> Just x
                     CachedClone _ -> Nothing
+                    CachedCoerce _ -> Nothing
           allNodes :: SomeNodeMap (CachedNode e a)
           allNodes = uncheckedMakeNodeMap cnodes

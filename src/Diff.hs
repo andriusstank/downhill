@@ -7,9 +7,10 @@
 {-# language ScopedTypeVariables #-}
 {-# language LambdaCase #-}
 {-# language GADTs #-}
-
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE PartialTypeSignatures #-}
+
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 module Diff
 (
     BVar, BVarS, bvarValue,
