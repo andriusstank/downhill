@@ -12,7 +12,7 @@
 module Expr
 (
     Expr5(..), zeroE, sumExpr2, LinearFunc5,
-    Endpoint'(..), Edge'(..),
+    Edge'(..),
     AnyExpr(..)
 )
 where
@@ -26,12 +26,8 @@ import Control.Category (Category(..))
 import Data.Coerce (coerce)
 import Data.Kind (Type)
 
-data Endpoint' e da dv where
-    SourceNode' :: Endpoint' e da da
-    InnerNode' :: Expr5 e da dv -> Endpoint' e da dv
-
 data Edge' e a v where
-    Edge' :: e u v -> Endpoint' e a u -> Edge' e a v
+    Edge' :: e u v -> Expr5 e a u -> Edge' e a v
     
 data Expr5 e a v where
     Expr5Var :: Expr5 e a a
@@ -40,41 +36,31 @@ data Expr5 e a v where
 newtype AnyExpr e a v = AnyExpr (forall x. e v x -> Edge' e a x)
 
 anyVar :: AnyExpr e a a
-anyVar = AnyExpr (\f -> Edge' f SourceNode')
+anyVar = AnyExpr (\f -> Edge' f Expr5Var)
 
 anyRelay :: Category e => e u v -> AnyExpr e a u -> AnyExpr e a v
 anyRelay f (AnyExpr g) = AnyExpr (\x -> g (x . f))
 
 realExpr :: Expr5 e a v -> AnyExpr e a v
-realExpr x = AnyExpr (\f -> Edge' f (InnerNode' x))
+realExpr x = AnyExpr (\f -> Edge' f x)
 
 --newtype LinearFunc5 e a v = LinearFunc5 (Endpoint' e a v)
 -- TODO: remove LinearFunc5, use Expr5 everywhere
-type LinearFunc5 = Endpoint'
+type LinearFunc5 = Expr5
 
 zeroE :: BasicVector dv => Expr5 e da dv
 zeroE = Expr5 []
 
 instance (LinearEdge e, FullVector dv) => AdditiveGroup (Expr5 e da dv) where
     zeroV = zeroE
-    negateV x = Expr5 [Edge' negateFunc (InnerNode' x)]
-    x ^+^ y = Expr5 [Edge' identityFunc (InnerNode' x), Edge' identityFunc (InnerNode' y)]
-    x ^-^ y = Expr5 [Edge' identityFunc (InnerNode' x), Edge' negateFunc (InnerNode' y)]
+    negateV x = Expr5 [Edge' negateFunc x]
+    x ^+^ y = Expr5 [Edge' identityFunc x, Edge' identityFunc y]
+    x ^-^ y = Expr5 [Edge' identityFunc x, Edge' negateFunc y]
 
 instance FullVector dv => VectorSpace (Expr5 BackFunc da dv) where
     type Scalar (Expr5 BackFunc da dv) = Scalar dv
-    a *^ v = Expr5 [Edge' (scaleFunc a) (InnerNode' v)]
-
-instance (LinearEdge e, FullVector dv) => AdditiveGroup (Endpoint' e da dv) where
-    zeroV = InnerNode' zeroV
-    negateV x = InnerNode' (Expr5 [Edge' negateFunc x])
-    x ^+^ y = InnerNode' (Expr5 [Edge' identityFunc x, Edge' identityFunc y])
-    x ^-^ y = InnerNode' (Expr5 [Edge' identityFunc x, Edge' negateFunc y])
-
-instance FullVector dv => VectorSpace (Endpoint' BackFunc da dv) where
-    type Scalar (Endpoint' BackFunc da dv) = Scalar (Expr5 BackFunc da dv)
-    a *^ x = InnerNode' (Expr5 [Edge' (scaleFunc a) x])
+    a *^ v = Expr5 [Edge' (scaleFunc a) v]
 
 sumExpr2 :: FullVector dv => [Expr5 BackFunc da dv] -> Expr5 BackFunc da dv
 sumExpr2 xs = Expr5 (wrap <$> xs)
-    where wrap x = Edge' identityFunc (InnerNode' x)
+    where wrap x = Edge' identityFunc x

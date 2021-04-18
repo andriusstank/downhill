@@ -22,7 +22,7 @@ module Diff
 )
 where
 
-import Expr(Expr5(Expr5), LinearFunc5, Endpoint' (..), Edge'(..), AnyExpr(AnyExpr))
+import Expr(Expr5(Expr5, Expr5Var), LinearFunc5, Edge'(..), AnyExpr(AnyExpr))
 import Prelude (Monad(return), Num, IO, ($), (=<<), Int, undefined, id, (.))
 import Affine (AffineFunc(AffineFunc))
 import Tensor (Bilinear(..), Vec(..))
@@ -56,7 +56,7 @@ constant :: FullVector dv => b -> BVar b da dv
 constant x = AffineFunc x zeroV
 
 var :: b -> BVar b dv dv
-var x = AffineFunc x SourceNode'
+var x = AffineFunc x Expr5Var
 
 runRecoverSharing6 :: Expr5 e da dz -> IO (OpenGraph e da dz)
 runRecoverSharing6 = runRecoverSharing4
@@ -75,8 +75,7 @@ backprop' dy dv = unsafePerformIO $ do
 
 backprop :: forall b da dv. (BasicVector da, FullVector dv) => BVar b da dv -> dv -> da
 backprop (AffineFunc _y0 y) dv = case y of
-    SourceNode' -> dv
-    InnerNode' x -> backprop' x dv
+    x -> backprop' x dv
 
 backpropS :: (BasicVector da, FullVector dv, Num dv) => BVar b da dv -> da
 backpropS x = backprop x 1
@@ -90,8 +89,8 @@ liftFunc1
 liftFunc1 f (AffineFunc x0 dx) = AffineFunc y0 expr
     where term :: Edge' BackFunc da dv
           term = Edge' df dx
-          expr :: Endpoint' BackFunc da dv
-          expr = InnerNode' (Expr5 [term])
+          expr :: Expr5 BackFunc da dv
+          expr = Expr5 [term]
           (y0, df) = f x0
 
 
@@ -108,7 +107,7 @@ zipA
   => LinearFunc5 BackFunc da du
   -> LinearFunc5 BackFunc da dv
   -> LinearFunc5 BackFunc da (du, dv)
-zipA x y = InnerNode' (Expr5 [Edge' intoFst x, Edge' intoSnd y])
+zipA x y = Expr5 [Edge' intoFst x, Edge' intoSnd y]
 
 zip :: (ProdVector du, ProdVector dv) => BVar b da du -> BVar c da dv -> BVar (b, c) da (du, dv)
 zip (AffineFunc x dx) (AffineFunc y dy) = AffineFunc (x, y) (zipA dx dy)

@@ -3,15 +3,16 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# language ScopedTypeVariables #-}
-
 {-# LANGUAGE DerivingVia #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
+
 module BVar.Num
 where
 import Affine (AffineFunc(AffineFunc))
 import Data.Kind (Type)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
-import Expr (LinearFunc5, Endpoint' (SourceNode'))
+import Expr (LinearFunc5, Expr5 (Expr5Var))
 import Notensor (FullVector(..), ProdVector(..), BasicVector(..), BackFunc)
 import EType (Endpoint(SourceNode))
 import Diff (backprop)
@@ -59,7 +60,7 @@ constant :: Num a => a -> NumBVar a
 constant x = NumBVar (AffineFunc x zeroV)
 
 var :: Num a => a -> NumBVar a
-var x = NumBVar (AffineFunc x SourceNode')
+var x = NumBVar (AffineFunc x Expr5Var)
 
 backpropNum :: Num a => NumBVar a -> a
 backpropNum (NumBVar x) = unAsNum $ backprop x 1

@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
 {-# language PartialTypeSignatures #-}
-{- OPTIONS_GHC -Wno-unused-imports -}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module Trace where
 import Tensor(Bilinear(..), Vec(..))
@@ -72,7 +72,7 @@ tracingFunc name value = BackFunc back
             return (R (value*x'))
 
 exprToTerm :: FullVector dv => Expr5 BackFunc da dv -> Edge' BackFunc da dv
-exprToTerm = Edge' identityFunc . InnerNode'
+exprToTerm = Edge' identityFunc
 
 
 testExpr :: IO (Expr5 BackFunc R R)
@@ -80,8 +80,8 @@ testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
         x0, x1 :: Expr5 BackFunc R R
-        x0 = Expr5 [Edge' f SourceNode']
-        x1 = Expr5 [Edge' g SourceNode']
+        x0 = Expr5 [Edge' f Expr5Var]
+        x1 = Expr5 [Edge' g Expr5Var]
         x2 = Expr5 [exprToTerm x0, exprToTerm x1]
         x3 = Expr5 [exprToTerm x1, exprToTerm x2]
         x4 = Expr5 [exprToTerm x2, exprToTerm x3]
