@@ -21,6 +21,7 @@ import OpenMap (OpenMap, OpenKey)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
 import ExprWalker
 import qualified OpenMap
+import Notensor (BasicVector)
 
 type OpenArg = Endpoint OpenKey
 type OpenTerm e = Edge OpenKey e
@@ -38,10 +39,7 @@ data ExprResult e a v where
     NoInsertExpr :: ExprResult e a a
     DoInsertExpr :: TreeBuilder (OpenExpr e a) (OpenExpr e a v) -> ExprResult e a v
 
-{-# DEPRECATED unExprResult', unInsertExprResult "remove" #-}
-unExprResult' :: ExprResult e a v -> TreeBuilder (OpenExpr e a) (OpenExpr e a v)
-unExprResult' = \case
-    DoInsertExpr x -> x
+{-# DEPRECATED unInsertExprResult "remove" #-}
 
 data InsertExprResult e a v where
     NoInsertInsertExpr :: InsertExprResult e a a
@@ -70,14 +68,17 @@ insertExpr4 y w = case w of
 insertExpr5 :: Expr5 e a v -> TreeBuilder (OpenExpr e a) (OpenArg a v)
 insertExpr5 x = unInsertExprResult (insertExpr3 x)
 
-goSharing4 :: Expr5 e a v -> ExprResult e a v
-goSharing4 = \case
-    Expr5Var -> NoInsertExpr
-    Expr5 xs -> DoInsertExpr $ do
+goEdges :: BasicVector v => [Edge' e a v] -> TreeBuilder (OpenExpr e a) (Node OpenKey e a v)
+goEdges xs = do
         let go' :: Edge' e a v -> TreeBuilder (OpenExpr e a) (OpenTerm e a v)
             go' = goSharing4term
         xs' <- traverse go' xs
         return $ Node xs'
+    
+goSharing4 :: Expr5 e a v -> ExprResult e a v
+goSharing4 = \case
+    Expr5Var -> NoInsertExpr
+    Expr5 xs -> DoInsertExpr $ goEdges xs
 
 goSharing5 :: forall e a v. Expr5 e a v -> TreeBuilder (OpenExpr e a) (OpenArg a v)
 goSharing5 x = case goSharing4 x of
@@ -109,8 +110,10 @@ data OpenGraph e a z where
 --data TwoGraphs e a z = TwoGraphs (NodeKey a z) (OpenMap (CachedNode e a)) (OpenMap (OpenExpr e a))
 
 runRecoverSharing4'' :: forall e da dz. Expr5 e da dz -> IO (OpenGraph e da dz)
-runRecoverSharing4'' node = do
-        let z = unExprResult' $ goSharing4 node :: (TreeBuilder (OpenExpr e da) (OpenExpr e da dz))
+runRecoverSharing4'' = \case
+    Expr5Var -> return TrivialOpenGraph
+    Expr5 xs -> do
+        let z = goEdges xs
         (final_node, graph) <- Sharing.runTreeBuilder z
         return (NontrivialOpenGraph final_node graph)
 
