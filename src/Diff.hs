@@ -22,7 +22,7 @@ module Diff
 )
 where
 
-import Expr(Expr5(Expr5, Expr5Var), LinearFunc5, Term(..), AnyExpr(AnyExpr))
+import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(AnyExpr))
 import Prelude (Monad(return), Num, IO, ($), (=<<), Int, undefined, id, (.))
 import Affine (AffineFunc(AffineFunc))
 import Tensor (Bilinear(..), Vec(..))
@@ -39,15 +39,15 @@ import Graph (SomeGraph(SomeGraph))
 import Data.Coerce (coerce, Coercible)
 import OpenGraph (runRecoverSharing4, OpenGraph)
 
-type BVar b da dv = AffineFunc b (LinearFunc5 BackFunc da dv)
+type BVar b da dv = AffineFunc b (Expr BackFunc da dv)
 
 type BVarS a = BVar a a a
 
---instance BasicVector (Endpoint (Expr5 BackFunc da) da dv) where
---instance ProdVector (Endpoint (Expr5 BackFunc da) da dv) where
---instance FullVector (Endpoint (Expr5 BackFunc da) da dv) where
---instance VectorSpace (Endpoint (Expr5 BackFunc da) da dv) where
---    type Scalar (Endpoint (Expr5 BackFunc da) da dv) = Double
+--instance BasicVector (Endpoint (Expr BackFunc da) da dv) where
+--instance ProdVector (Endpoint (Expr BackFunc da) da dv) where
+--instance FullVector (Endpoint (Expr BackFunc da) da dv) where
+--instance VectorSpace (Endpoint (Expr BackFunc da) da dv) where
+--    type Scalar (Endpoint (Expr BackFunc da) da dv) = Double
     
 bvarValue :: AffineFunc b dv -> b
 bvarValue (AffineFunc y0 _dy) = y0
@@ -56,9 +56,9 @@ constant :: FullVector dv => b -> BVar b da dv
 constant x = AffineFunc x zeroV
 
 var :: b -> BVar b dv dv
-var x = AffineFunc x Expr5Var
+var x = AffineFunc x ExprVar
 
-runRecoverSharing6 :: Expr5 e da dz -> IO (OpenGraph e da dz)
+runRecoverSharing6 :: Expr e da dz -> IO (OpenGraph e da dz)
 runRecoverSharing6 = runRecoverSharing4
 
 backprop'' :: forall g da dz. (BasicVector da, Transpose BackFunc g) => SomeSharedExprWithMap BackFunc da dz -> dz -> da
@@ -68,7 +68,7 @@ backprop'' m dv = case m of
         where x' = Graph.NonTrivialGraph (Graph.Graph smap expr) -- :: Graph.ForwardGraph s a da v dv
               dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
 
-backprop' :: forall da dv. (BasicVector da, FullVector dv) => Expr5 BackFunc da dv -> dv -> da
+backprop' :: forall da dv. (BasicVector da, FullVector dv) => Expr BackFunc da dv -> dv -> da
 backprop' dy dv = unsafePerformIO $ do
     g <- runRecoverSharing6 dy -- :: IO (NodeMap.SomeSharedExprWithMap BackFunc da dv)
     return (backprop'' (cvtmap g) dv)
@@ -84,13 +84,13 @@ liftFunc1
   :: forall u v da dv du. 
      BasicVector dv
   => (u -> (v, BackFunc du dv))
-  -> AffineFunc u (LinearFunc5 BackFunc da du)
-  -> AffineFunc v (LinearFunc5 BackFunc da dv)
+  -> AffineFunc u (Expr BackFunc da du)
+  -> AffineFunc v (Expr BackFunc da dv)
 liftFunc1 f (AffineFunc x0 dx) = AffineFunc y0 expr
     where term :: Term BackFunc da dv
           term = Term df dx
-          expr :: Expr5 BackFunc da dv
-          expr = Expr5 [term]
+          expr :: Expr BackFunc da dv
+          expr = ExprSum [term]
           (y0, df) = f x0
 
 
@@ -104,10 +104,10 @@ snd = liftFunc1 go
 
 zipA
   :: forall da du dv. (ProdVector du, ProdVector dv)
-  => LinearFunc5 BackFunc da du
-  -> LinearFunc5 BackFunc da dv
-  -> LinearFunc5 BackFunc da (du, dv)
-zipA x y = Expr5 [Term intoFst x, Term intoSnd y]
+  => Expr BackFunc da du
+  -> Expr BackFunc da dv
+  -> Expr BackFunc da (du, dv)
+zipA x y = ExprSum [Term intoFst x, Term intoSnd y]
 
 zip :: (ProdVector du, ProdVector dv) => BVar b da du -> BVar c da dv -> BVar (b, c) da (du, dv)
 zip (AffineFunc x dx) (AffineFunc y dy) = AffineFunc (x, y) (zipA dx dy)

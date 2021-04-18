@@ -12,7 +12,7 @@ import Affine (AffineFunc(AffineFunc))
 import Data.Kind (Type)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
-import Expr (LinearFunc5, Expr5 (Expr5Var))
+import Expr (Expr, Expr (ExprVar))
 import Notensor (FullVector(..), ProdVector(..), BasicVector(..), BackFunc)
 import EType (Endpoint(SourceNode))
 import Diff (backprop)
@@ -51,16 +51,16 @@ instance Num a => FullVector (AsNum a) where
     negateBuilder = negate
     scaleBuilder = (*)
 
-newtype NumBVar a = NumBVar (AffineFunc a (LinearFunc5 BackFunc (AsNum a) (AsNum a)))
-    deriving Num via (AffineFunc (AsNum a) (LinearFunc5 BackFunc (AsNum a) (AsNum a)))
-    deriving Fractional via (AffineFunc (AsNum a) (LinearFunc5 BackFunc (AsNum a) (AsNum a)))
-    deriving Floating via (AffineFunc (AsNum a) (LinearFunc5 BackFunc (AsNum a) (AsNum a)))
+newtype NumBVar a = NumBVar (AffineFunc a (Expr BackFunc (AsNum a) (AsNum a)))
+    deriving Num via (AffineFunc (AsNum a) (Expr BackFunc (AsNum a) (AsNum a)))
+    deriving Fractional via (AffineFunc (AsNum a) (Expr BackFunc (AsNum a) (AsNum a)))
+    deriving Floating via (AffineFunc (AsNum a) (Expr BackFunc (AsNum a) (AsNum a)))
 
 constant :: Num a => a -> NumBVar a
 constant x = NumBVar (AffineFunc x zeroV)
 
 var :: Num a => a -> NumBVar a
-var x = NumBVar (AffineFunc x Expr5Var)
+var x = NumBVar (AffineFunc x ExprVar)
 
 backpropNum :: Num a => NumBVar a -> a
 backpropNum (NumBVar x) = unAsNum $ backprop x 1

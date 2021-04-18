@@ -13,7 +13,7 @@ module OpenGraph (
     --runRecoverSharing6
 )
 where
-import Expr(Expr5(Expr5, Expr5Var), LinearFunc5, Term(..))
+import Expr(Expr(ExprSum, ExprVar), Term(..))
 import Sharing (BuildAction(BuildAction), TreeBuilder, BuildAction'(..))
 import qualified Sharing
 import Prelude hiding (lookup)
@@ -36,10 +36,10 @@ goEdges xs = do
     xs' <- traverse goSharing4term xs
     return $ Node xs'
 
-goSharing4arg :: forall e a v. Expr5 e a v -> TreeBuilder (OpenExpr e a) (OpenArg a v)
+goSharing4arg :: forall e a v. Expr e a v -> TreeBuilder (OpenExpr e a) (OpenArg a v)
 goSharing4arg key = case key of
-    Expr5Var -> return SourceNode
-    Expr5 xs -> do
+    ExprVar -> return SourceNode
+    ExprSum xs -> do
         (gRef, _) <- Sharing.insertExpr (goEdges xs) key
         return (InnerNode gRef)
 
@@ -49,9 +49,9 @@ goSharing4term = \case
         arg' <- goSharing4arg arg
         return (Edge f arg')
 
-runRecoverSharing4 :: forall e a z. Expr5 e a z -> IO (OpenGraph e a z)
+runRecoverSharing4 :: forall e a z. Expr e a z -> IO (OpenGraph e a z)
 runRecoverSharing4 = \case
-    Expr5Var -> return TrivialOpenGraph
-    Expr5 xs -> do
+    ExprVar -> return TrivialOpenGraph
+    ExprSum xs -> do
         (final_node, graph) <- Sharing.runTreeBuilder (goEdges xs)
         return (NontrivialOpenGraph final_node graph)

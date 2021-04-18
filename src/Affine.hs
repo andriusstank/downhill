@@ -26,7 +26,7 @@ import EType (Endpoint (InnerNode, SourceNode), Node(..),Edge (Edge))
 import Data.VectorSpace (sumV)
 import Data.Kind
 import Data.Constraint (Dict(Dict))
-import Expr (LinearFunc5, Expr5(..), Term(..))
+import Expr (Expr(..), Term(..))
 import Control.Category (Category(..))
 import Prelude hiding (id, (.))
 
@@ -152,10 +152,10 @@ evalAffineFunc3 :: forall a b f. (AffineSpace b, LinearFunc3 f, LinearCtx f (Dif
 evalAffineFunc3 (AffineFunc3 b f) a = case bilinearDict @f @a @(Diff b) of
     Dict -> b .+^ (f ✕ a)
 
-unaryAfFunc :: BasicVector (Diff b) => b -> e a (Diff b) -> AffineFunc3 (LinearFunc5 e) a b
-unaryAfFunc x dx = AffineFunc3 x (Expr5 [ Term dx Expr5Var ])
+unaryAfFunc :: BasicVector (Diff b) => b -> e a (Diff b) -> AffineFunc3 (Expr e) a b
+unaryAfFunc x dx = AffineFunc3 x (ExprSum [ Term dx ExprVar ])
 
-scalarFunc :: (v ~ Diff p, a ~ Scalar v, FullVector v, LinearEdge e) => p -> a -> AffineFunc3 (LinearFunc5 e) v p
+scalarFunc :: (v ~ Diff p, a ~ Scalar v, FullVector v, LinearEdge e) => p -> a -> AffineFunc3 (Expr e) v p
 scalarFunc fx dfx = unaryAfFunc fx (scaleFunc dfx)
 
 data ScalarEdge u v where
@@ -163,13 +163,13 @@ data ScalarEdge u v where
     NegateScalarEdge :: ScalarEdge v v
     ScaleScalarEdge :: Scalar v -> ScalarEdge v v
 
-sinAff :: forall a e. (a ~ Scalar a, Diff a ~ a, FullVector a, Floating a, LinearEdge e) => a -> AffineFunc3 (LinearFunc5 e) a a
+sinAff :: forall a e. (a ~ Scalar a, Diff a ~ a, FullVector a, Floating a, LinearEdge e) => a -> AffineFunc3 (Expr e) a a
 sinAff x = scalarFunc (sin x) (cos x)
 
 sinScalar :: (a ~ Scalar a, Diff a ~ a, FullVector a, Floating a) => a -> AffineFunc3 ScalarEdge a a
 sinScalar x = AffineFunc3 (sin x) (ScaleScalarEdge $ cos x)
 
-instance (LinearEdge e, AdditiveGroup v, FullVector (Diff v)) => AdditiveGroup (AffineFunc3 (LinearFunc5 e) a v) where
+instance (LinearEdge e, AdditiveGroup v, FullVector (Diff v)) => AdditiveGroup (AffineFunc3 (Expr e) a v) where
     zeroV = AffineFunc3 zeroV zeroV
     negateV (AffineFunc3 x0 dx) = AffineFunc3 (negateV x0) (negateV dx)
     AffineFunc3 x0 dx ^+^ AffineFunc3 y0 dy = AffineFunc3 (x0 ^+^ y0) (dx ^+^ dy)

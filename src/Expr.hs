@@ -11,7 +11,7 @@
 {-# LANGUAGE RankNTypes #-}
 module Expr
 (
-    Expr5(..), zeroE, sumExpr2, LinearFunc5,
+    Expr(..), zeroE, sumExpr2,
     Term(..),
     AnyExpr(..)
 )
@@ -27,40 +27,36 @@ import Data.Coerce (coerce)
 import Data.Kind (Type)
 
 data Term e a v where
-    Term :: e u v -> Expr5 e a u -> Term e a v
-    
-data Expr5 e a v where
-    Expr5Var :: Expr5 e a a
-    Expr5 :: BasicVector v => [Term e a v] -> Expr5 e a v -- TODO: rename to Sum
+    Term :: e u v -> Expr e a u -> Term e a v
+
+data Expr e a v where
+    ExprVar :: Expr e a a
+    ExprSum :: BasicVector v => [Term e a v] -> Expr e a v
 
 newtype AnyExpr e a v = AnyExpr (forall x. e v x -> Term e a x)
 
 anyVar :: AnyExpr e a a
-anyVar = AnyExpr (\f -> Term f Expr5Var)
+anyVar = AnyExpr (\f -> Term f ExprVar)
 
 anyRelay :: Category e => e u v -> AnyExpr e a u -> AnyExpr e a v
 anyRelay f (AnyExpr g) = AnyExpr (\x -> g (x . f))
 
-realExpr :: Expr5 e a v -> AnyExpr e a v
+realExpr :: Expr e a v -> AnyExpr e a v
 realExpr x = AnyExpr (\f -> Term f x)
 
---newtype LinearFunc5 e a v = LinearFunc5 (Endpoint' e a v)
--- TODO: remove LinearFunc5, use Expr5 everywhere
-type LinearFunc5 = Expr5
+zeroE :: BasicVector dv => Expr e da dv
+zeroE = ExprSum []
 
-zeroE :: BasicVector dv => Expr5 e da dv
-zeroE = Expr5 []
-
-instance (LinearEdge e, FullVector dv) => AdditiveGroup (Expr5 e da dv) where
+instance (LinearEdge e, FullVector dv) => AdditiveGroup (Expr e da dv) where
     zeroV = zeroE
-    negateV x = Expr5 [Term negateFunc x]
-    x ^+^ y = Expr5 [Term identityFunc x, Term identityFunc y]
-    x ^-^ y = Expr5 [Term identityFunc x, Term negateFunc y]
+    negateV x = ExprSum [Term negateFunc x]
+    x ^+^ y = ExprSum [Term identityFunc x, Term identityFunc y]
+    x ^-^ y = ExprSum [Term identityFunc x, Term negateFunc y]
 
-instance FullVector dv => VectorSpace (Expr5 BackFunc da dv) where
-    type Scalar (Expr5 BackFunc da dv) = Scalar dv
-    a *^ v = Expr5 [Term (scaleFunc a) v]
+instance FullVector dv => VectorSpace (Expr BackFunc da dv) where
+    type Scalar (Expr BackFunc da dv) = Scalar dv
+    a *^ v = ExprSum [Term (scaleFunc a) v]
 
-sumExpr2 :: FullVector dv => [Expr5 BackFunc da dv] -> Expr5 BackFunc da dv
-sumExpr2 xs = Expr5 (wrap <$> xs)
+sumExpr2 :: FullVector dv => [Expr BackFunc da dv] -> Expr BackFunc da dv
+sumExpr2 xs = ExprSum (wrap <$> xs)
     where wrap x = Term identityFunc x

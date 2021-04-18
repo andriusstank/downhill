@@ -15,16 +15,16 @@ import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
 import Data.Kind (Type)
 import Affine (AffineFunc(AffineFunc))
 import Tensor (Bilinear(..))
-import Expr (LinearFunc5, Expr5(..))
+import Expr (Expr(..))
 import Notensor (BackFunc(BackFunc), FullVector, LinearEdge (scaleFunc), BasicVector (VecBuilder))
 import Control.Category (Category(..))
 import EType (Endpoint(InnerNode), Node(..), Edge(..))
 
 type family GradOf a :: Type
 
-newtype VecBVar a v = VecBVar (AffineFunc v (LinearFunc5 BackFunc a (GradOf v)))
+newtype VecBVar a v = VecBVar (AffineFunc v (Expr BackFunc a (GradOf v)))
 
-deriving via (AffineFunc v (LinearFunc5 BackFunc a (GradOf v))) instance (AdditiveGroup v, FullVector (GradOf v)) => AdditiveGroup (VecBVar a v)
+deriving via (AffineFunc v (Expr BackFunc a (GradOf v))) instance (AdditiveGroup v, FullVector (GradOf v)) => AdditiveGroup (VecBVar a v)
 
 {-
 foo :: dv -> v -> VecBuilder (GradOf (Scalar dv))
@@ -46,7 +46,7 @@ constant :: (dv ~ GradOf v, FullVector dv, AdditiveGroup dv) => v -> VecBVar a v
 constant x = VecBVar (AffineFunc x zeroV)
 
 var :: dv ~ GradOf v => v -> VecBVar dv v
-var x = VecBVar (AffineFunc x id)
+var x = VecBVar (AffineFunc x ExprVar)
 
 
 {-

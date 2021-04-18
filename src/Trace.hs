@@ -71,23 +71,23 @@ tracingFunc name value = BackFunc back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (R (value*x'))
 
-exprToTerm :: FullVector dv => Expr5 BackFunc da dv -> Term BackFunc da dv
+exprToTerm :: FullVector dv => Expr BackFunc da dv -> Term BackFunc da dv
 exprToTerm = Term identityFunc
 
 
-testExpr :: IO (Expr5 BackFunc R R)
+testExpr :: IO (Expr BackFunc R R)
 testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
-        x0, x1 :: Expr5 BackFunc R R
-        x0 = Expr5 [Term f Expr5Var]
-        x1 = Expr5 [Term g Expr5Var]
-        x2 = Expr5 [exprToTerm x0, exprToTerm x1]
-        x3 = Expr5 [exprToTerm x1, exprToTerm x2]
-        x4 = Expr5 [exprToTerm x2, exprToTerm x3]
-        x5 = Expr5 [exprToTerm x3, exprToTerm x4]
-        x6 = Expr5 [exprToTerm x4, exprToTerm x5]
-        x7 = Expr5 [exprToTerm x5, exprToTerm x6]
+        x0, x1 :: Expr BackFunc R R
+        x0 = ExprSum [Term f ExprVar]
+        x1 = ExprSum [Term g ExprVar]
+        x2 = ExprSum [exprToTerm x0, exprToTerm x1]
+        x3 = ExprSum [exprToTerm x1, exprToTerm x2]
+        x4 = ExprSum [exprToTerm x2, exprToTerm x3]
+        x5 = ExprSum [exprToTerm x3, exprToTerm x4]
+        x6 = ExprSum [exprToTerm x4, exprToTerm x5]
+        x7 = ExprSum [exprToTerm x5, exprToTerm x6]
     --    xs = [x0, x1, x2, x3, x4, x5, x6, x7]
     --traverse_ evaluate xs
     --names <- traverse makeStableName  xs

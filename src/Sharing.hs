@@ -33,7 +33,7 @@ import Control.Exception (evaluate)
 import Types
 import OpenMap (OpenKey, OpenMap)
 import qualified OpenMap
-import Expr(Expr5)
+import Expr(Expr)
 
 newtype TreeBuilder f r = TreeCache { unTreeCache :: StateT (OpenMap f) IO r }
     deriving (Functor, Applicative, Monad)
@@ -70,7 +70,7 @@ newtype BuildAction' g v = BuildAction' { unBuildAction' :: TreeBuilder g (g v) 
 -- TODO: rename, it's really lookup + maybe insert
 insertExpr
   :: TreeBuilder g (g v)
-  -> (Expr5 e a) v
+  -> (Expr e a) v
   -> TreeBuilder g (OpenKey v, g v)
 insertExpr value expr = do
     name <- TreeCache (lift (OpenMap.makeOpenKey expr))
