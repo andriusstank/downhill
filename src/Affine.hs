@@ -26,7 +26,7 @@ import EType (Endpoint (InnerNode, SourceNode), Node(..),Edge (Edge))
 import Data.VectorSpace (sumV)
 import Data.Kind
 import Data.Constraint (Dict(Dict))
-import Expr (LinearFunc5, Expr5(..), Edge'(..))
+import Expr (LinearFunc5, Expr5(..), Term(..))
 import Control.Category (Category(..))
 import Prelude hiding (id, (.))
 
@@ -153,7 +153,7 @@ evalAffineFunc3 (AffineFunc3 b f) a = case bilinearDict @f @a @(Diff b) of
     Dict -> b .+^ (f ✕ a)
 
 unaryAfFunc :: BasicVector (Diff b) => b -> e a (Diff b) -> AffineFunc3 (LinearFunc5 e) a b
-unaryAfFunc x dx = AffineFunc3 x (Expr5 [ Edge' dx Expr5Var ])
+unaryAfFunc x dx = AffineFunc3 x (Expr5 [ Term dx Expr5Var ])
 
 scalarFunc :: (v ~ Diff p, a ~ Scalar v, FullVector v, LinearEdge e) => p -> a -> AffineFunc3 (LinearFunc5 e) v p
 scalarFunc fx dfx = unaryAfFunc fx (scaleFunc dfx)

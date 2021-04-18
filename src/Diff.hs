@@ -22,7 +22,7 @@ module Diff
 )
 where
 
-import Expr(Expr5(Expr5, Expr5Var), LinearFunc5, Edge'(..), AnyExpr(AnyExpr))
+import Expr(Expr5(Expr5, Expr5Var), LinearFunc5, Term(..), AnyExpr(AnyExpr))
 import Prelude (Monad(return), Num, IO, ($), (=<<), Int, undefined, id, (.))
 import Affine (AffineFunc(AffineFunc))
 import Tensor (Bilinear(..), Vec(..))
@@ -87,8 +87,8 @@ liftFunc1
   -> AffineFunc u (LinearFunc5 BackFunc da du)
   -> AffineFunc v (LinearFunc5 BackFunc da dv)
 liftFunc1 f (AffineFunc x0 dx) = AffineFunc y0 expr
-    where term :: Edge' BackFunc da dv
-          term = Edge' df dx
+    where term :: Term BackFunc da dv
+          term = Term df dx
           expr :: Expr5 BackFunc da dv
           expr = Expr5 [term]
           (y0, df) = f x0
@@ -107,7 +107,7 @@ zipA
   => LinearFunc5 BackFunc da du
   -> LinearFunc5 BackFunc da dv
   -> LinearFunc5 BackFunc da (du, dv)
-zipA x y = Expr5 [Edge' intoFst x, Edge' intoSnd y]
+zipA x y = Expr5 [Term intoFst x, Term intoSnd y]
 
 zip :: (ProdVector du, ProdVector dv) => BVar b da du -> BVar c da dv -> BVar (b, c) da (du, dv)
 zip (AffineFunc x dx) (AffineFunc y dy) = AffineFunc (x, y) (zipA dx dy)

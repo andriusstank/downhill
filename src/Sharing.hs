@@ -69,10 +69,10 @@ newtype BuildAction' g v = BuildAction' { unBuildAction' :: TreeBuilder g (g v) 
 
 -- TODO: rename, it's really lookup + maybe insert
 insertExpr
-  :: BuildAction' g v
+  :: TreeBuilder g (g v)
   -> (Expr5 e a) v
   -> TreeBuilder g (OpenKey v, g v)
-insertExpr (BuildAction' value) expr = do
+insertExpr value expr = do
     name <- TreeCache (lift (OpenMap.makeOpenKey expr))
     insertTreeBuilder' name value
 
