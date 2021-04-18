@@ -26,18 +26,18 @@ import Expr(Expr5(Expr5), LinearFunc5, Endpoint' (..), Edge'(..), AnyExpr(AnyExp
 import Prelude (Monad(return), Num, IO, ($), (=<<), Int, undefined, id, (.))
 import Affine (AffineFunc(AffineFunc))
 import Tensor (Bilinear(..), Vec(..))
-import NodeMap ()
+import NodeMap (cvtmap, SomeSharedExprWithMap)
 
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector, BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFunc (BackFunc), FullVector)
+import Notensor (ProdVector, BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFunc (BackFunc), FullVector, Transpose)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(zeroV))
-import ExprWalker (runWalk')
+import ExprWalker ()
 import Graph (SomeGraph(SomeGraph))
-import Simplify (goA)
 import Data.Coerce (coerce, Coercible)
+import OpenGraph (runRecoverSharing4, OpenGraph)
 
 type BVar b da dv = AffineFunc b (LinearFunc5 BackFunc da dv)
 
@@ -58,16 +58,20 @@ constant x = AffineFunc x zeroV
 var :: b -> BVar b dv dv
 var x = AffineFunc x SourceNode'
 
+runRecoverSharing6 :: Expr5 e da dz -> IO (OpenGraph e da dz)
+runRecoverSharing6 = runRecoverSharing4
+
+backprop'' :: forall g da dz. (BasicVector da, Transpose BackFunc g) => SomeSharedExprWithMap BackFunc da dz -> dz -> da
+backprop'' m dv = case m of
+    NodeMap.TrivialSharedExprWithMap -> dv
+    NodeMap.SomeSharedExprWithMap smap expr -> unVec (dx' ✕ Vec dv)
+        where x' = Graph.NonTrivialGraph (Graph.Graph smap expr) -- :: Graph.ForwardGraph s a da v dv
+              dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
+
 backprop' :: forall da dv. (BasicVector da, FullVector dv) => Expr5 BackFunc da dv -> dv -> da
 backprop' dy dv = unsafePerformIO $ do
-    --NodeMap.SomeSharedExprWithMap smap expr <- runRecoverSharing5 dy :: IO (NodeMap.SomeSharedExprWithMap BackFunc da dv)
-    tree <- runWalk' dy
-    let someG = goA tree
-    case someG of
-        SomeGraph x' -> do
-    --let x' = Graph.NonTrivialGraph (Graph.Graph smap expr) -- :: Graph.ForwardGraph s a da v dv
-            let dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
-            return (unVec (dx' ✕ Vec dv))
+    g <- runRecoverSharing6 dy -- :: IO (NodeMap.SomeSharedExprWithMap BackFunc da dv)
+    return (backprop'' (cvtmap g) dv)
 
 backprop :: forall b da dv. (BasicVector da, FullVector dv) => BVar b da dv -> dv -> da
 backprop (AffineFunc _y0 y) dv = case y of

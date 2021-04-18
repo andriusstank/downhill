@@ -28,13 +28,13 @@ module NodeMap (
     uncheckedMakeNodeMap,
     NodeSet,
 
-    fromList, List2(..)
+    fromList, List2(..),
+
+    cvtmap
 ) where
-import Expr (Expr5, LinearFunc5, Endpoint' (InnerNode'))
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
 import OpenGraph (OpenExpr, OpenGraph (TrivialOpenGraph, NontrivialOpenGraph))
-import qualified OpenGraph
 import qualified OpenMap
 import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))

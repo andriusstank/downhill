@@ -102,6 +102,15 @@ instance (Floating b, VectorSpace dv, b ~ Scalar dv) => Floating (AffineFunc b d
     acosh (AffineFunc x dx) = AffineFunc (acosh x) (rsqrt (sqr x - 1) *^ dx)
     atanh (AffineFunc x dx) = AffineFunc (atanh x) (recip (1 - sqr x) *^ dx)
 
+-- instance Num b =BasicVector (AffineFunc (AsNum b) (AsNum dv)) where
+--     type VecBuilder (AffineFunc (AsNum b) (AsNum dv)) = AffineFunc (AsNum b) (AsNum dv)
+--     sumBuilder = sumV
+
+-- instance ProdVector (AffineFunc (AsNum b) (AsNum dv)) where
+
+-- instance FullVector (AffineFunc (AsNum b) (AsNum dv)) where
+
+
 --instance () => Num (AffineFunc b (Expr3 p a da v dv)) where
 --    (AffineFunc f0 df) + (AffineFunc g0 dg) = AffineFunc (f0+g0) (df ^+^ dg)
 
@@ -166,8 +175,14 @@ instance (LinearEdge e, AdditiveGroup v, FullVector (Diff v)) => AdditiveGroup (
     AffineFunc3 x0 dx ^+^ AffineFunc3 y0 dy = AffineFunc3 (x0 ^+^ y0) (dx ^+^ dy)
     AffineFunc3 x0 dx ^-^ AffineFunc3 y0 dy = AffineFunc3 (x0 ^+^ y0) (dx ^-^ dy)
 
-sinAff'
-  :: (Floating c, FullVector c, Scalar c ~ c, Diff c ~ c)
-  => AffineFunc3 (LinearFunc5 BackFunc) a c -> AffineFunc3 (LinearFunc5 BackFunc) a c
-sinAff' (AffineFunc3 x0 dx) = AffineFunc3 y0 (dy . dx)
-    where AffineFunc3 y0 dy = sinAff x0
+instance Num a => BasicVector (AsNum a) where
+    type VecBuilder (AsNum a) = a
+    sumBuilder = AsNum . sum
+
+instance Num a => ProdVector (AsNum a) where
+    zeroBuilder = 0
+    identityBuilder = unAsNum
+
+instance Num a => FullVector (AsNum a) where
+    negateBuilder = negate . unAsNum
+    scaleBuilder (AsNum x) (AsNum y) = x * y

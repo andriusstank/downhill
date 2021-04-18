@@ -4,7 +4,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GADTs #-}
 {-# language ScopedTypeVariables #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# OPTIONS_GHC -Wno-unused-imports -Wno-unused-top-binds #-}
 
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -36,7 +36,6 @@ data Edge' e a v where
 data Expr5 e a v where
     Expr5Var :: Expr5 e a a
     Expr5 :: BasicVector v => [Edge' e a v] -> Expr5 e a v -- TODO: rename to Sum
-    Expr5Subs :: Expr5 e x v -> Expr5 e a x -> Expr5 e a v
 
 newtype AnyExpr e a v = AnyExpr (forall x. e v x -> Edge' e a x)
 
@@ -52,14 +51,6 @@ realExpr x = AnyExpr (\f -> Edge' f (InnerNode' x))
 --newtype LinearFunc5 e a v = LinearFunc5 (Endpoint' e a v)
 -- TODO: remove LinearFunc5, use Expr5 everywhere
 type LinearFunc5 = Endpoint'
-
-instance Category (LinearFunc5 e) where
-    id = SourceNode'
-    x . y = (go x y)
-        where go :: Endpoint' e b c -> Endpoint' e a b -> Endpoint' e a c
-              go SourceNode' y' = y'
-              go x' SourceNode'  = x'
-              go (InnerNode' x') (InnerNode' y') = InnerNode' (Expr5Subs x' y')
 
 zeroE :: BasicVector dv => Expr5 e da dv
 zeroE = Expr5 []

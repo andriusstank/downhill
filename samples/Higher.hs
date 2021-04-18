@@ -8,7 +8,7 @@ module Main where
 import Diff
 import Notensor (FullVector)
 import Data.VectorSpace (VectorSpace(..))
-import Affine (AsNum(AsNum))
+import Affine (AsNum(AsNum, unAsNum))
 
 f :: Floating a => a -> a
 f x = sin (2*x)
@@ -25,11 +25,11 @@ checkFloating = ()
 checkFullVector :: FullVector (BVarS Double) => ()
 checkFullVector = ()
 
-y0 :: BVarS (BVarS Double)
+y0 :: BVarS (AsNum (BVarS Double))
 y0 = undefined
 
 dy :: BVarS Double
-dy = backpropS y0
+dy = unAsNum (backpropS y0)
 
 dyy :: Double
 dyy = backpropS dy
@@ -37,6 +37,6 @@ dyy = backpropS dy
 main :: IO ()
 main = do
     putStrLn ("x0 = " ++ show (bvarValue . bvarValue $ x0))
-    putStrLn ("y0 = " ++ show (bvarValue . bvarValue $ y0))
+    putStrLn ("y0 = " ++ show (bvarValue . unAsNum . bvarValue $ y0))
     putStrLn ("dy = " ++ show (bvarValue dy))
     putStrLn ("dyy = " ++ show dyy)

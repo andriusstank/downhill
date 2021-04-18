@@ -6,9 +6,9 @@
 {-# language ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wno-unused-imports #-}
-module ExprWalker
+module ExprWalker()
 where
-
+{-
 import OpenMap (OpenMap, OpenKey)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
 import Expr (Expr5(..), Edge'(Edge'), Endpoint' (SourceNode', InnerNode'))
@@ -17,7 +17,7 @@ import Data.Kind (Type)
 import qualified Sharing
 import Notensor (BasicVector, LinearEdge (identityFunc), FullVector)
 
-data Node'' e a v = BasicVector v => Node'' [Edge'' e a v]
+data Node'' e a v = BasicVector v => Node'' [Edge''' e a v]
 
 data CachedNode (e :: Type -> Type -> Type) a v where
     CachedSourceNode :: CachedNode e a a
@@ -43,41 +43,37 @@ data TailKey a v where
     InnerTailKey :: NodeKey a a -> TailKey a v
 
 -- shouldn't be called directly, only via Sharing.insertExpr
-walkAncestors :: forall (e :: Type -> Type -> Type) x a v. NodeKey a x -> Expr5 e x v -> BuildAction' (CachedNode e a) v
-walkAncestors src = \case
-    Expr5Var -> BuildAction' (return (CachedClone src))
+walkAncestors :: forall (e :: Type -> Type -> Type) a v. Expr5 e a v -> BuildAction' (CachedNode e a) v
+walkAncestors = \case
+    Expr5Var -> BuildAction' (return CachedSourceNode)
     Expr5 xs -> BuildAction' $ do
-        ys <- traverse (walkEdge src) xs
+        ys <- traverse walkEdge xs
         return (CachedInnerNode (Node'' ys))
-    Expr5Subs f g -> BuildAction' $ do
-        g' <- walkNode src g
-        (_, z) <- Sharing.insertExpr (walkAncestors g' f) f
-        return z
 
-walkEdge :: NodeKey a x -> Edge' e x v -> TreeBuilder (CachedNode e a) (Edge'' e a v)
-walkEdge src (Edge' f arg) =
+walkEdge :: Edge' e a v -> TreeBuilder (CachedNode e a) (Edge''' e a v)
+walkEdge (Edge' f arg) =
     case arg of
-        SourceNode' -> return (Edge'' f src)
+        SourceNode' -> return (Edge''' f SourceNode'')
         InnerNode' g ->  do
-            arg' <- walkNode src g
-            return (Edge'' f arg')
+            arg' <- walkNode g
+            return (Edge''' f arg')
 
-walkNode :: forall (e :: Type -> Type -> Type) x a v. NodeKey a x -> Expr5 e x v -> TreeBuilder (CachedNode e a) (NodeKey a v)
-walkNode src expr = do
-    (k, _z) <- Sharing.insertExpr (walkAncestors src expr) expr
+walkNode :: forall (e :: Type -> Type -> Type) a v. Expr5 e a v -> TreeBuilder (CachedNode e a) (Endpoint'' a v)
+walkNode expr = do
+    (k, _z) <- Sharing.insertExpr (walkAncestors expr) expr
     return (InnerKey k)
 
 walkNode' :: forall (e :: Type -> Type -> Type) a v. Expr5 e a v -> TreeBuilder (CachedNode e a) (OpenKey v, CachedNode e a v)
 walkNode' expr = do
     let sourceExpr = Expr5Var :: Expr5 e a a
     (k, _) <- Sharing.insertExpr (BuildAction' (return CachedSourceNode)) sourceExpr
-    Sharing.insertExpr (walkAncestors (InnerKey k) expr) expr
+    Sharing.insertExpr (walkAncestors expr) expr
 
 walkNode'' :: forall (e :: Type -> Type -> Type) a v. Expr5 e a v -> TreeBuilder (CachedNode e a) (CachedNode e a v)
 walkNode'' expr = do
     let sourceExpr = Expr5Var :: Expr5 e a a
     (k, _) <- Sharing.insertExpr (BuildAction' (return CachedSourceNode)) sourceExpr
-    unBuildAction' (walkAncestors (InnerKey k) expr)
+    unBuildAction' (walkAncestors expr)
 
 data CachedTree e a z = CachedTree (OpenMap (CachedNode e a)) (Node'' e a z)
 
@@ -92,3 +88,4 @@ runWalk (FinalNode edges) = do
 
 runWalk' :: forall e a z. (FullVector z, LinearEdge e) => Expr5 e a z -> IO (CachedTree e a z)
 runWalk' x = runWalk (FinalNode [Edge' (identityFunc @e @z) (InnerNode' x)])
+-}

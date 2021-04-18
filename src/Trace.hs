@@ -20,8 +20,8 @@ import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, 
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum)
-import ExprWalker (runWalk')
-import Simplify (goA)
+import OpenGraph (runRecoverSharing4, OpenGraph)
+import NodeMap
 
 newtype R = R { unR :: Integer }
     deriving (Show, Generic)
@@ -96,11 +96,13 @@ testExpr = do
 
 -- >>> testExpr ✕ (R 7)
 -- R 56
-_x :: () -> IO _
-_x () = do
-    tree <- runWalk' =<< testExpr
-    return (goA tree)
-
+{-
+x :: () -> IO (SomeGraph _ _ _)
+x () = do
+    g <- runRecoverSharing4 =<< testExpr
+    let sm = cvtmap g
+    --let NodeMap.SomeSharedExprWithMap smap expr = cvtmap g
+-}
 {-
 _y :: IO R
 _y = do
@@ -108,10 +110,10 @@ _y = do
     let y' = forgetSharing2 (x, m') :: Expr2 R R R R
     return (y' ✕ R 1)
 -}
-
+{-
 _z :: IO ()
 _z = do
-    g <- _x ()
+    g <- x ()
     case g of
         SomeGraph y' -> do
             let dy' = flipGraph y'
@@ -119,3 +121,4 @@ _z = do
             ans2 <- evaluate (unVec (dy' ✕ Vec (R 2)))
             print ans2
             return ()
+-}
