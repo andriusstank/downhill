@@ -10,10 +10,10 @@ module OpenGraph (
     OpenGraph(..),
     --runRecoverSharing4,
     --runRecoverSharing4',
-    runRecoverSharing6
+    runRecoverSharing7
 )
 where
-import Expr(Expr(ExprSum, ExprVar), Term(..))
+import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(..))
 import Sharing (BuildAction(BuildAction), TreeBuilder, BuildAction'(..))
 import qualified Sharing
 import Prelude hiding (lookup)
@@ -55,3 +55,6 @@ runRecoverSharing5 xs = do
 
 runRecoverSharing6 :: forall e a z. (FullVector z, LinearEdge e) => Expr e a z -> IO (OpenGraph e a z)
 runRecoverSharing6 x = runRecoverSharing5 [Term identityFunc x]
+
+runRecoverSharing7 :: forall e a z. (FullVector z, LinearEdge e) => AnyExpr e a z -> IO (OpenGraph e a z)
+runRecoverSharing7 (AnyExpr x) = runRecoverSharing5 [x identityFunc]

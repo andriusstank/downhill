@@ -22,7 +22,7 @@ import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, 
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum)
-import OpenGraph (runRecoverSharing6, OpenGraph)
+import OpenGraph (runRecoverSharing7, OpenGraph)
 import NodeMap
 
 newtype R = R { unR :: Integer }
