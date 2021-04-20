@@ -40,8 +40,7 @@ data NonTrivialGraph s e da dz = BasicVector da => Graph (NodeMap s (Node (NodeK
 
 data Graph s e da dz where
   TrivialGraph :: Graph s e da da
-  -- TODO: fix caps NonTrivialGraph -> NontrivialGraph
-  NonTrivialGraph :: NonTrivialGraph s e da dz -> Graph s e da dz
+  NontrivialGraph :: NonTrivialGraph s e da dz -> Graph s e da dz
 
 data SomeGraph e a z where
   SomeGraph :: NodeSet s => Graph s e a z -> SomeGraph e a z
@@ -84,7 +83,7 @@ evalGraph' (Graph nodes finalNode) dz = evalNode finalNode
 evalGraph :: forall s dx dz. Graph s FwdFunc dz dx -> Vec dz -> Vec dx
 evalGraph g x = case g of
   TrivialGraph -> x
-  NonTrivialGraph g' -> evalGraph' g' x
+  NontrivialGraph g' -> evalGraph' g' x
 
 nodeEdges :: forall s f da dz dx. NodeKey s dx -> Node (NodeKey s) f da dx -> [AnyEdge s f da dz]
 nodeEdges name (Node xs) = go <$> xs
@@ -157,7 +156,7 @@ flipGraph' g@(Graph _ (Node _)) = backFromEdges transpose (graphNodes g) (allGra
 flipGraph :: (NodeSet s, Transpose f g) => Graph s f da dz -> Graph s g dz da
 flipGraph = \case
   TrivialGraph -> TrivialGraph
-  NonTrivialGraph g -> NonTrivialGraph (flipGraph' g)
+  NontrivialGraph g -> NontrivialGraph (flipGraph' g)
 
 mapEdges :: forall s f g da dz. (forall u v. f u v -> g u v) -> NonTrivialGraph s f da dz -> NonTrivialGraph s g da dz
 mapEdges f (Graph inner final) = Graph (NodeMap.mapmap go inner) (go final)
@@ -169,4 +168,4 @@ mapEdges f (Graph inner final) = Graph (NodeMap.mapmap go inner) (go final)
 graph :: BasicVector a => NodeMap s (Node (NodeKey s) e a) -> Endpoint (Node (NodeKey s) e a) a dz -> Graph s e a dz
 graph x y = case y of
   SourceNode -> TrivialGraph
-  InnerNode node -> NonTrivialGraph (Graph x node)
+  InnerNode node -> NontrivialGraph (Graph x node)

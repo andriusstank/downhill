@@ -8,9 +8,9 @@
 module OpenGraph (
     OpenArg, OpenTerm, OpenExpr,
     OpenGraph(..),
-    runRecoverSharing4,
+    --runRecoverSharing4,
     --runRecoverSharing4',
-    --runRecoverSharing6
+    runRecoverSharing6
 )
 where
 import Expr(Expr(ExprSum, ExprVar), Term(..))
@@ -21,7 +21,7 @@ import OpenMap (OpenMap, OpenKey)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
 import ExprWalker
 import qualified OpenMap
-import Notensor (BasicVector)
+import Notensor (BasicVector, LinearEdge (identityFunc), FullVector)
 
 type OpenArg = Endpoint OpenKey
 type OpenTerm e = Edge OpenKey e
@@ -49,9 +49,16 @@ goSharing4term = \case
         arg' <- goSharing4arg arg
         return (Edge f arg')
 
+runRecoverSharing5 :: forall e a z. BasicVector z => [Term e a z] -> IO (OpenGraph e a z)
+runRecoverSharing5 xs = do
+        (final_node, graph) <- Sharing.runTreeBuilder (goEdges xs)
+        return (NontrivialOpenGraph final_node graph)
+
+-- bad: inconsistency between cases. What if a not was tied on the final node?
 runRecoverSharing4 :: forall e a z. Expr e a z -> IO (OpenGraph e a z)
 runRecoverSharing4 = \case
     ExprVar -> return TrivialOpenGraph
-    ExprSum xs -> do
-        (final_node, graph) <- Sharing.runTreeBuilder (goEdges xs)
-        return (NontrivialOpenGraph final_node graph)
+    ExprSum xs -> runRecoverSharing5 xs
+
+runRecoverSharing6 :: forall e a z. (FullVector z, LinearEdge e) => Expr e a z -> IO (OpenGraph e a z)
+runRecoverSharing6 x = runRecoverSharing5 [Term identityFunc x]

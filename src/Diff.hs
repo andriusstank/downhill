@@ -37,9 +37,9 @@ import Data.VectorSpace (AdditiveGroup(zeroV))
 import ExprWalker ()
 import Graph (SomeGraph(SomeGraph))
 import Data.Coerce (coerce, Coercible)
-import OpenGraph (runRecoverSharing4, OpenGraph)
+import OpenGraph (runRecoverSharing6, OpenGraph)
 
-type BVar b da dv = AffineFunc b (Expr BackFunc da dv)
+type BVar b a v = AffineFunc b (Expr BackFunc a v)
 
 type BVarS a = BVar a a a
 
@@ -58,14 +58,11 @@ constant x = AffineFunc x zeroV
 var :: b -> BVar b dv dv
 var x = AffineFunc x ExprVar
 
-runRecoverSharing6 :: Expr e da dz -> IO (OpenGraph e da dz)
-runRecoverSharing6 = runRecoverSharing4
-
 backprop'' :: forall g da dz. (BasicVector da, Transpose BackFunc g) => SomeSharedExprWithMap BackFunc da dz -> dz -> da
 backprop'' m dv = case m of
     NodeMap.TrivialSharedExprWithMap -> dv
     NodeMap.SomeSharedExprWithMap smap expr -> unVec (dx' ✕ Vec dv)
-        where x' = Graph.NonTrivialGraph (Graph.Graph smap expr) -- :: Graph.ForwardGraph s a da v dv
+        where x' = Graph.NontrivialGraph (Graph.Graph smap expr) -- :: Graph.ForwardGraph s a da v dv
               dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
 
 backprop' :: forall da dv. (BasicVector da, FullVector dv) => Expr BackFunc da dv -> dv -> da
