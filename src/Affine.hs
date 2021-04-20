@@ -21,7 +21,7 @@ import Data.AffineSpace (AffineSpace((.-.), Diff, (.+^)))
 import Tensor (Bilinear(..))
 import Data.AdditiveGroup (AdditiveGroup((^+^)))
 import Data.VectorSpace (AdditiveGroup((^-^), negateV, zeroV), VectorSpace(Scalar, (*^)))
-import Notensor (BasicVector (VecBuilder, sumBuilder), FullVector(..), ProdVector(..), Dense(..), BackFunc, scaleFunc, LinearEdge(..))
+import Notensor (BasicVector (VecBuilder, sumBuilder), FullVector(..), ProdVector(..), Dense(..), BackFunc, scaleFunc, LinearEdge(..), NumBuilder (NumBuilder, unNumBuilder))
 import EType (Endpoint (InnerNode, SourceNode), Node(..),Edge (Edge))
 import Data.VectorSpace (sumV)
 import Data.Kind
@@ -30,21 +30,6 @@ import Expr (Expr(..), Term(..))
 import Control.Category (Category(..))
 import Prelude hiding (id, (.))
 
-newtype AsNum a = AsNum { unAsNum :: a }
-    deriving Show
-    deriving Num via a
-    deriving Fractional via a
-    deriving Floating via a
-
-instance Num a => AdditiveGroup (AsNum a) where
-    zeroV = 0
-    (^+^) = (+)
-    (^-^) = (-)
-    negateV = negate
-
-instance Num a => VectorSpace (AsNum a) where
-    type Scalar (AsNum a) = AsNum a
-    (*^) = (*)
 
    
 -- IDEA: dv is a function of b (AffineFunc' d b = AffineFunc b (d b)) and then we can have VectorSpace instance
@@ -175,14 +160,3 @@ instance (LinearEdge e, AdditiveGroup v, FullVector (Diff v)) => AdditiveGroup (
     AffineFunc3 x0 dx ^+^ AffineFunc3 y0 dy = AffineFunc3 (x0 ^+^ y0) (dx ^+^ dy)
     AffineFunc3 x0 dx ^-^ AffineFunc3 y0 dy = AffineFunc3 (x0 ^+^ y0) (dx ^-^ dy)
 
-instance Num a => BasicVector (AsNum a) where
-    type VecBuilder (AsNum a) = a
-    sumBuilder = AsNum . sum
-
-instance Num a => ProdVector (AsNum a) where
-    zeroBuilder = 0
-    identityBuilder = unAsNum
-
-instance Num a => FullVector (AsNum a) where
-    negateBuilder = negate . unAsNum
-    scaleBuilder (AsNum x) (AsNum y) = x * y

@@ -8,8 +8,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Notensor
 ( BasicVector(..), BasicVectors, FullVector(..), FullVectors, Dense(..)
+, NumBuilder(..)
 , BackFunc(..), FwdFunc(..), flipFunc1, ProdVector(..), Transpose(..)
 , LinearEdge(..)
 , fstF1, sndF1, intoFst, intoSnd
@@ -20,28 +22,37 @@ import Data.Maybe (catMaybes)
 import Data.Constraint (Dict(Dict))
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..), sumV)
 
-class BasicVector v where
+class Monoid (VecBuilder v) => BasicVector v where
     type VecBuilder v :: Type
     sumBuilder :: [VecBuilder v] -> v
 
+newtype NumBuilder a = NumBuilder { unNumBuilder :: a }
+
+instance Num a => Semigroup (NumBuilder a) where
+    NumBuilder x <> NumBuilder y = NumBuilder (x+y)
+
+instance Num a => Monoid (NumBuilder a) where
+    mempty = NumBuilder 0
+
 instance BasicVector Float where
-    type VecBuilder Float = Float
-    sumBuilder = sum
+    type VecBuilder Float = NumBuilder Float
+    sumBuilder = sum . fmap unNumBuilder
 
 instance BasicVector Double where
-    type VecBuilder Double = Double
-    sumBuilder = sum
+    type VecBuilder Double = NumBuilder Double
+    sumBuilder = sum . fmap unNumBuilder
 
 class BasicVector v => ProdVector v where
     zeroBuilder :: VecBuilder v
     identityBuilder :: v -> VecBuilder v
 
 instance ProdVector Float where
-    zeroBuilder = 0
-    identityBuilder = id
+    zeroBuilder = NumBuilder 0
+    identityBuilder = NumBuilder
+
 instance ProdVector Double where
-    zeroBuilder = 0
-    identityBuilder = id
+    zeroBuilder = NumBuilder 0
+    identityBuilder = NumBuilder
 
 class ProdVector v => FullVector v where
     negateBuilder :: v -> VecBuilder v
@@ -51,22 +62,31 @@ newtype Dense a = Dense a
     deriving AdditiveGroup via a
     deriving VectorSpace via a
 
+newtype VSpaceBuilder a = VSpaceBuilder { unVSpaceBuilder :: a }
+
+instance AdditiveGroup a => Semigroup (VSpaceBuilder a) where
+    VSpaceBuilder x <> VSpaceBuilder y = VSpaceBuilder (x ^+^ y)
+
+instance AdditiveGroup a => Monoid (VSpaceBuilder a) where
+    mempty = VSpaceBuilder zeroV
+
 instance AdditiveGroup a => BasicVector (Dense a) where
-    type VecBuilder (Dense a) = a
-    sumBuilder = Dense . sumV
+    type VecBuilder (Dense a) = VSpaceBuilder a
+    sumBuilder = Dense . sumV . fmap unVSpaceBuilder
+
 instance AdditiveGroup a => ProdVector (Dense a) where
-    zeroBuilder = zeroV
-    identityBuilder (Dense x) = x
+    zeroBuilder = VSpaceBuilder zeroV
+    identityBuilder (Dense x) = VSpaceBuilder x
 instance VectorSpace a => FullVector (Dense a) where
-    negateBuilder (Dense a) = negateV a
-    scaleBuilder a (Dense v) = a *^ v
+    negateBuilder (Dense a) = VSpaceBuilder (negateV a)
+    scaleBuilder a (Dense v) = VSpaceBuilder (a *^ v)
 
 instance FullVector Float where
-    negateBuilder = negate
-    scaleBuilder x = (x*)
+    negateBuilder = NumBuilder . negate
+    scaleBuilder x = NumBuilder . (x*)
 instance FullVector Double where
-    negateBuilder = negate
-    scaleBuilder x = (x*)
+    negateBuilder = NumBuilder . negate
+    scaleBuilder x = NumBuilder . (x*)
     
 instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
     type VecBuilder (a, b) = (Maybe (VecBuilder a), Maybe (VecBuilder b))
@@ -140,13 +160,13 @@ instance LinearEdge BackFunc where
     identityFunc = BackFunc identityBuilder
 
 instance BasicVector Integer where
-    type VecBuilder Integer = Integer
-    sumBuilder = Prelude.sum
+    type VecBuilder Integer = NumBuilder Integer
+    sumBuilder = Prelude.sum . map unNumBuilder
 
 instance ProdVector Integer where
-    zeroBuilder = 0
-    identityBuilder = Prelude.id
+    zeroBuilder = NumBuilder 0
+    identityBuilder = NumBuilder
 
 instance FullVector Integer where
-    negateBuilder = Prelude.negate
-    scaleBuilder a = (a *)
+    negateBuilder = NumBuilder . Prelude.negate
+    scaleBuilder a = NumBuilder . (a *)

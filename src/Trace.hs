@@ -5,6 +5,8 @@
 {-# language PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
 
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 module Trace where
 import Tensor(Bilinear(..), Vec(..))
 import Data.VectorSpace (sumV, VectorSpace(..), AdditiveGroup(..))
@@ -16,7 +18,7 @@ import Graph
 import Control.Monad (when)
 import qualified NodeMap
 import NodeMap ()
-import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, BackFunc(BackFunc))
+import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, BackFunc(BackFunc), NumBuilder (NumBuilder, unNumBuilder))
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum)
@@ -25,6 +27,7 @@ import NodeMap
 
 newtype R = R { unR :: Integer }
     deriving (Show, Generic)
+    deriving Num via Integer
 
 f0 :: Floating a => a -> a
 f0 x = sin (2*x)
@@ -52,16 +55,16 @@ instance VectorSpace R where
     type Scalar R = Integer
 
 instance BasicVector R where
-    type VecBuilder R = R
-    sumBuilder = sumV
+    type VecBuilder R = NumBuilder R
+    sumBuilder = sumV . map unNumBuilder
 
 instance ProdVector R where
-    zeroBuilder = R 0
-    identityBuilder = id
+    zeroBuilder = NumBuilder (R 0)
+    identityBuilder = NumBuilder
 
 instance FullVector R where
-    negateBuilder = negateV
-    scaleBuilder a = (a *^)
+    negateBuilder = NumBuilder . negateV
+    scaleBuilder a = NumBuilder . (a *^)
 
 tracingFunc :: String -> Integer -> BackFunc R R
 tracingFunc name value = BackFunc back
@@ -69,7 +72,7 @@ tracingFunc name value = BackFunc back
             x' <- evaluate x
             let y = value*x'
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
-            return (R (value*x'))
+            return (NumBuilder (R (value*x')))
 
 exprToTerm :: FullVector dv => Expr BackFunc da dv -> Term BackFunc da dv
 exprToTerm = Term identityFunc

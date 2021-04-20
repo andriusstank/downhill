@@ -13,6 +13,8 @@ data Edge p f da dv where
 
 data Node p f da dv = BasicVector dv => Node [Edge p f da dv]
 
+{-
 instance BasicVector dv => BasicVector (Node p f da dv) where
     type VecBuilder (Node p f da dv) = Edge p f da dv
     sumBuilder = Node
+-}
