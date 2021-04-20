@@ -62,7 +62,7 @@ backprop'' :: forall g da dz. (BasicVector da, Transpose BackFunc g) => SomeShar
 backprop'' m dv = case m of
     NodeMap.TrivialSharedExprWithMap -> dv
     NodeMap.SomeSharedExprWithMap smap expr -> unVec (dx' ✕ Vec dv)
-        where x' = Graph.NontrivialGraph (Graph.Graph smap expr) -- :: Graph.ForwardGraph s a da v dv
+        where x' = Graph.Graph smap expr -- :: Graph.ForwardGraph s a da v dv
               dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
 
 backprop' :: forall da dv. (BasicVector da, FullVector dv) => Expr BackFunc da dv -> dv -> da

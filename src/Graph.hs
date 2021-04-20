@@ -18,7 +18,6 @@
 module Graph
     ( Graph(..), SomeGraph(..)
     , graph
-    , NonTrivialGraph(..)
     , flipGraph
     , mapEdges
     )
@@ -36,11 +35,7 @@ import Notensor(FwdFunc, BasicVector (VecBuilder, sumBuilder), Transpose(..))
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.Constraint (Dict(Dict))
 
-data NonTrivialGraph s e da dz = BasicVector da => Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
-
-data Graph s e da dz where
-  TrivialGraph :: Graph s e da da
-  NontrivialGraph :: NonTrivialGraph s e da dz -> Graph s e da dz
+data Graph s e da dz = BasicVector da => Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
 
 data SomeGraph e a z where
   SomeGraph :: NodeSet s => Graph s e a z -> SomeGraph e a z
@@ -48,10 +43,6 @@ data SomeGraph e a z where
 data AnyEdge s e da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (e du dv) (Endpoint (NodeKey s) da du)
 
 data NodeValues s da = NodeValues (NodeMap s Vec) (Vec da)
-
-instance BasicVector da => Bilinear (NonTrivialGraph s FwdFunc dz da) (Vec dz) where
-    type (NonTrivialGraph s FwdFunc dz da) ✕ (Vec dz) = Vec da
-    g ✕ dx = evalGraph' g dx
 
 instance BasicVector da => Bilinear (Graph s FwdFunc dz da) (Vec dz) where
     type (Graph s FwdFunc dz da) ✕ (Vec dz) = Vec da
@@ -64,8 +55,8 @@ lookupParent (NodeValues ys dz) tail = (goTail tail)
             SourceNode -> dz
             InnerNode nodeName -> NodeMap.lookup ys nodeName
 
-evalGraph' :: forall s dx dz. NonTrivialGraph s FwdFunc dz dx -> Vec dz -> Vec dx
-evalGraph' (Graph nodes finalNode) dz = evalNode finalNode
+evalGraph :: forall s dx dz. Graph s FwdFunc dz dx -> Vec dz -> Vec dx
+evalGraph (Graph nodes finalNode) dz = evalNode finalNode
     where
           allValues :: NodeValues s dz
           allValues = NodeValues innerValues dz
@@ -80,17 +71,12 @@ evalGraph' (Graph nodes finalNode) dz = evalNode finalNode
           innerValues :: NodeMap s Vec
           innerValues = evalGraphInnerNodes nodes
 
-evalGraph :: forall s dx dz. Graph s FwdFunc dz dx -> Vec dz -> Vec dx
-evalGraph g x = case g of
-  TrivialGraph -> x
-  NontrivialGraph g' -> evalGraph' g' x
-
 nodeEdges :: forall s f da dz dx. NodeKey s dx -> Node (NodeKey s) f da dx -> [AnyEdge s f da dz]
 nodeEdges name (Node xs) = go <$> xs
     where go :: Edge (NodeKey s) f da dx -> AnyEdge s f da dz
           go (Edge f head) = AnyEdge (InnerNode name) f head
 
-allGraphEdges :: forall s f da dz. NonTrivialGraph s f da dz -> [AnyEdge s f da dz]
+allGraphEdges :: forall s f da dz. Graph s f da dz -> [AnyEdge s f da dz]
 allGraphEdges (Graph env (Node es)) = finalEdges ++ innerEdges
     where innerEdges :: [AnyEdge s f da dz]
           innerEdges = concatMap nodeEdges' (NodeMap.toList env)
@@ -117,7 +103,7 @@ edgeListToGraph
   :: forall s f da dz. (NodeSet s, BasicVector da, BasicVector dz)
   => NodeMap s NodeDict
   -> [AnyEdge s f dz da]
-  -> NonTrivialGraph s f dz da
+  -> Graph s f dz da
 edgeListToGraph dictmap flippedEdges = Graph edgeMap (Node initial)
     where initial :: [Edge (NodeKey s) f dz da]
           inner :: [SomeItem s (Edge (NodeKey s) f dz)]
@@ -134,38 +120,31 @@ backFromEdges
   => (forall u v. f u v -> g v u)
   -> NodeMap s NodeDict
   -> [AnyEdge s f da dz]
-  -> NonTrivialGraph s g dz da
+  -> Graph s g dz da
 backFromEdges flipFunc dictmap edges = edgeListToGraph dictmap flippedEdges
   where flippedEdges :: [AnyEdge s g dz da]
         flippedEdges = flipAnyEdge flipFunc <$> edges
 
-graphNodes :: NonTrivialGraph s f da dz -> NodeMap s NodeDict
+graphNodes :: Graph s f da dz -> NodeMap s NodeDict
 graphNodes (Graph env _) = NodeMap.mapmap go env
     where go :: Node (NodeKey s) f da dv -> NodeDict dv
           go = \case
             Node _ -> NodeDict
 
-instance (NodeSet s, Transpose f g) => Transpose (NonTrivialGraph s f) (NonTrivialGraph s g) where
-  transpose = flipGraph'
+instance (NodeSet s, Transpose f g) => Transpose (Graph s f) (Graph s g) where
+  transpose = flipGraph
   flipTranspose = case flipTranspose @f @g of
     Dict -> Dict
 
-flipGraph' :: (NodeSet s, Transpose f g) => NonTrivialGraph s f da dz -> NonTrivialGraph s g dz da
-flipGraph' g@(Graph _ (Node _)) = backFromEdges transpose (graphNodes g) (allGraphEdges g)
-
 flipGraph :: (NodeSet s, Transpose f g) => Graph s f da dz -> Graph s g dz da
-flipGraph = \case
-  TrivialGraph -> TrivialGraph
-  NontrivialGraph g -> NontrivialGraph (flipGraph' g)
+flipGraph g@(Graph _ (Node _)) = backFromEdges transpose (graphNodes g) (allGraphEdges g)
 
-mapEdges :: forall s f g da dz. (forall u v. f u v -> g u v) -> NonTrivialGraph s f da dz -> NonTrivialGraph s g da dz
+mapEdges :: forall s f g da dz. (forall u v. f u v -> g u v) -> Graph s f da dz -> Graph s g da dz
 mapEdges f (Graph inner final) = Graph (NodeMap.mapmap go inner) (go final)
   where go :: Node (NodeKey s) f da dv -> Node (NodeKey s) g da dv
         go (Node xs) = Node [goEdge x | x <- xs]
         goEdge :: Edge p f da dx -> Edge p g da dx
         goEdge (Edge e x) = Edge (f e) x
 
-graph :: BasicVector a => NodeMap s (Node (NodeKey s) e a) -> Endpoint (Node (NodeKey s) e a) a dz -> Graph s e a dz
-graph x y = case y of
-  SourceNode -> TrivialGraph
-  InnerNode node -> NontrivialGraph (Graph x node)
+graph :: BasicVector a => NodeMap s (Node (NodeKey s) e a) -> Node (NodeKey s) e a z -> Graph s e a z
+graph x node = Graph x node

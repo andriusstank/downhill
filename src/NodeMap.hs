@@ -34,7 +34,7 @@ module NodeMap (
 ) where
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
-import OpenGraph (OpenExpr, OpenGraph (TrivialOpenGraph, NontrivialOpenGraph))
+import OpenGraph (OpenExpr, OpenGraph (NontrivialOpenGraph))
 import qualified OpenMap
 import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
@@ -120,7 +120,6 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
 
 cvtmap :: OpenGraph e da dv -> SomeSharedExprWithMap e da dv
 cvtmap = \case
-    TrivialOpenGraph  -> TrivialSharedExprWithMap
     NontrivialOpenGraph x m -> case uncheckedMakeNodeMap m of
         SomeNodeMap m' -> cvthelper m' x
 

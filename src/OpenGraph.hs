@@ -28,7 +28,6 @@ type OpenTerm e = Edge OpenKey e
 type OpenExpr e da = Node OpenKey e da
 
 data OpenGraph e a z where
-    TrivialOpenGraph :: OpenGraph e a a
     NontrivialOpenGraph :: Node OpenKey e a z -> OpenMap (OpenExpr e a) -> OpenGraph e a z
 
 goEdges :: BasicVector v => [Term e a v] -> TreeBuilder (OpenExpr e a) (Node OpenKey e a v)
@@ -53,12 +52,6 @@ runRecoverSharing5 :: forall e a z. BasicVector z => [Term e a z] -> IO (OpenGra
 runRecoverSharing5 xs = do
         (final_node, graph) <- Sharing.runTreeBuilder (goEdges xs)
         return (NontrivialOpenGraph final_node graph)
-
--- bad: inconsistency between cases. What if a not was tied on the final node?
-runRecoverSharing4 :: forall e a z. Expr e a z -> IO (OpenGraph e a z)
-runRecoverSharing4 = \case
-    ExprVar -> return TrivialOpenGraph
-    ExprSum xs -> runRecoverSharing5 xs
 
 runRecoverSharing6 :: forall e a z. (FullVector z, LinearEdge e) => Expr e a z -> IO (OpenGraph e a z)
 runRecoverSharing6 x = runRecoverSharing5 [Term identityFunc x]
