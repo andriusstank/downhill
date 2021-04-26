@@ -1,20 +1,16 @@
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# language ScopedTypeVariables #-}
- 
+
 module Graph
     ( Graph(..), SomeGraph(..)
     , graph, evalGraph
@@ -24,13 +20,12 @@ module Graph
 where
 import Prelude hiding (head, tail)
 import Sharing()
-import NodeMap (NodeSet,  NodeMap, NodeKey, SomeItem(SomeItem), List2(List2))
+import NodeMap
+    ( NodeSet, NodeMap, NodeKey, SomeItem(SomeItem), List2(List2) )
 import Data.Either (partitionEithers)
-import NodeMap ()
 import qualified NodeMap
 import Notensor(FwdFun (unFwdFun), BasicVector (VecBuilder, sumBuilder))
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
-import Data.Constraint (Dict(Dict))
 import Data.Functor.Identity (Identity(Identity, runIdentity))
 
 data Graph s e da dz = BasicVector da => Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
@@ -129,4 +124,4 @@ mapEdges f (Graph inner final) = Graph (NodeMap.mapmap go inner) (go final)
         goEdge (Edge e x) = Edge (f e) x
 
 graph :: BasicVector a => NodeMap s (Node (NodeKey s) e a) -> Node (NodeKey s) e a z -> Graph s e a z
-graph x node = Graph x node
+graph = Graph

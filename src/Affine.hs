@@ -1,5 +1,4 @@
 {-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -10,19 +9,19 @@
 {-# LANGUAGE RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language UndecidableInstances #-}
-{-# language StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
-
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
 module Affine where
 
 import Data.AffineSpace (AffineSpace((.-.), Diff, (.+^)))
 import Data.AdditiveGroup (AdditiveGroup((^+^)))
-import Data.VectorSpace (AdditiveGroup((^-^), negateV, zeroV), VectorSpace(Scalar, (*^)))
+import Data.VectorSpace
+    ( AdditiveGroup((^-^), negateV, zeroV),
+      VectorSpace(Scalar, (*^)),
+      sumV )
 import Notensor (BasicVector (VecBuilder, sumBuilder), FullVector(..), ProdVector(..), Dense(..), BackFun, scaleFunc, LinearEdge(..), NumBuilder (NumBuilder, unNumBuilder))
 import EType (Endpoint (InnerNode, SourceNode), Node(..),Edge (Edge))
-import Data.VectorSpace (sumV)
 import Data.Kind
 import Data.Constraint (Dict(Dict))
 import Expr (Expr(..), Term(..))
@@ -30,7 +29,7 @@ import Control.Category (Category(..))
 import Prelude hiding (id, (.))
 
 
-   
+
 -- IDEA: dv is a function of b (AffineFunc' d b = AffineFunc b (d b)) and then we can have VectorSpace instance
 -- with Scalar (AffineFunc' b) = AffineFunc' (Scalar b)
 data AffineFunc b dv = AffineFunc b dv

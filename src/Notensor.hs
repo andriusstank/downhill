@@ -1,6 +1,4 @@
 {-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -9,6 +7,7 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+
 module Notensor
 ( BasicVector(..), BasicVectors, FullVector(..), FullVectors, Dense(..)
 , NumBuilder(..)
@@ -18,7 +17,6 @@ module Notensor
 ) where
 import Data.Kind (Type)
 import Data.Maybe (catMaybes)
-import Data.Constraint (Dict(Dict))
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..), sumV)
 
 class Monoid (VecBuilder v) => BasicVector v where

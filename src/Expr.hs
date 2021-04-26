@@ -1,14 +1,11 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GADTs #-}
 {-# language ScopedTypeVariables #-}
 {-# language AllowAmbiguousTypes #-}
 {-# language FlexibleContexts #-}
 {-# OPTIONS_GHC -Wno-unused-imports -Wno-unused-top-binds #-}
-
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DerivingVia #-}

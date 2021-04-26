@@ -1,7 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeOperators #-}
 {-# language ScopedTypeVariables #-}
 {-# LANGUAGE DerivingVia #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
