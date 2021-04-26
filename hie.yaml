@@ -6,3 +6,5 @@ cradle:
       component: "test:bp-test"
     - path: "./samples"
       component: "exe:hello"
+    - path: "./intro"
+      component: "lib:bp"

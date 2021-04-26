@@ -19,7 +19,8 @@
 
 module Tensor (
     Vec(..),
-    Bilinear(..), Bilinear''
+    Bilinear(..), Bilinear'',
+    AFunction(..), transposeFunc,
 )
 where
 import Data.Constraint
@@ -61,3 +62,16 @@ instance Bilinear (AFunction u du v dv) (Vec u) where
     ScaleFunc a ✕ Vec v = Vec (a *^ v)
     (BlackBoxFunc f _) ✕ Vec x = Vec (f x)
 
+instance Bilinear (Vec dv) (AFunction u du v dv) where
+    type (Vec dv) ✕ (AFunction u du v dv) = Vec du
+    x ✕ IndentityFunc = x
+    Vec x ✕ NegateFunc = Vec (negateV x)
+    Vec v ✕ ScaleFunc a = Vec (a *^ v)
+    Vec x ✕ (BlackBoxFunc _ f) = Vec (f x)
+
+transposeFunc :: AFunction u v du dv -> AFunction dv du v u
+transposeFunc = \case
+    IndentityFunc -> IndentityFunc
+    NegateFunc -> NegateFunc
+    ScaleFunc x -> ScaleFunc x
+    BlackBoxFunc f g -> BlackBoxFunc g f

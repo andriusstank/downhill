@@ -119,8 +119,8 @@ intoSnd = BackFunc fwd
 type BasicVectors v dv = (BasicVector v, BasicVector dv) -- TODO: remove?
 type FullVectors v dv = (FullVector v, FullVector dv, Scalar v ~ Scalar dv)
 
-data BackFunc u v = BackFunc (v -> VecBuilder u)
-data FwdFunc u v = FwdFunc (u -> VecBuilder v)
+newtype BackFunc u v = BackFunc (v -> VecBuilder u)
+newtype FwdFunc u v = FwdFunc (u -> VecBuilder v)
 
 newtype Vec' dx x = Vec' { unVec' :: x }
     deriving Show

@@ -8,7 +8,7 @@ module Main where
 import Diff
 import Notensor (FullVector)
 import Data.VectorSpace (VectorSpace(..))
-import Affine (AsNum(AsNum, unAsNum))
+import BVar.Num (AsNum(AsNum, unAsNum))
 
 f :: Floating a => a -> a
 f x = sin (2*x)

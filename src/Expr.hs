@@ -41,6 +41,7 @@ data Expr e a v where
 
 newtype AnyExpr e a v = AnyExpr (forall x. e v x -> Term e a x)
 
+{-# ANN anyVar "HLint: ignore Avoid lambda using `infix`" #-}
 anyVar :: AnyExpr e a a
 anyVar = AnyExpr (\f -> Term f ExprVar)
 
@@ -48,6 +49,7 @@ anyRelay :: Category e => e u v -> AnyExpr e a u -> AnyExpr e a v
 anyRelay f (AnyExpr g) = AnyExpr (\x -> g (x . f))
 
 
+{-# ANN realExpr "HLint: ignore Avoid lambda using `infix`" #-}
 realExpr :: Expr e a v -> AnyExpr e a v
 realExpr x = AnyExpr (\f -> Term f x)
 
