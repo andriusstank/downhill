@@ -13,7 +13,7 @@ import Data.Kind (Type)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
 import Expr (Expr, Expr (ExprVar), AnyExpr, anyVar)
-import Notensor (FullVector(..), ProdVector(..), BasicVector(..), BackFunc, NumBuilder (..))
+import Notensor (FullVector(..), ProdVector(..), BasicVector(..), BackFun, NumBuilder (..))
 import EType (Endpoint(SourceNode))
 import Diff (backprop)
 
@@ -52,10 +52,10 @@ instance Num a => AffineSpace (AsNum a) where
     AsNum x .-. AsNum y = AsNum (x-y)
     AsNum x .+^ AsNum y = AsNum (x+y)
 
-newtype NumBVar a = NumBVar (AffineFunc a (AnyExpr BackFunc (AsNum a) (AsNum a)))
-    deriving Num via (AffineFunc (AsNum a) (AnyExpr BackFunc (AsNum a) (AsNum a)))
-    deriving Fractional via (AffineFunc (AsNum a) (AnyExpr BackFunc (AsNum a) (AsNum a)))
-    deriving Floating via (AffineFunc (AsNum a) (AnyExpr BackFunc (AsNum a) (AsNum a)))
+newtype NumBVar a = NumBVar (AffineFunc a (AnyExpr BackFun (AsNum a) (AsNum a)))
+    deriving Num via (AffineFunc (AsNum a) (AnyExpr BackFun (AsNum a) (AsNum a)))
+    deriving Fractional via (AffineFunc (AsNum a) (AnyExpr BackFun (AsNum a) (AsNum a)))
+    deriving Floating via (AffineFunc (AsNum a) (AnyExpr BackFun (AsNum a) (AsNum a)))
 
 constant :: Num a => a -> NumBVar a
 constant x = NumBVar (AffineFunc x zeroV)

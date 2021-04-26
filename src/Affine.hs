@@ -21,7 +21,7 @@ import Data.AffineSpace (AffineSpace((.-.), Diff, (.+^)))
 import Tensor (Bilinear(..))
 import Data.AdditiveGroup (AdditiveGroup((^+^)))
 import Data.VectorSpace (AdditiveGroup((^-^), negateV, zeroV), VectorSpace(Scalar, (*^)))
-import Notensor (BasicVector (VecBuilder, sumBuilder), FullVector(..), ProdVector(..), Dense(..), BackFunc, scaleFunc, LinearEdge(..), NumBuilder (NumBuilder, unNumBuilder))
+import Notensor (BasicVector (VecBuilder, sumBuilder), FullVector(..), ProdVector(..), Dense(..), BackFun, scaleFunc, LinearEdge(..), NumBuilder (NumBuilder, unNumBuilder))
 import EType (Endpoint (InnerNode, SourceNode), Node(..),Edge (Edge))
 import Data.VectorSpace (sumV)
 import Data.Kind

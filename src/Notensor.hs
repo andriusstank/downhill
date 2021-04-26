@@ -12,7 +12,7 @@
 module Notensor
 ( BasicVector(..), BasicVectors, FullVector(..), FullVectors, Dense(..)
 , NumBuilder(..)
-, BackFunc(..), FwdFunc(..), flipFunc1, ProdVector(..), Transpose(..)
+, BackFun(..), FwdFun(..), flipFunc1, ProdVector(..), Transpose(..)
 , LinearEdge(..)
 , fstF1, sndF1, intoFst, intoSnd
 ) where
@@ -99,28 +99,28 @@ instance (ProdVector a, ProdVector b) => ProdVector (a, b) where
     zeroBuilder = (Nothing, Nothing)
     identityBuilder (x, y) = (Just (identityBuilder x), Just (identityBuilder y))
 
-fstF1 :: ProdVector du => BackFunc (du, dv) du
-fstF1 = BackFunc back
+fstF1 :: ProdVector du => BackFun (du, dv) du
+fstF1 = BackFun back
     where back x = (Just (identityBuilder x), Nothing)
 
-intoFst :: ProdVector du => BackFunc du (du, dv)
-intoFst = BackFunc fwd
+intoFst :: ProdVector du => BackFun du (du, dv)
+intoFst = BackFun fwd
     where fwd (x, _) = identityBuilder x
 
 
-sndF1 :: ProdVector dv => BackFunc (du, dv) dv
-sndF1 = BackFunc back
+sndF1 :: ProdVector dv => BackFun (du, dv) dv
+sndF1 = BackFun back
     where back x = (Nothing, Just (identityBuilder x))
 
-intoSnd :: ProdVector dv => BackFunc dv (du, dv)
-intoSnd = BackFunc fwd
+intoSnd :: ProdVector dv => BackFun dv (du, dv)
+intoSnd = BackFun fwd
     where fwd (_, x) = identityBuilder x
 
 type BasicVectors v dv = (BasicVector v, BasicVector dv) -- TODO: remove?
 type FullVectors v dv = (FullVector v, FullVector dv, Scalar v ~ Scalar dv)
 
-newtype BackFunc u v = BackFunc (v -> VecBuilder u)
-newtype FwdFunc u v = FwdFunc (u -> VecBuilder v)
+newtype BackFun u v = BackFun { unBackFun :: v -> VecBuilder u }
+newtype FwdFun u v = FwdFun  {unFwdFun :: u -> VecBuilder v }
 
 newtype Vec' dx x = Vec' { unVec' :: x }
     deriving Show
@@ -130,34 +130,34 @@ newtype Covec' dx x = Covec' { uncovec' :: dx }
     deriving Show
     deriving AdditiveGroup via dx
 
-instance Bilinear (FwdFunc dv du) (Vec dv) where
-    type FwdFunc dv du ✕ Vec dv = VecBuilder du
-    FwdFunc f ✕ Vec dv = f dv
+instance Bilinear (FwdFun dv du) (Vec dv) where
+    type FwdFun dv du ✕ Vec dv = VecBuilder du
+    FwdFun f ✕ Vec dv = f dv
 
 
 class Transpose (f :: Type -> Type -> Type) (g :: Type -> Type -> Type) | f->g, g->f where
     transpose :: forall u v. f u v -> g v u
     flipTranspose :: Dict (Transpose g f)
 
-instance Transpose BackFunc FwdFunc where
-    transpose (BackFunc f) = FwdFunc f
+instance Transpose BackFun FwdFun where
+    transpose (BackFun f) = FwdFun f
     flipTranspose = Dict
-instance Transpose FwdFunc BackFunc where
-    transpose (FwdFunc f) = BackFunc f
+instance Transpose FwdFun BackFun where
+    transpose (FwdFun f) = BackFun f
     flipTranspose = Dict
 
-flipFunc1 :: BackFunc du dv -> FwdFunc dv du
-flipFunc1 (BackFunc f) = FwdFunc f
+flipFunc1 :: BackFun du dv -> FwdFun dv du
+flipFunc1 (BackFun f) = FwdFun f
 
 class LinearEdge e where
     negateFunc :: FullVector du => e du du
     scaleFunc :: FullVector du => Scalar du -> e du du
     identityFunc :: FullVector du => e du du
 
-instance LinearEdge BackFunc where
-    scaleFunc a = BackFunc (scaleBuilder a)
-    negateFunc = BackFunc negateBuilder
-    identityFunc = BackFunc identityBuilder
+instance LinearEdge BackFun where
+    scaleFunc a = BackFun (scaleBuilder a)
+    negateFunc = BackFun negateBuilder
+    identityFunc = BackFun identityBuilder
 
 instance BasicVector Integer where
     type VecBuilder Integer = NumBuilder Integer

@@ -18,7 +18,7 @@ import Graph
 import Control.Monad (when)
 import qualified NodeMap
 import NodeMap ()
-import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, BackFunc(BackFunc), NumBuilder (NumBuilder, unNumBuilder))
+import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, BackFun(BackFun), NumBuilder (NumBuilder, unNumBuilder))
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum)
@@ -66,23 +66,23 @@ instance FullVector R where
     negateBuilder = NumBuilder . negateV
     scaleBuilder a = NumBuilder . (a *^)
 
-tracingFunc :: String -> Integer -> BackFunc R R
-tracingFunc name value = BackFunc back
+tracingFunc :: String -> Integer -> BackFun R R
+tracingFunc name value = BackFun back
     where back (R x) = unsafePerformIO $ do
             x' <- evaluate x
             let y = value*x'
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
             return (NumBuilder (R (value*x')))
 
-exprToTerm :: FullVector dv => Expr BackFunc da dv -> Term BackFunc da dv
+exprToTerm :: FullVector dv => Expr BackFun da dv -> Term BackFun da dv
 exprToTerm = Term identityFunc
 
 
-testExpr :: IO (Expr BackFunc R R)
+testExpr :: IO (Expr BackFun R R)
 testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
-        x0, x1 :: Expr BackFunc R R
+        x0, x1 :: Expr BackFun R R
         x0 = ExprSum [Term f ExprVar]
         x1 = ExprSum [Term g ExprVar]
         x2 = ExprSum [exprToTerm x0, exprToTerm x1]
