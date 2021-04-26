@@ -24,16 +24,14 @@ module Graph
 where
 import Prelude hiding (head, tail)
 import Sharing()
-import Tensor(Bilinear(..), Vec (Vec))
-
 import NodeMap (NodeSet,  NodeMap, NodeKey, SomeItem(SomeItem), List2(List2))
 import Data.Either (partitionEithers)
 import NodeMap ()
-
 import qualified NodeMap
-import Notensor(FwdFun, BasicVector (VecBuilder, sumBuilder), Transpose(..))
+import Notensor(FwdFun (unFwdFun), BasicVector (VecBuilder, sumBuilder))
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.Constraint (Dict(Dict))
+import Data.Functor.Identity (Identity(Identity, runIdentity))
 
 data Graph s e da dz = BasicVector da => Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
 
@@ -42,27 +40,22 @@ data SomeGraph e a z where
 
 data AnyEdge s e da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (e du dv) (Endpoint (NodeKey s) da du)
 
-instance BasicVector da => Bilinear (Graph s FwdFun dz da) (Vec dz) where
-    type (Graph s FwdFun dz da) ✕ (Vec dz) = Vec da
-    g ✕ dx = evalGraph g dx
-
-
-evalGraph :: forall s dx dz. Graph s FwdFun dz dx -> Vec dz -> Vec dx
+evalGraph :: forall s dx dz. Graph s FwdFun dz dx -> dz -> dx
 evalGraph (Graph nodes finalNode) dz = evalNode finalNode
     where
-          evalParent :: forall dv. Endpoint (NodeKey s) dz dv -> Vec dv
+          evalParent :: forall dv. Endpoint (NodeKey s) dz dv -> dv
           evalParent tail = goTail tail
-              where goTail :: forall dx'. Endpoint (NodeKey s) dz dx' -> Vec dx'
+              where goTail :: forall dx'. Endpoint (NodeKey s) dz dx' -> dx'
                     goTail = \case
                       SourceNode -> dz
-                      InnerNode nodeName -> NodeMap.lookup innerValues nodeName
+                      InnerNode nodeName -> runIdentity (NodeMap.lookup innerValues nodeName)
           evalEdge :: Edge (NodeKey s) FwdFun dz dv -> VecBuilder dv
-          evalEdge (Edge f tail) = f ✕ evalParent tail
-          evalNode :: Node (NodeKey s) FwdFun dz dv -> Vec dv
-          evalNode (Node xs) = Vec (sumBuilder [evalEdge x | x <- xs])
-          evalGraphInnerNodes :: NodeMap s (Node (NodeKey s) FwdFun dz) -> NodeMap s Vec
-          evalGraphInnerNodes = NodeMap.mapmap evalNode
-          innerValues :: NodeMap s Vec
+          evalEdge (Edge f tail) = unFwdFun f $ evalParent tail
+          evalNode :: Node (NodeKey s) FwdFun dz dv -> dv
+          evalNode (Node xs) = sumBuilder [evalEdge x | x <- xs]
+          evalGraphInnerNodes :: NodeMap s (Node (NodeKey s) FwdFun dz) -> NodeMap s Identity
+          evalGraphInnerNodes = NodeMap.mapmap (Identity . evalNode)
+          innerValues :: NodeMap s Identity
           innerValues = evalGraphInnerNodes nodes
 
 nodeEdges :: forall s f da dz dx. NodeKey s dx -> Node (NodeKey s) f da dx -> [AnyEdge s f da dz]
@@ -125,13 +118,8 @@ graphNodes (Graph env _) = NodeMap.mapmap go env
           go = \case
             Node _ -> NodeDict
 
-instance (NodeSet s, Transpose f g) => Transpose (Graph s f) (Graph s g) where
-  transpose = flipGraph
-  flipTranspose = case flipTranspose @f @g of
-    Dict -> Dict
-
-flipGraph :: (NodeSet s, Transpose f g) => Graph s f da dz -> Graph s g dz da
-flipGraph g@(Graph _ (Node _)) = backFromEdges transpose (graphNodes g) (allGraphEdges g)
+flipGraph :: NodeSet s => (forall u v. f u v -> g v u) -> Graph s f da dz -> Graph s g dz da
+flipGraph flipEdge g@(Graph _ (Node _)) = backFromEdges flipEdge (graphNodes g) (allGraphEdges g)
 
 mapEdges :: forall s f g da dz. (forall u v. f u v -> g u v) -> Graph s f da dz -> Graph s g da dz
 mapEdges f (Graph inner final) = Graph (NodeMap.mapmap go inner) (go final)

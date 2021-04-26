@@ -4,11 +4,8 @@
 {-# LANGUAGE GADTs #-}
 {-# language PartialTypeSignatures #-}
 {-# OPTIONS_GHC -Wno-unused-imports #-}
-
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
 module Trace where
-import Tensor(Bilinear(..), Vec(..))
 import Data.VectorSpace (sumV, VectorSpace(..), AdditiveGroup(..))
 import Expr
 import System.IO (hPutStrLn, stderr)
@@ -17,7 +14,6 @@ import Sharing ()
 import Graph
 import Control.Monad (when)
 import qualified NodeMap
-import NodeMap ()
 import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, BackFun(BackFun), NumBuilder (NumBuilder, unNumBuilder))
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
@@ -71,7 +67,7 @@ tracingFunc name value = BackFun back
     where back (R x) = unsafePerformIO $ do
             x' <- evaluate x
             let y = value*x'
-            hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y) 
+            hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y)
             return (NumBuilder (R (value*x')))
 
 exprToTerm :: FullVector dv => Expr BackFun da dv -> Term BackFun da dv

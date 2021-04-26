@@ -12,12 +12,11 @@
 module Notensor
 ( BasicVector(..), BasicVectors, FullVector(..), FullVectors, Dense(..)
 , NumBuilder(..)
-, BackFun(..), FwdFun(..), flipFunc1, ProdVector(..), Transpose(..)
+, BackFun(..), FwdFun(..), flipFunc1, ProdVector(..)
 , LinearEdge(..)
 , fstF1, sndF1, intoFst, intoSnd
 ) where
 import Data.Kind (Type)
-import Tensor (Bilinear(..), Vec(Vec))
 import Data.Maybe (catMaybes)
 import Data.Constraint (Dict(Dict))
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..), sumV)
@@ -130,22 +129,6 @@ newtype Covec' dx x = Covec' { uncovec' :: dx }
     deriving Show
     deriving AdditiveGroup via dx
 
-instance Bilinear (FwdFun dv du) (Vec dv) where
-    type FwdFun dv du ✕ Vec dv = VecBuilder du
-    FwdFun f ✕ Vec dv = f dv
-
-
-class Transpose (f :: Type -> Type -> Type) (g :: Type -> Type -> Type) | f->g, g->f where
-    transpose :: forall u v. f u v -> g v u
-    flipTranspose :: Dict (Transpose g f)
-
-instance Transpose BackFun FwdFun where
-    transpose (BackFun f) = FwdFun f
-    flipTranspose = Dict
-instance Transpose FwdFun BackFun where
-    transpose (FwdFun f) = BackFun f
-    flipTranspose = Dict
-
 flipFunc1 :: BackFun du dv -> FwdFun dv du
 flipFunc1 (BackFun f) = FwdFun f
 
@@ -158,15 +141,3 @@ instance LinearEdge BackFun where
     scaleFunc a = BackFun (scaleBuilder a)
     negateFunc = BackFun negateBuilder
     identityFunc = BackFun identityBuilder
-
-instance BasicVector Integer where
-    type VecBuilder Integer = NumBuilder Integer
-    sumBuilder = Prelude.sum . map unNumBuilder
-
-instance ProdVector Integer where
-    zeroBuilder = NumBuilder 0
-    identityBuilder = NumBuilder
-
-instance FullVector Integer where
-    negateBuilder = NumBuilder . Prelude.negate
-    scaleBuilder a = NumBuilder . (a *)

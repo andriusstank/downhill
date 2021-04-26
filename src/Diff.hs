@@ -25,13 +25,11 @@ where
 import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(AnyExpr), anyVar, realExpr, castNode, SparseVector (SparseVector))
 import Prelude (Monad(return), Num, IO, ($), (=<<), Int, undefined, id, (.), Maybe (Just, Nothing))
 import Affine (AffineFunc(AffineFunc))
-import Tensor (Bilinear(..), Vec(..))
 import NodeMap (cvtmap, SomeSharedExprWithMap)
-
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector (identityBuilder), BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFun (BackFun), FullVector, Transpose)
+import Notensor (ProdVector (identityBuilder), BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFun (BackFun), FullVector, flipFunc1)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(zeroV))
 import ExprWalker ()
@@ -58,12 +56,12 @@ constant x = AffineFunc x zeroV
 var :: b -> BVar b dv dv
 var x = AffineFunc x anyVar
 
-backprop'' :: forall g da dz. (BasicVector da, Transpose BackFun g) => SomeSharedExprWithMap BackFun da dz -> dz -> da
+backprop'' :: forall g da dz. BasicVector da => SomeSharedExprWithMap BackFun da dz -> dz -> da
 backprop'' m dv = case m of
     NodeMap.TrivialSharedExprWithMap -> dv
-    NodeMap.SomeSharedExprWithMap smap expr -> unVec (evalGraph dx' (Vec dv))
+    NodeMap.SomeSharedExprWithMap smap expr -> evalGraph dx' dv
         where x' = Graph.Graph smap expr -- :: Graph.ForwardGraph s a da v dv
-              dx' = Graph.flipGraph x' -- :: Graph.BackwardGraph s' a da v dv
+              dx' = Graph.flipGraph flipFunc1 x' -- :: Graph.BackwardGraph s' a da v dv
 
 backprop' :: forall da dv. (BasicVector da, FullVector dv) => AnyExpr BackFun da dv -> dv -> da
 backprop' dy dv = unsafePerformIO $ do

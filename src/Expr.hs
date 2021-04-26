@@ -23,7 +23,6 @@ module Expr
 )
 where
 import Prelude hiding ((.))
-import Tensor
 import Data.VectorSpace (VectorSpace(..),  AdditiveGroup(..), sumV)
 import Data.Constraint
 import Notensor (VecBuilder, FullVector, FullVectors, BasicVector (sumBuilder), scaleFunc, BasicVectors, negateFunc, identityFunc, BackFun (BackFun), LinearEdge)
