@@ -42,31 +42,24 @@ data SomeGraph e a z where
 
 data AnyEdge s e da dz = forall du dv. AnyEdge (Endpoint (NodeKey s) dz dv) (e du dv) (Endpoint (NodeKey s) da du)
 
-data NodeValues s da = NodeValues (NodeMap s Vec) (Vec da)
-
 instance BasicVector da => Bilinear (Graph s FwdFunc dz da) (Vec dz) where
     type (Graph s FwdFunc dz da) ✕ (Vec dz) = Vec da
     g ✕ dx = evalGraph g dx
 
-lookupParent :: forall s dz dv. NodeValues s dz -> Endpoint (NodeKey s) dz dv -> Vec dv
-lookupParent (NodeValues ys dz) tail = (goTail tail)
-    where goTail :: Endpoint (NodeKey s) dz dx -> Vec dx
-          goTail = \case
-            SourceNode -> dz
-            InnerNode nodeName -> NodeMap.lookup ys nodeName
-
 evalGraph :: forall s dx dz. Graph s FwdFunc dz dx -> Vec dz -> Vec dx
 evalGraph (Graph nodes finalNode) dz = evalNode finalNode
     where
-          allValues :: NodeValues s dz
-          allValues = NodeValues innerValues dz
-          evalParent :: Endpoint (NodeKey s) dz dv -> Vec dv
-          evalParent = lookupParent allValues
-          evalEdge :: (Edge (NodeKey s) FwdFunc dz dv -> VecBuilder dv)
+          evalParent :: forall dv. Endpoint (NodeKey s) dz dv -> Vec dv
+          evalParent tail = goTail tail
+              where goTail :: forall dx'. Endpoint (NodeKey s) dz dx' -> Vec dx'
+                    goTail = \case
+                      SourceNode -> dz
+                      InnerNode nodeName -> NodeMap.lookup innerValues nodeName
+          evalEdge :: Edge (NodeKey s) FwdFunc dz dv -> VecBuilder dv
           evalEdge (Edge f tail) = f ✕ evalParent tail
-          evalNode :: (Node (NodeKey s) FwdFunc dz dv -> Vec dv)
+          evalNode :: Node (NodeKey s) FwdFunc dz dv -> Vec dv
           evalNode (Node xs) = Vec (sumBuilder [evalEdge x | x <- xs])
-          evalGraphInnerNodes :: (NodeMap s (Node (NodeKey s) FwdFunc dz) -> NodeMap s Vec)
+          evalGraphInnerNodes :: NodeMap s (Node (NodeKey s) FwdFunc dz) -> NodeMap s Vec
           evalGraphInnerNodes = NodeMap.mapmap evalNode
           innerValues :: NodeMap s Vec
           innerValues = evalGraphInnerNodes nodes
