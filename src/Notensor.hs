@@ -13,7 +13,6 @@ module Notensor
 , NumBuilder(..)
 , BackFun(..), FwdFun(..), flipFunc1, ProdVector(..)
 , LinearEdge(..)
-, fstF1, sndF1, intoFst, intoSnd
 ) where
 import Data.Kind (Type)
 import Data.Maybe (catMaybes)
@@ -96,33 +95,8 @@ instance (ProdVector a, ProdVector b) => ProdVector (a, b) where
     zeroBuilder = (Nothing, Nothing)
     identityBuilder (x, y) = (Just (identityBuilder x), Just (identityBuilder y))
 
-fstF1 :: ProdVector du => BackFun (du, dv) du
-fstF1 = BackFun back
-    where back x = (Just (identityBuilder x), Nothing)
-
-intoFst :: ProdVector du => BackFun du (du, dv)
-intoFst = BackFun fwd
-    where fwd (x, _) = identityBuilder x
-
-
-sndF1 :: ProdVector dv => BackFun (du, dv) dv
-sndF1 = BackFun back
-    where back x = (Nothing, Just (identityBuilder x))
-
-intoSnd :: ProdVector dv => BackFun dv (du, dv)
-intoSnd = BackFun fwd
-    where fwd (_, x) = identityBuilder x
-
 newtype BackFun u v = BackFun { unBackFun :: v -> VecBuilder u }
 newtype FwdFun u v = FwdFun  {unFwdFun :: u -> VecBuilder v }
-
-newtype Vec' dx x = Vec' { unVec' :: x }
-    deriving Show
-    deriving AdditiveGroup via x
-
-newtype Covec' dx x = Covec' { uncovec' :: dx }
-    deriving Show
-    deriving AdditiveGroup via dx
 
 flipFunc1 :: BackFun du dv -> FwdFun dv du
 flipFunc1 (BackFun f) = FwdFun f

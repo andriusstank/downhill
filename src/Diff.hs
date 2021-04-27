@@ -29,7 +29,7 @@ import NodeMap (cvtmap, SomeSharedExprWithMap)
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector (identityBuilder), BasicVector(..), fstF1, sndF1, intoFst, intoSnd, BackFun (BackFun), FullVector, flipFunc1)
+import Notensor (ProdVector (identityBuilder), BasicVector(..), BackFun (BackFun), FullVector, flipFunc1)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(zeroV))
 import ExprWalker ()
@@ -86,3 +86,4 @@ snd (AffineFunc (_, b2) (AnyExpr dv)) = AffineFunc b2 (sparseNode node)
           f = BackFun (\(SparseVector x) -> (Nothing, Just x))
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b2))
           node = ExprSum (dv f)
+
