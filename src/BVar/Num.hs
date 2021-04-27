@@ -15,7 +15,7 @@ import Data.AffineSpace (AffineSpace(..))
 import Expr (Expr, Expr (ExprVar), AnyExpr, anyVar)
 import Notensor (FullVector(..), BasicVector(..), BackFun, NumBuilder (..))
 import EType (Endpoint(SourceNode))
-import Diff (backprop, GradOf)
+import Diff (backprop, HasGrad(..))
 
 newtype AsNum a = AsNum { unAsNum :: a }
     deriving Show
@@ -23,7 +23,8 @@ newtype AsNum a = AsNum { unAsNum :: a }
     deriving Fractional via a
     deriving Floating via a
 
-type instance GradOf (AsNum a) = AsNum a
+instance Num a => HasGrad (AsNum a) where
+    type GradOf (AsNum a) = AsNum a
 
 instance Num a => AdditiveGroup (AsNum a) where
     zeroV = 0

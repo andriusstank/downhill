@@ -14,7 +14,7 @@ import Sharing ()
 import Graph
 import Control.Monad (when)
 import qualified NodeMap
-import Notensor (FullVector(..), BasicVector(..), identityFunc, BackFun(BackFun), NumBuilder (NumBuilder, unNumBuilder))
+import Notensor (FullVector(..), BasicVector(..), BackFun(BackFun), NumBuilder (NumBuilder, unNumBuilder))
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum, AsNum (unAsNum))
@@ -69,7 +69,7 @@ tracingFunc name value = BackFun back
             return (NumBuilder (R (value*x')))
 
 exprToTerm :: FullVector dv => Expr BackFun da dv -> Term BackFun da dv
-exprToTerm = Term identityFunc
+exprToTerm = Term (BackFun identityBuilder)
 
 
 testExpr :: IO (Expr BackFun R R)

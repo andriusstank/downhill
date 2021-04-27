@@ -8,8 +8,7 @@
 module OpenGraph (
     OpenArg, OpenTerm, OpenExpr,
     OpenGraph(..),
-    --runRecoverSharing4,
-    --runRecoverSharing4',
+    runRecoverSharing5,
     runRecoverSharing7
 )
 where
@@ -21,7 +20,7 @@ import OpenMap (OpenMap, OpenKey)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
 import ExprWalker
 import qualified OpenMap
-import Notensor (BasicVector, LinearEdge (identityFunc), FullVector)
+import Notensor (BasicVector, FullVector (identityBuilder), BackFun(BackFun))
 
 type OpenArg = Endpoint OpenKey
 type OpenTerm e = Edge OpenKey e
@@ -53,8 +52,5 @@ runRecoverSharing5 xs = do
         (final_node, graph) <- Sharing.runTreeBuilder (goEdges xs)
         return (NontrivialOpenGraph final_node graph)
 
-runRecoverSharing6 :: forall e a z. (FullVector z, LinearEdge e) => Expr e a z -> IO (OpenGraph e a z)
-runRecoverSharing6 x = runRecoverSharing5 [Term identityFunc x]
-
-runRecoverSharing7 :: forall e a z. (FullVector z, LinearEdge e) => AnyExpr e a z -> IO (OpenGraph e a z)
-runRecoverSharing7 (AnyExpr x) = runRecoverSharing5 (x identityFunc)
+runRecoverSharing7 :: forall a z. FullVector z => AnyExpr BackFun a z -> IO (OpenGraph BackFun a z)
+runRecoverSharing7 (AnyExpr x) = runRecoverSharing5 (x (BackFun identityBuilder))

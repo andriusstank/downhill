@@ -12,7 +12,7 @@
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 module Diff
 (
-    GradOf,
+    HasGrad(..),
     BVar, BVarS, bvarValue,
     constant, var,
     backprop, backpropS,
@@ -38,9 +38,11 @@ import Data.Coerce (coerce, Coercible)
 import OpenGraph (runRecoverSharing7, OpenGraph)
 import Data.Kind (Type)
 
-type family GradOf v :: Type
+class BasicVector (GradOf v) => HasGrad v where
+    type GradOf v :: Type
 
-type instance GradOf (u, v) = (GradOf u, GradOf v)
+instance (HasGrad u, HasGrad v) => HasGrad (u, v) where
+    type GradOf (u, v) = (GradOf u, GradOf v)
 
 type BVar v a = AffineFunc v (AnyExpr BackFun (GradOf a) (GradOf v))
 

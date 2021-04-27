@@ -22,7 +22,7 @@ where
 import Prelude hiding ((.))
 import Data.VectorSpace (VectorSpace(..),  AdditiveGroup(..), sumV)
 import Data.Constraint
-import Notensor (VecBuilder, FullVector, BasicVector (sumBuilder), scaleFunc, negateFunc, identityFunc, BackFun (BackFun), LinearEdge)
+import Notensor (VecBuilder, FullVector (negateBuilder, identityBuilder, scaleBuilder), BasicVector (sumBuilder), BackFun (BackFun))
 import EType (Node(Node), Endpoint (InnerNode, SourceNode), Edge(Edge))
 import Control.Category (Category(..))
 import Data.Coerce (coerce)
@@ -90,27 +90,27 @@ zeroE = ExprSum []
 zeroE' :: AnyExpr e a v
 zeroE' = AnyExpr (const [])
 
-instance (LinearEdge e, FullVector dv) => AdditiveGroup (Expr e da dv) where
+instance FullVector v => AdditiveGroup (Expr BackFun a v) where
     zeroV = zeroE
-    negateV x = ExprSum [Term negateFunc x]
-    x ^+^ y = ExprSum [Term identityFunc x, Term identityFunc y]
-    x ^-^ y = ExprSum [Term identityFunc x, Term negateFunc y]
+    negateV x = ExprSum [Term (BackFun negateBuilder) x]
+    x ^+^ y = ExprSum [Term (BackFun identityBuilder) x, Term (BackFun identityBuilder) y]
+    x ^-^ y = ExprSum [Term (BackFun identityBuilder) x, Term (BackFun negateBuilder) y]
 
 instance FullVector dv => VectorSpace (Expr BackFun da dv) where
     type Scalar (Expr BackFun da dv) = Scalar dv
-    a *^ v = ExprSum [Term (scaleFunc a) v]
+    a *^ v = ExprSum [Term (BackFun (scaleBuilder a)) v]
 
-instance (LinearEdge e, FullVector dv) => AdditiveGroup (AnyExpr e da dv) where
+instance FullVector v => AdditiveGroup (AnyExpr BackFun a v) where
     zeroV = zeroE'
-    negateV (AnyExpr x) = realExpr (ExprSum (x negateFunc))
-    AnyExpr x ^+^ AnyExpr y = realExpr (ExprSum (x identityFunc <> y identityFunc))
-    AnyExpr x ^-^ AnyExpr y = realExpr (ExprSum (x identityFunc <> y negateFunc))
+    negateV (AnyExpr x) = realExpr (ExprSum (x (BackFun negateBuilder)))
+    AnyExpr x ^+^ AnyExpr y = realExpr (ExprSum (x (BackFun identityBuilder) <> y (BackFun identityBuilder)))
+    AnyExpr x ^-^ AnyExpr y = realExpr (ExprSum (x (BackFun identityBuilder) <> y (BackFun negateBuilder)))
 
-instance FullVector dv => VectorSpace (AnyExpr BackFun da dv) where
-    type Scalar (AnyExpr BackFun da dv) = Scalar dv
-    a *^ AnyExpr v = realExpr (ExprSum (v (scaleFunc a)))
+instance FullVector v => VectorSpace (AnyExpr BackFun a v) where
+    type Scalar (AnyExpr BackFun a v) = Scalar v
+    a *^ AnyExpr v = realExpr (ExprSum (v (BackFun (scaleBuilder a))))
 
 sumExpr2 :: FullVector dv => [Expr BackFun da dv] -> Expr BackFun da dv
 sumExpr2 xs = ExprSum (wrap <$> xs)
-    where wrap x = Term identityFunc x
+    where wrap x = Term (BackFun identityBuilder) x
 

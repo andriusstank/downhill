@@ -20,7 +20,7 @@ import Data.VectorSpace
     ( AdditiveGroup((^-^), negateV, zeroV),
       VectorSpace(Scalar, (*^)),
       sumV )
-import Notensor (BasicVector (VecBuilder, sumBuilder), FullVector(..), Dense(..), BackFun, scaleFunc, LinearEdge(..), NumBuilder (NumBuilder, unNumBuilder))
+import Notensor (BasicVector (VecBuilder, sumBuilder), FullVector(..), Dense(..), BackFun(..), NumBuilder (NumBuilder, unNumBuilder))
 import EType (Endpoint (InnerNode, SourceNode), Node(..),Edge (Edge))
 import Data.Kind
 import Data.Constraint (Dict(Dict))
@@ -101,21 +101,21 @@ data FwdGrad a v where
 unaryAfFunc :: BasicVector (Diff b) => b -> e a (Diff b) -> AffineFunc3 (Expr e) a b
 unaryAfFunc x dx = AffineFunc3 x (ExprSum [ Term dx ExprVar ])
 
-scalarFunc :: (v ~ Diff p, a ~ Scalar v, FullVector v, LinearEdge e) => p -> a -> AffineFunc3 (Expr e) v p
-scalarFunc fx dfx = unaryAfFunc fx (scaleFunc dfx)
+scalarFunc :: (v ~ Diff p, a ~ Scalar v, FullVector v) => p -> a -> AffineFunc3 (Expr BackFun) v p
+scalarFunc fx dfx = unaryAfFunc fx (BackFun (scaleBuilder dfx))
 
 data ScalarEdge u v where
     IdentityScalarEdge :: ScalarEdge v v
     NegateScalarEdge :: ScalarEdge v v
     ScaleScalarEdge :: Scalar v -> ScalarEdge v v
 
-sinAff :: forall a e. (a ~ Scalar a, Diff a ~ a, FullVector a, Floating a, LinearEdge e) => a -> AffineFunc3 (Expr e) a a
+sinAff :: forall a. (a ~ Scalar a, Diff a ~ a, FullVector a, Floating a) => a -> AffineFunc3 (Expr BackFun) a a
 sinAff x = scalarFunc (sin x) (cos x)
 
 sinScalar :: (a ~ Scalar a, Diff a ~ a, FullVector a, Floating a) => a -> AffineFunc3 ScalarEdge a a
 sinScalar x = AffineFunc3 (sin x) (ScaleScalarEdge $ cos x)
 
-instance (LinearEdge e, AdditiveGroup v, FullVector (Diff v)) => AdditiveGroup (AffineFunc3 (Expr e) a v) where
+instance (AdditiveGroup v, FullVector (Diff v)) => AdditiveGroup (AffineFunc3 (Expr BackFun) a v) where
     zeroV = AffineFunc3 zeroV zeroV
     negateV (AffineFunc3 x0 dx) = AffineFunc3 (negateV x0) (negateV dx)
     AffineFunc3 x0 dx ^+^ AffineFunc3 y0 dy = AffineFunc3 (x0 ^+^ y0) (dx ^+^ dy)

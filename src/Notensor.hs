@@ -12,7 +12,6 @@ module Notensor
 ( BasicVector(..), FullVector(..), Dense(..)
 , NumBuilder(..)
 , BackFun(..), FwdFun(..), flipFunc1
-, LinearEdge(..)
 ) where
 import Data.Kind (Type)
 import Data.Maybe (catMaybes)
@@ -86,12 +85,6 @@ newtype FwdFun u v = FwdFun  {unFwdFun :: u -> VecBuilder v }
 flipFunc1 :: BackFun du dv -> FwdFun dv du
 flipFunc1 (BackFun f) = FwdFun f
 
-class LinearEdge e where
-    negateFunc :: FullVector du => e du du
-    scaleFunc :: FullVector du => Scalar du -> e du du
-    identityFunc :: FullVector du => e du du
-
-instance LinearEdge BackFun where
-    scaleFunc a = BackFun (scaleBuilder a)
-    negateFunc = BackFun negateBuilder
-    identityFunc = BackFun identityBuilder
+--scaleFunc a = BackFun (scaleBuilder a)
+--negateFunc = BackFun negateBuilder
+--identityFunc = BackFun identityBuilder
