@@ -11,7 +11,7 @@
 module Notensor
 ( BasicVector(..), FullVector(..), Dense(..)
 , NumBuilder(..)
-, BackFun(..), FwdFun(..), flipFunc1
+, BackFun(..), FwdFun(..), flipBackFun
 ) where
 import Data.Kind (Type)
 import Data.Maybe (catMaybes)
@@ -82,9 +82,5 @@ instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
 newtype BackFun u v = BackFun { unBackFun :: v -> VecBuilder u }
 newtype FwdFun u v = FwdFun  {unFwdFun :: u -> VecBuilder v }
 
-flipFunc1 :: BackFun du dv -> FwdFun dv du
-flipFunc1 (BackFun f) = FwdFun f
-
---scaleFunc a = BackFun (scaleBuilder a)
---negateFunc = BackFun negateBuilder
---identityFunc = BackFun identityBuilder
+flipBackFun :: BackFun du dv -> FwdFun dv du
+flipBackFun (BackFun f) = FwdFun f

@@ -26,8 +26,7 @@ type OpenArg = Endpoint OpenKey
 type OpenTerm e = Edge OpenKey e
 type OpenExpr e da = Node OpenKey e da
 
-data OpenGraph e a z where
-    NontrivialOpenGraph :: Node OpenKey e a z -> OpenMap (OpenExpr e a) -> OpenGraph e a z
+data OpenGraph e a z = OpenGraph (Node OpenKey e a z) (OpenMap (OpenExpr e a))
 
 goEdges :: BasicVector v => [Term e a v] -> TreeBuilder (OpenExpr e a) (Node OpenKey e a v)
 goEdges xs = do
@@ -50,7 +49,7 @@ goSharing4term = \case
 runRecoverSharing5 :: forall e a z. BasicVector z => [Term e a z] -> IO (OpenGraph e a z)
 runRecoverSharing5 xs = do
         (final_node, graph) <- Sharing.runTreeBuilder (goEdges xs)
-        return (NontrivialOpenGraph final_node graph)
+        return (OpenGraph final_node graph)
 
 runRecoverSharing7 :: forall a z. FullVector z => AnyExpr BackFun a z -> IO (OpenGraph BackFun a z)
 runRecoverSharing7 (AnyExpr x) = runRecoverSharing5 (x (BackFun identityBuilder))

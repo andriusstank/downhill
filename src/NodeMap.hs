@@ -34,7 +34,7 @@ module NodeMap (
 ) where
 import Prelude hiding (lookup, zipWith)
 import OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
-import OpenGraph (OpenExpr, OpenGraph (NontrivialOpenGraph))
+import OpenGraph (OpenExpr, OpenGraph (OpenGraph))
 import qualified OpenMap
 import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
@@ -99,8 +99,8 @@ type SharedArgS s = Endpoint (NodeKey s)
 type SharedTermS s e = Edge (NodeKey s) e
 type SharedExprS s e da = Node (NodeKey s) e da
 
-data SomeSharedExprWithMap e da dz where
-    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s e da) -> SharedExprS s e da dz -> SomeSharedExprWithMap e da dz
+data SomeSharedExprWithMap e a z where
+    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s e a) -> SharedExprS s e a z -> SomeSharedExprWithMap e a z
 
 cvthelper :: forall s e da dv. NodeSet s => NodeMap s (OpenExpr e da) -> Node OpenKey e da dv -> SomeSharedExprWithMap e da dv
 cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
@@ -118,8 +118,8 @@ cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
                 Nothing -> error "oh fuck"
 
 cvtmap :: OpenGraph e da dv -> SomeSharedExprWithMap e da dv
-cvtmap = \case
-    NontrivialOpenGraph x m -> case uncheckedMakeNodeMap m of
+cvtmap (OpenGraph x m) =
+    case uncheckedMakeNodeMap m of
         SomeNodeMap m' -> cvthelper m' x
 
 --runRecoverSharing5 :: forall e da dv. Expr5 e da dv -> IO (SomeSharedExprWithMap e da dv)

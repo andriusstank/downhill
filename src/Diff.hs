@@ -16,20 +16,18 @@ module Diff
     BVar, BVarS, bvarValue,
     constant, var,
     backprop, backpropS,
-    fst, snd, -- zip
-    --fstBVar
-
+    fst, snd, zip
 )
 where
 
 import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(AnyExpr), anyVar, realExpr, castNode, sparseNode, SparseVector (SparseVector), zeroE')
-import Prelude (Monad(return), Num, IO, ($), (=<<), Int, undefined, id, (.), Maybe (Just, Nothing))
+import Prelude (Monad(return), Num, IO, ($), (=<<), Int, undefined, id, (.), Maybe (Just, Nothing), Semigroup ((<>)), Monoid (mempty))
 import Affine (AffineFunc(AffineFunc))
 import NodeMap (cvtmap, SomeSharedExprWithMap)
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (BasicVector(..), BackFun (BackFun), FullVector, flipFunc1)
+import Notensor (BasicVector(..), BackFun (BackFun), FullVector, flipBackFun)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(zeroV))
 import ExprWalker ()
@@ -37,6 +35,7 @@ import Graph (SomeGraph(SomeGraph), evalGraph)
 import Data.Coerce (coerce, Coercible)
 import OpenGraph (runRecoverSharing7, OpenGraph)
 import Data.Kind (Type)
+import Data.Maybe (fromMaybe)
 
 class BasicVector (GradOf v) => HasGrad v where
     type GradOf v :: Type
@@ -51,26 +50,25 @@ type BVarS a = BVar a a
 bvarValue :: AffineFunc b dv -> b
 bvarValue (AffineFunc y0 _dy) = y0
 
-constant :: () => a -> BVar a a
+constant :: a -> BVar a a
 constant x = AffineFunc x zeroE'
 
 var :: b -> BVar b b
 var x = AffineFunc x anyVar
 
-backprop'' :: forall da dz. BasicVector da => SomeSharedExprWithMap BackFun da dz -> dz -> da
-backprop'' m dv = case m of
-    NodeMap.SomeSharedExprWithMap smap expr -> evalGraph dx' dv
-        where x' = Graph.Graph smap expr -- :: Graph.ForwardGraph s a da v dv
-              dx' = Graph.flipGraph flipFunc1 x' -- :: Graph.BackwardGraph s' a da v dv
+backpropNodeMap :: forall a z. BasicVector a => SomeSharedExprWithMap BackFun a z -> z -> a
+backpropNodeMap m dv = case m of
+    NodeMap.SomeSharedExprWithMap smap expr -> evalGraph fwdGraph dv
+        where backGraph = Graph.Graph smap expr
+              fwdGraph = Graph.flipGraph flipBackFun backGraph
 
-backprop' :: forall da dv. (BasicVector da, FullVector dv) => AnyExpr BackFun da dv -> dv -> da
-backprop' dy dv = unsafePerformIO $ do
-    g <- runRecoverSharing7 dy -- :: IO (NodeMap.SomeSharedExprWithMap BackFun da dv)
-    return (backprop'' (cvtmap g) dv)
+backpropExpr :: forall da dv. (BasicVector da, FullVector dv) => AnyExpr BackFun da dv -> dv -> da
+backpropExpr dy dv = unsafePerformIO $ do
+    g <- runRecoverSharing7 dy
+    return (backpropNodeMap (cvtmap g) dv)
 
 backprop :: forall b a. (FullVector (GradOf b), BasicVector (GradOf a)) => BVar b a -> GradOf b -> GradOf a
-backprop (AffineFunc _y0 y) dv = case y of
-    x -> backprop' @(GradOf a) @(GradOf b) x dv
+backprop (AffineFunc _y0 x) = backpropExpr @(GradOf a) @(GradOf b) x
 
 backpropS :: forall b a. (Num (GradOf b), FullVector (GradOf b), BasicVector (GradOf a)) => BVar b a -> GradOf a
 backpropS x = backprop @b @a x 1
@@ -89,3 +87,11 @@ snd (AffineFunc (_, b2) (AnyExpr dv)) = AffineFunc b2 (sparseNode node)
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b2))
           node = ExprSum (dv f)
 
+zip :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar b1 a -> BVar b2 a -> BVar (b1, b2) a
+zip (AffineFunc b1 (AnyExpr db1)) (AffineFunc b2 (AnyExpr db2)) = AffineFunc (b1, b2) (sparseNode node)
+    where f1 :: BackFun (GradOf b1) (SparseVector (GradOf (b1, b2)))
+          f1 = BackFun (\(SparseVector (x, _y)) -> fromMaybe mempty x)
+          f2 :: (SparseVector (GradOf b1, GradOf b2) -> VecBuilder (GradOf b2))
+          f2 = \(SparseVector (_x, y)) -> fromMaybe mempty y
+          node :: Expr BackFun (GradOf a) (SparseVector (GradOf b1, GradOf b2))
+          node = ExprSum (db1 f1 <> db2 (BackFun f2))
