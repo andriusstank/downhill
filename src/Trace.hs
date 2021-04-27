@@ -14,7 +14,7 @@ import Sharing ()
 import Graph
 import Control.Monad (when)
 import qualified NodeMap
-import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, BackFun(BackFun), NumBuilder (NumBuilder, unNumBuilder))
+import Notensor (FullVector(..), BasicVector(..), identityFunc, BackFun(BackFun), NumBuilder (NumBuilder, unNumBuilder))
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum, AsNum (unAsNum))
@@ -55,11 +55,8 @@ instance BasicVector R where
     type VecBuilder R = NumBuilder R
     sumBuilder = sumV . map unNumBuilder
 
-instance ProdVector R where
-    zeroBuilder = NumBuilder (R 0)
-    identityBuilder = NumBuilder
-
 instance FullVector R where
+    identityBuilder = NumBuilder
     negateBuilder = NumBuilder . negateV
     scaleBuilder a = NumBuilder . (a *^)
 

@@ -13,7 +13,7 @@ import Data.Kind (Type)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
 import Expr (Expr, Expr (ExprVar), AnyExpr, anyVar)
-import Notensor (FullVector(..), ProdVector(..), BasicVector(..), BackFun, NumBuilder (..))
+import Notensor (FullVector(..), BasicVector(..), BackFun, NumBuilder (..))
 import EType (Endpoint(SourceNode))
 import Diff (backprop, GradOf)
 
@@ -39,11 +39,8 @@ instance Num a => BasicVector (AsNum a) where
     type VecBuilder (AsNum a) = NumBuilder a
     sumBuilder = AsNum . sum . fmap unNumBuilder
 
-instance Num a => ProdVector (AsNum a) where
-    zeroBuilder = mempty
-    identityBuilder = NumBuilder . unAsNum
-
 instance Num a => FullVector (AsNum a) where
+    identityBuilder = NumBuilder . unAsNum
     negateBuilder = NumBuilder . negate . unAsNum
     scaleBuilder (AsNum x) (AsNum y) = NumBuilder $ x * y
 

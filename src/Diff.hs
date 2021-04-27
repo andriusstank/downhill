@@ -29,7 +29,7 @@ import NodeMap (cvtmap, SomeSharedExprWithMap)
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (ProdVector (identityBuilder), BasicVector(..), BackFun (BackFun), FullVector, flipFunc1)
+import Notensor (BasicVector(..), BackFun (BackFun), FullVector, flipFunc1)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(zeroV))
 import ExprWalker ()
@@ -73,14 +73,14 @@ backprop (AffineFunc _y0 y) dv = case y of
 backpropS :: forall b a. (Num (GradOf b), FullVector (GradOf b), BasicVector (GradOf a)) => BVar b a -> GradOf a
 backpropS x = backprop @b @a x 1
 
-fst :: forall b1 b2 a. ProdVector (GradOf b1) => BVar (b1, b2) a -> BVar b1 a
+fst :: forall b1 b2 a. BasicVector (GradOf b1) => BVar (b1, b2) a -> BVar b1 a
 fst (AffineFunc (b1, _) (AnyExpr dv)) = AffineFunc b1 (sparseNode node)
     where f :: BackFun (GradOf (b1, b2)) (SparseVector (GradOf b1))
           f = BackFun (\(SparseVector x) -> (Just x, Nothing))
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b1))
           node = ExprSum (dv f)
 
-snd :: forall b1 b2 a. ProdVector (GradOf b2) => BVar (b1, b2) a -> BVar b2 a
+snd :: forall b1 b2 a. BasicVector (GradOf b2) => BVar (b1, b2) a -> BVar b2 a
 snd (AffineFunc (_, b2) (AnyExpr dv)) = AffineFunc b2 (sparseNode node)
     where f :: BackFun (GradOf (b1, b2)) (SparseVector (GradOf b2))
           f = BackFun (\(SparseVector x) -> (Nothing, Just x))

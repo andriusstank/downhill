@@ -11,7 +11,7 @@
 module Notensor
 ( BasicVector(..), FullVector(..), Dense(..)
 , NumBuilder(..)
-, BackFun(..), FwdFun(..), flipFunc1, ProdVector(..)
+, BackFun(..), FwdFun(..), flipFunc1
 , LinearEdge(..)
 ) where
 import Data.Kind (Type)
@@ -38,19 +38,8 @@ instance BasicVector Double where
     type VecBuilder Double = NumBuilder Double
     sumBuilder = sum . fmap unNumBuilder
 
-class BasicVector v => ProdVector v where
-    zeroBuilder :: VecBuilder v
+class BasicVector v => FullVector v where
     identityBuilder :: v -> VecBuilder v
-
-instance ProdVector Float where
-    zeroBuilder = NumBuilder 0
-    identityBuilder = NumBuilder
-
-instance ProdVector Double where
-    zeroBuilder = NumBuilder 0
-    identityBuilder = NumBuilder
-
-class ProdVector v => FullVector v where
     negateBuilder :: v -> VecBuilder v
     scaleBuilder :: Scalar v -> v -> VecBuilder v
 
@@ -70,17 +59,17 @@ instance AdditiveGroup a => BasicVector (Dense a) where
     type VecBuilder (Dense a) = VSpaceBuilder a
     sumBuilder = Dense . sumV . fmap unVSpaceBuilder
 
-instance AdditiveGroup a => ProdVector (Dense a) where
-    zeroBuilder = VSpaceBuilder zeroV
-    identityBuilder (Dense x) = VSpaceBuilder x
 instance VectorSpace a => FullVector (Dense a) where
+    identityBuilder (Dense x) = VSpaceBuilder x
     negateBuilder (Dense a) = VSpaceBuilder (negateV a)
     scaleBuilder a (Dense v) = VSpaceBuilder (a *^ v)
 
 instance FullVector Float where
+    identityBuilder = NumBuilder
     negateBuilder = NumBuilder . negate
     scaleBuilder x = NumBuilder . (x*)
 instance FullVector Double where
+    identityBuilder = NumBuilder
     negateBuilder = NumBuilder . negate
     scaleBuilder x = NumBuilder . (x*)
     
@@ -90,10 +79,6 @@ instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
         ( sumBuilder (catMaybes (fst <$> xs))
         , sumBuilder (catMaybes (snd <$> xs))
         )
-
-instance (ProdVector a, ProdVector b) => ProdVector (a, b) where
-    zeroBuilder = (Nothing, Nothing)
-    identityBuilder (x, y) = (Just (identityBuilder x), Just (identityBuilder y))
 
 newtype BackFun u v = BackFun { unBackFun :: v -> VecBuilder u }
 newtype FwdFun u v = FwdFun  {unFwdFun :: u -> VecBuilder v }
