@@ -16,8 +16,6 @@ import Notensor (FullVector(..), ProdVector(..), BasicVector(..), BackFun, NumBu
 import EType (Endpoint(SourceNode))
 import Diff (backprop)
 
-type family GradOf a :: Type
-
 newtype AsNum a = AsNum { unAsNum :: a }
     deriving Show
     deriving Num via a

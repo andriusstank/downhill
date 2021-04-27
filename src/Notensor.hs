@@ -9,7 +9,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Notensor
-( BasicVector(..), BasicVectors, FullVector(..), FullVectors, Dense(..)
+( BasicVector(..), FullVector(..), Dense(..)
 , NumBuilder(..)
 , BackFun(..), FwdFun(..), flipFunc1, ProdVector(..)
 , LinearEdge(..)
@@ -112,9 +112,6 @@ sndF1 = BackFun back
 intoSnd :: ProdVector dv => BackFun dv (du, dv)
 intoSnd = BackFun fwd
     where fwd (_, x) = identityBuilder x
-
-type BasicVectors v dv = (BasicVector v, BasicVector dv) -- TODO: remove?
-type FullVectors v dv = (FullVector v, FullVector dv, Scalar v ~ Scalar dv)
 
 newtype BackFun u v = BackFun { unBackFun :: v -> VecBuilder u }
 newtype FwdFun u v = FwdFun  {unFwdFun :: u -> VecBuilder v }

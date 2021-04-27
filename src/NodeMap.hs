@@ -100,7 +100,6 @@ type SharedTermS s e = Edge (NodeKey s) e
 type SharedExprS s e da = Node (NodeKey s) e da
 
 data SomeSharedExprWithMap e da dz where
-    TrivialSharedExprWithMap :: SomeSharedExprWithMap e da da
     SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s e da) -> SharedExprS s e da dz -> SomeSharedExprWithMap e da dz
 
 cvthelper :: forall s e da dv. NodeSet s => NodeMap s (OpenExpr e da) -> Node OpenKey e da dv -> SomeSharedExprWithMap e da dv

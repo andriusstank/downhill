@@ -14,11 +14,12 @@ module Diff
     constant, var,
     backprop, backpropS,
     --fst, snd, zip
+    --fstBVar
 
 )
 where
 
-import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(AnyExpr), anyVar, realExpr, castNode, SparseVector (SparseVector))
+import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(AnyExpr), anyVar, realExpr, castNode, sparseNode, SparseVector (SparseVector))
 import Prelude (Monad(return), Num, IO, ($), (=<<), Int, undefined, id, (.), Maybe (Just, Nothing))
 import Affine (AffineFunc(AffineFunc))
 import NodeMap (cvtmap, SomeSharedExprWithMap)
@@ -32,8 +33,12 @@ import ExprWalker ()
 import Graph (SomeGraph(SomeGraph), evalGraph)
 import Data.Coerce (coerce, Coercible)
 import OpenGraph (runRecoverSharing7, OpenGraph)
+import Data.Kind (Type)
+
+type family GradOf v :: Type
 
 type BVar b a v = AffineFunc b (AnyExpr BackFun a v)
+--type BVar v a = AffineFunc v (AnyExpr BackFun a (Expr BackFun a (GradOf v)))
 
 type BVarS a = BVar a a a
     
@@ -48,7 +53,6 @@ var x = AffineFunc x anyVar
 
 backprop'' :: forall da dz. BasicVector da => SomeSharedExprWithMap BackFun da dz -> dz -> da
 backprop'' m dv = case m of
-    NodeMap.TrivialSharedExprWithMap -> dv
     NodeMap.SomeSharedExprWithMap smap expr -> evalGraph dx' dv
         where x' = Graph.Graph smap expr -- :: Graph.ForwardGraph s a da v dv
               dx' = Graph.flipGraph flipFunc1 x' -- :: Graph.BackwardGraph s' a da v dv
@@ -64,3 +68,6 @@ backprop (AffineFunc _y0 y) dv = case y of
 
 backpropS :: (BasicVector da, FullVector dv, Num dv) => BVar b da dv -> da
 backpropS x = backprop x 1
+
+--fstBVar :: BVar (b1, b2) a _v -> BVar b1 a v'
+--fstBVar (AffineFunc (b1, _) dv) = AffineFunc b1 (sparseNode (ExprSum [Term fstF1 dv]))

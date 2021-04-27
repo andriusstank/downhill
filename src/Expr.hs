@@ -15,14 +15,14 @@ module Expr
     Expr(..), zeroE, sumExpr2,
     Term(..),
     AnyExpr(..),
-    anyVar, realExpr, castNode,
+    anyVar, realExpr, castNode, sparseNode,
     SparseVector(..)
 )
 where
 import Prelude hiding ((.))
 import Data.VectorSpace (VectorSpace(..),  AdditiveGroup(..), sumV)
 import Data.Constraint
-import Notensor (VecBuilder, FullVector, FullVectors, BasicVector (sumBuilder), scaleFunc, BasicVectors, negateFunc, identityFunc, BackFun (BackFun), LinearEdge)
+import Notensor (VecBuilder, FullVector, BasicVector (sumBuilder), scaleFunc, negateFunc, identityFunc, BackFun (BackFun), LinearEdge)
 import EType (Node(Node), Endpoint (InnerNode, SourceNode), Edge(Edge))
 import Control.Category (Category(..))
 import Data.Coerce (coerce)
@@ -63,6 +63,11 @@ castNode
 castNode node = AnyExpr go
     where go :: forall x. BackFun v x -> Term BackFun a x
           go (BackFun g) = Term (BackFun g) node
+
+sparseNode
+    :: forall a v. (BasicVector v)
+    => Expr BackFun a (SparseVector v) -> AnyExpr BackFun a v
+sparseNode = castNode
 
 materialIdentity ::
     forall a v. (Monoid (VecBuilder v))
