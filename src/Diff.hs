@@ -1,4 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
@@ -10,16 +12,17 @@
 {-# OPTIONS_GHC -Wno-deferred-type-errors #-}
 module Diff
 (
+    GradOf,
     BVar, BVarS, bvarValue,
     constant, var,
     backprop, backpropS,
-    --fst, snd, zip
+    fst, snd, -- zip
     --fstBVar
 
 )
 where
 
-import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(AnyExpr), anyVar, realExpr, castNode, sparseNode, SparseVector (SparseVector))
+import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(AnyExpr), anyVar, realExpr, castNode, sparseNode, SparseVector (SparseVector), zeroE')
 import Prelude (Monad(return), Num, IO, ($), (=<<), Int, undefined, id, (.), Maybe (Just, Nothing))
 import Affine (AffineFunc(AffineFunc))
 import NodeMap (cvtmap, SomeSharedExprWithMap)
@@ -37,18 +40,19 @@ import Data.Kind (Type)
 
 type family GradOf v :: Type
 
-type BVar b a v = AffineFunc b (AnyExpr BackFun a v)
---type BVar v a = AffineFunc v (AnyExpr BackFun a (Expr BackFun a (GradOf v)))
+type instance GradOf (u, v) = (GradOf u, GradOf v)
 
-type BVarS a = BVar a a a
-    
+type BVar v a = AffineFunc v (AnyExpr BackFun (GradOf a) (GradOf v))
+
+type BVarS a = BVar a a
+
 bvarValue :: AffineFunc b dv -> b
 bvarValue (AffineFunc y0 _dy) = y0
 
-constant :: FullVector dv => b -> BVar b da dv
-constant x = AffineFunc x zeroV
+constant :: () => a -> BVar a a
+constant x = AffineFunc x zeroE'
 
-var :: b -> BVar b dv dv
+var :: b -> BVar b b
 var x = AffineFunc x anyVar
 
 backprop'' :: forall da dz. BasicVector da => SomeSharedExprWithMap BackFun da dz -> dz -> da
@@ -62,12 +66,23 @@ backprop' dy dv = unsafePerformIO $ do
     g <- runRecoverSharing7 dy -- :: IO (NodeMap.SomeSharedExprWithMap BackFun da dv)
     return (backprop'' (cvtmap g) dv)
 
-backprop :: forall b da dv. (BasicVector da, FullVector dv) => BVar b da dv -> dv -> da
+backprop :: forall b a. (FullVector (GradOf b), BasicVector (GradOf a)) => BVar b a -> GradOf b -> GradOf a
 backprop (AffineFunc _y0 y) dv = case y of
-    x -> backprop' x dv
+    x -> backprop' @(GradOf a) @(GradOf b) x dv
 
-backpropS :: (BasicVector da, FullVector dv, Num dv) => BVar b da dv -> da
-backpropS x = backprop x 1
+backpropS :: forall b a. (Num (GradOf b), FullVector (GradOf b), BasicVector (GradOf a)) => BVar b a -> GradOf a
+backpropS x = backprop @b @a x 1
 
---fstBVar :: BVar (b1, b2) a _v -> BVar b1 a v'
---fstBVar (AffineFunc (b1, _) dv) = AffineFunc b1 (sparseNode (ExprSum [Term fstF1 dv]))
+fst :: forall b1 b2 a. ProdVector (GradOf b1) => BVar (b1, b2) a -> BVar b1 a
+fst (AffineFunc (b1, _) (AnyExpr dv)) = AffineFunc b1 (sparseNode node)
+    where f :: BackFun (GradOf (b1, b2)) (SparseVector (GradOf b1))
+          f = BackFun (\(SparseVector x) -> (Just x, Nothing))
+          node :: Expr BackFun (GradOf a) (SparseVector (GradOf b1))
+          node = ExprSum (dv f)
+
+snd :: forall b1 b2 a. ProdVector (GradOf b2) => BVar (b1, b2) a -> BVar b2 a
+snd (AffineFunc (_, b2) (AnyExpr dv)) = AffineFunc b2 (sparseNode node)
+    where f :: BackFun (GradOf (b1, b2)) (SparseVector (GradOf b2))
+          f = BackFun (\(SparseVector x) -> (Nothing, Just x))
+          node :: Expr BackFun (GradOf a) (SparseVector (GradOf b2))
+          node = ExprSum (dv f)

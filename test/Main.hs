@@ -3,7 +3,7 @@ import Test.Tasty (defaultMain, testGroup, TestTree)
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 
 import qualified Test.Tasty as Tasty
-import BVar.Num (NumBVar(..), backpropNum, constant, var, numbvarValue)
+import BVar.Num (NumBVar(..), backpropNum, constant, var, numbvarValue, AsNum)
 
 basicTests = testGroup "Basic tests"
   [ testCase "Derivative of constant == 0" $ testConstant

@@ -12,7 +12,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 module Expr
 (
-    Expr(..), zeroE, sumExpr2,
+    Expr(..), zeroE, zeroE', sumExpr2,
     Term(..),
     AnyExpr(..),
     anyVar, realExpr, castNode, sparseNode,
@@ -35,11 +35,11 @@ data Expr e a v where
     ExprVar :: Expr e a a
     ExprSum :: BasicVector v => [Term e a v] -> Expr e a v
 
-newtype AnyExpr e a v = AnyExpr (forall x. e v x -> Term e a x)
+newtype AnyExpr e a v = AnyExpr (forall x. e v x -> [Term e a x])
 
 {-# ANN anyVar "HLint: ignore Avoid lambda using `infix`" #-}
 anyVar :: AnyExpr e a a
-anyVar = AnyExpr (\f -> Term f ExprVar)
+anyVar = AnyExpr (\f -> [Term f ExprVar])
 
 anyRelay :: Category e => e u v -> AnyExpr e a u -> AnyExpr e a v
 anyRelay f (AnyExpr g) = AnyExpr (\x -> g (x . f))
@@ -47,7 +47,7 @@ anyRelay f (AnyExpr g) = AnyExpr (\x -> g (x . f))
 
 {-# ANN realExpr "HLint: ignore Avoid lambda using `infix`" #-}
 realExpr :: Expr e a v -> AnyExpr e a v
-realExpr x = AnyExpr (\f -> Term f x)
+realExpr x = AnyExpr (\f -> [Term f x])
 
 newtype SparseVector v = SparseVector { unSparseVector :: VecBuilder v }
 
@@ -61,8 +61,8 @@ castNode
     :: forall a y v. (BasicVector y, VecBuilder v ~ VecBuilder y)
     => Expr BackFun a y -> AnyExpr BackFun a v
 castNode node = AnyExpr go
-    where go :: forall x. BackFun v x -> Term BackFun a x
-          go (BackFun g) = Term (BackFun g) node
+    where go :: forall x. BackFun v x -> [Term BackFun a x]
+          go (BackFun g) = [Term (BackFun g) node]
 
 sparseNode
     :: forall a v. (BasicVector v)
@@ -82,10 +82,13 @@ unarySparseFun ::
     -> AnyExpr BackFun a v
 unarySparseFun f (AnyExpr x) = castNode realNode
     where realNode :: Expr BackFun a (SparseVector v)
-          realNode = ExprSum [x (BackFun f)]
+          realNode = ExprSum (x (BackFun f))
 
 zeroE :: BasicVector dv => Expr e da dv
 zeroE = ExprSum []
+
+zeroE' :: AnyExpr e a v
+zeroE' = AnyExpr (const [])
 
 instance (LinearEdge e, FullVector dv) => AdditiveGroup (Expr e da dv) where
     zeroV = zeroE
@@ -98,14 +101,14 @@ instance FullVector dv => VectorSpace (Expr BackFun da dv) where
     a *^ v = ExprSum [Term (scaleFunc a) v]
 
 instance (LinearEdge e, FullVector dv) => AdditiveGroup (AnyExpr e da dv) where
-    zeroV = realExpr zeroE
-    negateV (AnyExpr x) = realExpr (ExprSum [x negateFunc])
-    AnyExpr x ^+^ AnyExpr y = realExpr (ExprSum [x identityFunc, y identityFunc])
-    AnyExpr x ^-^ AnyExpr y = realExpr (ExprSum [x identityFunc, y negateFunc])
+    zeroV = zeroE'
+    negateV (AnyExpr x) = realExpr (ExprSum (x negateFunc))
+    AnyExpr x ^+^ AnyExpr y = realExpr (ExprSum (x identityFunc <> y identityFunc))
+    AnyExpr x ^-^ AnyExpr y = realExpr (ExprSum (x identityFunc <> y negateFunc))
 
 instance FullVector dv => VectorSpace (AnyExpr BackFun da dv) where
     type Scalar (AnyExpr BackFun da dv) = Scalar dv
-    a *^ AnyExpr v = realExpr (ExprSum [v (scaleFunc a)])
+    a *^ AnyExpr v = realExpr (ExprSum (v (scaleFunc a)))
 
 sumExpr2 :: FullVector dv => [Expr BackFun da dv] -> Expr BackFun da dv
 sumExpr2 xs = ExprSum (wrap <$> xs)

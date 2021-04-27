@@ -17,9 +17,10 @@ import qualified NodeMap
 import Notensor (ProdVector(..), FullVector(..), BasicVector(..), identityFunc, BackFun(BackFun), NumBuilder (NumBuilder, unNumBuilder))
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
-import BVar.Num(var, backpropNum)
+import BVar.Num(var, backpropNum, AsNum (unAsNum))
 import OpenGraph (runRecoverSharing7, OpenGraph)
 import NodeMap
+import Diff (GradOf)
 
 newtype R = R { unR :: Integer }
     deriving (Show, Generic)

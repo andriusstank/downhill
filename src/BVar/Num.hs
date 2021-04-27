@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# language ScopedTypeVariables #-}
@@ -14,13 +15,15 @@ import Data.AffineSpace (AffineSpace(..))
 import Expr (Expr, Expr (ExprVar), AnyExpr, anyVar)
 import Notensor (FullVector(..), ProdVector(..), BasicVector(..), BackFun, NumBuilder (..))
 import EType (Endpoint(SourceNode))
-import Diff (backprop)
+import Diff (backprop, GradOf)
 
 newtype AsNum a = AsNum { unAsNum :: a }
     deriving Show
     deriving Num via a
     deriving Fractional via a
     deriving Floating via a
+
+type instance GradOf (AsNum a) = AsNum a
 
 instance Num a => AdditiveGroup (AsNum a) where
     zeroV = 0
@@ -49,19 +52,19 @@ instance Num a => AffineSpace (AsNum a) where
     AsNum x .-. AsNum y = AsNum (x-y)
     AsNum x .+^ AsNum y = AsNum (x+y)
 
-newtype NumBVar a = NumBVar (AffineFunc a (AnyExpr BackFun (AsNum a) (AsNum a)))
+newtype NumBVar a = NumBVar (AffineFunc (AsNum a) (AnyExpr BackFun (AsNum a) (AsNum a)))
     deriving Num via (AffineFunc (AsNum a) (AnyExpr BackFun (AsNum a) (AsNum a)))
     deriving Fractional via (AffineFunc (AsNum a) (AnyExpr BackFun (AsNum a) (AsNum a)))
     deriving Floating via (AffineFunc (AsNum a) (AnyExpr BackFun (AsNum a) (AsNum a)))
 
 constant :: Num a => a -> NumBVar a
-constant x = NumBVar (AffineFunc x zeroV)
+constant x = NumBVar (AffineFunc (AsNum x) zeroV)
 
 var :: Num a => a -> NumBVar a
-var x = NumBVar (AffineFunc x anyVar)
+var x = NumBVar (AffineFunc (AsNum x) anyVar)
 
-backpropNum :: Num a => NumBVar a -> a
-backpropNum (NumBVar x) = unAsNum $ backprop x 1
+backpropNum :: forall a. Num a => NumBVar a -> a
+backpropNum (NumBVar x) = unAsNum $ backprop @(AsNum a) @(AsNum a) x (AsNum 1)
 
 numbvarValue :: NumBVar a -> a
-numbvarValue (NumBVar (AffineFunc y0 _dy)) = y0
+numbvarValue (NumBVar (AffineFunc y0 _dy)) = unAsNum y0

@@ -57,4 +57,4 @@ runRecoverSharing6 :: forall e a z. (FullVector z, LinearEdge e) => Expr e a z -
 runRecoverSharing6 x = runRecoverSharing5 [Term identityFunc x]
 
 runRecoverSharing7 :: forall e a z. (FullVector z, LinearEdge e) => AnyExpr e a z -> IO (OpenGraph e a z)
-runRecoverSharing7 (AnyExpr x) = runRecoverSharing5 [x identityFunc]
+runRecoverSharing7 (AnyExpr x) = runRecoverSharing5 (x identityFunc)
