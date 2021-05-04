@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 
+{-# LANGUAGE TypeApplications #-}
 module Notensor
 ( BasicVector(..), FullVector(..), Dense(..)
 , NumBuilder(..)
@@ -78,6 +79,11 @@ instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
         ( sumBuilder (catMaybes (fst <$> xs))
         , sumBuilder (catMaybes (snd <$> xs))
         )
+
+instance (Scalar a ~ Scalar b, FullVector a, FullVector b) => FullVector (a, b) where
+    identityBuilder (x, y) = (Just (identityBuilder x), Just (identityBuilder y))
+    negateBuilder (x, y) = (Just (negateBuilder x), Just (negateBuilder y))
+    scaleBuilder a (x, y) = (Just (scaleBuilder a x), Just (scaleBuilder a y))
 
 newtype BackFun u v = BackFun { unBackFun :: v -> VecBuilder u }
 newtype FwdFun u v = FwdFun  {unFwdFun :: u -> VecBuilder v }

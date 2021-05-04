@@ -13,7 +13,7 @@ y0 :: BVarS Double
 y0 = f x0
 
 dy :: Double
-dy = backpropS @Double @Double y0
+dy = backpropS y0
 
 main :: IO ()
 main = do
