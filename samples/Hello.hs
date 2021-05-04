@@ -1,3 +1,5 @@
+{-# language TypeApplications #-}
+
 module Main where
 import Diff
 
@@ -11,7 +13,7 @@ y0 :: BVarS Double
 y0 = f x0
 
 dy :: Double
-dy = backpropS y0
+dy = backpropS @Double @Double y0
 
 main :: IO ()
 main = do
