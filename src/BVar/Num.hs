@@ -41,7 +41,6 @@ instance Num a => VectorSpace (AsNum a) where
 
 instance Num a => BasicVector (AsNum a) where
     type VecBuilder (AsNum a) = NumBuilder a
-    sumBuilder = AsNum . sum . fmap unNumBuilder
     sumBuilder' = AsNum . unNumBuilder
 
 instance Num a => FullVector (AsNum a) where

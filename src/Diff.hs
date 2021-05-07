@@ -116,17 +116,17 @@ backprop (BVar (AffineFunc _y0 x)) = backpropExpr @(GradOf a) @(GradOf b) x
 backpropS :: forall b a. (Num (GradOf b), FullVector (GradOf b), BasicVector (GradOf a)) => BVar a b -> GradOf a
 backpropS x = backprop @b @a x 1
 
-fst :: forall b1 b2 a. BasicVector (GradOf b1) => BVar a (b1, b2) -> BVar a b1
+fst :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar a (b1, b2) -> BVar a b1
 fst (BVar (AffineFunc (b1, _) (BExpr dv))) = BVar (AffineFunc b1 (realBExpr node))
     where f :: SparseVector (GradOf b1) -> GradBuilder (b1, b2)
-          f (SparseVector x) = (Just x, Nothing)
+          f (SparseVector x) = Just (x, mempty)
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b1))
           node = ExprSum (dv f)
 
-snd :: forall b1 b2 a. BasicVector (GradOf b2) => BVar a (b1, b2) -> BVar a b2
+snd :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar a (b1, b2) -> BVar a b2
 snd (BVar (AffineFunc (_, b2) (BExpr dv))) = BVar (AffineFunc b2 (realBExpr node))
     where f :: SparseVector (GradOf b2) -> GradBuilder (b1, b2)
-          f (SparseVector x) = (Nothing, Just x)
+          f (SparseVector x) = Just (mempty, x)
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b2))
           node = ExprSum (dv f)
 
@@ -173,16 +173,21 @@ liftSparseFun2 go (BVar (AffineFunc x0 (AnyExpr dx))) (BVar (AffineFunc y0 (AnyE
           makeEdge = _
 -}
 
-snd' :: forall b1 b2 a. BasicVector (GradOf b2) => BVar a (b1, b2) -> BVar a b2
+snd' :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar a (b1, b2) -> BVar a b2
 snd' = liftSparseFun1 @(b1, b2) @b2 d_snd
-    where d_snd (_, y) = (y, \dy -> (Nothing, Just dy))
+    where d_snd (_, y) = (y, \dy -> Just (mempty, dy))
+
+goFst :: forall b1 b2. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => VecBuilder (GradOf (b1, b2)) -> VecBuilder (GradOf b1)
+goFst = Prelude.fst . maybeToMonoid
+goSnd :: forall b1 b2. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => VecBuilder (GradOf (b1, b2)) -> VecBuilder (GradOf b2)
+goSnd = Prelude.snd . maybeToMonoid
 
 zip :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BVar a (b1, b2)
 zip (BVar (AffineFunc b1 (BExpr db1))) (BVar (AffineFunc b2 (BExpr db2))) = BVar (AffineFunc (b1, b2) (realBExpr node))
     where f1' :: SparseVector (GradOf (b1, b2)) -> VecBuilder (GradOf b1)
           f2' :: SparseVector (GradOf (b1, b2)) -> VecBuilder (GradOf b2)
-          f1' (SparseVector (x, _)) = maybeToMonoid x
-          f2' (SparseVector (_, y)) = maybeToMonoid y
+          f1' (SparseVector x') = goFst @b1 @b2 x'
+          f2' (SparseVector x') = goSnd @b1 @b2 x'
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b1, GradOf b2))
           node = ExprSum (db1 f1' ++ db2 f2')
 
@@ -190,6 +195,6 @@ zip' :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BV
 zip' = liftFun2' @(SparseGrad (b1, b2)) go
     where go x y = ((x, y), getFst, getSnd)
             where getFst :: SparseGrad (b1, b2) -> GradBuilder b1
-                  getFst = maybeToMonoid . Prelude.fst . unSparseVector
+                  getFst = Prelude.fst . maybeToMonoid . unSparseVector --_maybeToMonoid . Prelude.fst . unSparseVector
                   getSnd :: SparseGrad (b1, b2) -> GradBuilder b2
-                  getSnd = maybeToMonoid . Prelude.snd . unSparseVector
+                  getSnd = Prelude.snd . maybeToMonoid . unSparseVector --maybeToMonoid . Prelude.snd . unSparseVector

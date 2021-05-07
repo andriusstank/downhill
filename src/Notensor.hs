@@ -15,8 +15,8 @@ module Notensor
 , maybeToMonoid
 ) where
 import Data.Kind (Type)
-import Data.Maybe (catMaybes, fromMaybe)
-import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..), sumV)
+import Data.Maybe (fromMaybe)
+import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
 
 maybeToMonoid :: Monoid m => Maybe m -> m
 maybeToMonoid = fromMaybe mempty
@@ -24,7 +24,6 @@ maybeToMonoid = fromMaybe mempty
 class Monoid (VecBuilder v) => BasicVector v where
     type VecBuilder v :: Type
     sumBuilder' :: VecBuilder v -> v
-    sumBuilder :: [VecBuilder v] -> v
 
 newtype NumBuilder a = NumBuilder { unNumBuilder :: a }
 
@@ -36,12 +35,10 @@ instance Num a => Monoid (NumBuilder a) where
 
 instance BasicVector Float where
     type VecBuilder Float = NumBuilder Float
-    sumBuilder = sum . fmap unNumBuilder
     sumBuilder' = unNumBuilder
 
 instance BasicVector Double where
     type VecBuilder Double = NumBuilder Double
-    sumBuilder = sum . fmap unNumBuilder
     sumBuilder' = unNumBuilder
 
 class BasicVector v => FullVector v where
@@ -63,7 +60,6 @@ instance AdditiveGroup a => Monoid (VSpaceBuilder a) where
 
 instance AdditiveGroup a => BasicVector (Dense a) where
     type VecBuilder (Dense a) = VSpaceBuilder a
-    sumBuilder = Dense . sumV . fmap unVSpaceBuilder
     sumBuilder' = Dense . unVSpaceBuilder
 
 instance VectorSpace a => FullVector (Dense a) where
@@ -85,10 +81,6 @@ sumPair (a, b) = (sumBuilder' a, sumBuilder' b)
 
 instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
     type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
-    sumBuilder xs = case mconcat xs of
-        Nothing -> (sumBuilder' mempty, sumBuilder' mempty)
-        Just (as, bs) -> (sumBuilder' as, sumBuilder' bs)
-
     sumBuilder' = sumPair . maybeToMonoid
 
 instance (Scalar a ~ Scalar b, FullVector a, FullVector b) => FullVector (a, b) where

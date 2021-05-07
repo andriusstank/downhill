@@ -24,7 +24,7 @@ import NodeMap
     ( NodeSet, NodeMap, NodeKey, SomeItem(SomeItem), List2(List2) )
 import Data.Either (partitionEithers)
 import qualified NodeMap
-import Notensor(FwdFun (unFwdFun), BasicVector (VecBuilder, sumBuilder))
+import Notensor(FwdFun (unFwdFun), BasicVector (VecBuilder, sumBuilder'))
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.Functor.Identity (Identity(Identity, runIdentity))
 
@@ -47,7 +47,7 @@ evalGraph (Graph nodes finalNode) dz = evalNode finalNode
           evalEdge :: Edge (NodeKey s) FwdFun dz dv -> VecBuilder dv
           evalEdge (Edge f tail) = unFwdFun f $ evalParent tail
           evalNode :: Node (NodeKey s) FwdFun dz dv -> dv
-          evalNode (Node xs) = sumBuilder [evalEdge x | x <- xs]
+          evalNode (Node xs) = sumBuilder' (mconcat [evalEdge x | x <- xs])
           evalGraphInnerNodes :: NodeMap s (Node (NodeKey s) FwdFun dz) -> NodeMap s Identity
           evalGraphInnerNodes = NodeMap.mapmap (Identity . evalNode)
           innerValues :: NodeMap s Identity

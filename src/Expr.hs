@@ -22,7 +22,7 @@ where
 import Prelude hiding ((.))
 import Data.VectorSpace (VectorSpace(..),  AdditiveGroup(..), sumV)
 import Data.Constraint
-import Notensor (VecBuilder, FullVector (negateBuilder, identityBuilder, scaleBuilder), BasicVector (sumBuilder, sumBuilder'), BackFun (BackFun))
+import Notensor (VecBuilder, FullVector (negateBuilder, identityBuilder, scaleBuilder), BasicVector (sumBuilder'), BackFun (BackFun))
 import EType (Node(Node), Endpoint (InnerNode, SourceNode), Edge(Edge))
 import Control.Category (Category(..))
 import Data.Coerce (coerce)
@@ -55,7 +55,6 @@ deriving via (VecBuilder v) instance Semigroup (VecBuilder v) => Semigroup (Spar
 
 instance Monoid (VecBuilder v) => BasicVector (SparseVector v) where
     type VecBuilder (SparseVector v) = VecBuilder v
-    sumBuilder xs = SparseVector $ mconcat xs
     sumBuilder' = SparseVector
 
 castNode
