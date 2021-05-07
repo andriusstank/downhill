@@ -177,24 +177,19 @@ snd' :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BV
 snd' = liftSparseFun1 @(b1, b2) @b2 d_snd
     where d_snd (_, y) = (y, \dy -> Just (mempty, dy))
 
-goFst :: forall b1 b2. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => VecBuilder (GradOf (b1, b2)) -> VecBuilder (GradOf b1)
-goFst = Prelude.fst . maybeToMonoid
-goSnd :: forall b1 b2. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => VecBuilder (GradOf (b1, b2)) -> VecBuilder (GradOf b2)
-goSnd = Prelude.snd . maybeToMonoid
-
 zip :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BVar a (b1, b2)
 zip (BVar (AffineFunc b1 (BExpr db1))) (BVar (AffineFunc b2 (BExpr db2))) = BVar (AffineFunc (b1, b2) (realBExpr node))
-    where f1' :: SparseVector (GradOf (b1, b2)) -> VecBuilder (GradOf b1)
-          f2' :: SparseVector (GradOf (b1, b2)) -> VecBuilder (GradOf b2)
-          f1' (SparseVector x') = goFst @b1 @b2 x'
-          f2' (SparseVector x') = goSnd @b1 @b2 x'
-          node :: Expr BackFun (GradOf a) (SparseVector (GradOf b1, GradOf b2))
+    where f1' :: SparseGrad (b1, b2) -> GradBuilder b1
+          f1' = Prelude.fst . maybeToMonoid . unSparseVector
+          f2' :: SparseGrad (b1, b2) -> GradBuilder b2
+          f2' = Prelude.snd . maybeToMonoid . unSparseVector
+          node :: Expr BackFun (GradOf a) (SparseGrad (b1, b2))
           node = ExprSum (db1 f1' ++ db2 f2')
 
 zip' :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BVar a (b1, b2)
 zip' = liftFun2' @(SparseGrad (b1, b2)) go
     where go x y = ((x, y), getFst, getSnd)
             where getFst :: SparseGrad (b1, b2) -> GradBuilder b1
-                  getFst = Prelude.fst . maybeToMonoid . unSparseVector --_maybeToMonoid . Prelude.fst . unSparseVector
+                  getFst = Prelude.fst . maybeToMonoid . unSparseVector
                   getSnd :: SparseGrad (b1, b2) -> GradBuilder b2
-                  getSnd = Prelude.snd . maybeToMonoid . unSparseVector --maybeToMonoid . Prelude.snd . unSparseVector
+                  getSnd = Prelude.snd . maybeToMonoid . unSparseVector
