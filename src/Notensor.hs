@@ -8,18 +8,22 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 
-{-# LANGUAGE TypeApplications #-}
 module Notensor
 ( BasicVector(..), FullVector(..), Dense(..)
 , NumBuilder(..)
 , BackFun(..), FwdFun(..), flipBackFun
+, maybeToMonoid
 ) where
 import Data.Kind (Type)
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..), sumV)
+
+maybeToMonoid :: Monoid m => Maybe m -> m
+maybeToMonoid = fromMaybe mempty
 
 class Monoid (VecBuilder v) => BasicVector v where
     type VecBuilder v :: Type
+    sumBuilder' :: VecBuilder v -> v
     sumBuilder :: [VecBuilder v] -> v
 
 newtype NumBuilder a = NumBuilder { unNumBuilder :: a }
@@ -33,10 +37,12 @@ instance Num a => Monoid (NumBuilder a) where
 instance BasicVector Float where
     type VecBuilder Float = NumBuilder Float
     sumBuilder = sum . fmap unNumBuilder
+    sumBuilder' = unNumBuilder
 
 instance BasicVector Double where
     type VecBuilder Double = NumBuilder Double
     sumBuilder = sum . fmap unNumBuilder
+    sumBuilder' = unNumBuilder
 
 class BasicVector v => FullVector v where
     identityBuilder :: v -> VecBuilder v
@@ -58,6 +64,7 @@ instance AdditiveGroup a => Monoid (VSpaceBuilder a) where
 instance AdditiveGroup a => BasicVector (Dense a) where
     type VecBuilder (Dense a) = VSpaceBuilder a
     sumBuilder = Dense . sumV . fmap unVSpaceBuilder
+    sumBuilder' = Dense . unVSpaceBuilder
 
 instance VectorSpace a => FullVector (Dense a) where
     identityBuilder (Dense x) = VSpaceBuilder x
@@ -78,6 +85,10 @@ instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
     sumBuilder xs =
         ( sumBuilder (catMaybes (fst <$> xs))
         , sumBuilder (catMaybes (snd <$> xs))
+        )
+    sumBuilder' xs =
+        ( sumBuilder' (maybeToMonoid (fst xs))
+        , sumBuilder' (maybeToMonoid (snd xs))
         )
 
 instance (Scalar a ~ Scalar b, FullVector a, FullVector b) => FullVector (a, b) where

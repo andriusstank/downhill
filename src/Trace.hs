@@ -54,6 +54,7 @@ instance VectorSpace R where
 instance BasicVector R where
     type VecBuilder R = NumBuilder R
     sumBuilder = sumV . map unNumBuilder
+    sumBuilder' = unNumBuilder
 
 instance FullVector R where
     identityBuilder = NumBuilder

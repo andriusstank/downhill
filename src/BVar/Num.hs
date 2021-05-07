@@ -27,6 +27,7 @@ newtype AsNum a = AsNum { unAsNum :: a }
 
 instance Num a => HasGrad (AsNum a) where
     type GradOf (AsNum a) = AsNum a
+    evalGrad = (*)
 
 instance Num a => AdditiveGroup (AsNum a) where
     zeroV = 0
@@ -41,6 +42,7 @@ instance Num a => VectorSpace (AsNum a) where
 instance Num a => BasicVector (AsNum a) where
     type VecBuilder (AsNum a) = NumBuilder a
     sumBuilder = AsNum . sum . fmap unNumBuilder
+    sumBuilder' = AsNum . unNumBuilder
 
 instance Num a => FullVector (AsNum a) where
     identityBuilder = NumBuilder . unAsNum
