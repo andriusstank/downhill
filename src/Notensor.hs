@@ -79,22 +79,22 @@ instance FullVector Double where
     identityBuilder = NumBuilder
     negateBuilder = NumBuilder . negate
     scaleBuilder x = NumBuilder . (x*)
-    
+
+sumPair :: (BasicVector a, BasicVector b) => (VecBuilder a, VecBuilder b) -> (a, b)
+sumPair (a, b) = (sumBuilder' a, sumBuilder' b)
+
 instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
-    type VecBuilder (a, b) = (Maybe (VecBuilder a), Maybe (VecBuilder b))
-    sumBuilder xs =
-        ( sumBuilder (catMaybes (fst <$> xs))
-        , sumBuilder (catMaybes (snd <$> xs))
-        )
-    sumBuilder' xs =
-        ( sumBuilder' (maybeToMonoid (fst xs))
-        , sumBuilder' (maybeToMonoid (snd xs))
-        )
+    type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
+    sumBuilder xs = case mconcat xs of
+        Nothing -> (sumBuilder' mempty, sumBuilder' mempty)
+        Just (as, bs) -> (sumBuilder' as, sumBuilder' bs)
+
+    sumBuilder' = sumPair . maybeToMonoid
 
 instance (Scalar a ~ Scalar b, FullVector a, FullVector b) => FullVector (a, b) where
-    identityBuilder (x, y) = (Just (identityBuilder x), Just (identityBuilder y))
-    negateBuilder (x, y) = (Just (negateBuilder x), Just (negateBuilder y))
-    scaleBuilder a (x, y) = (Just (scaleBuilder a x), Just (scaleBuilder a y))
+    identityBuilder (x, y) = Just (identityBuilder x, identityBuilder y)
+    negateBuilder (x, y) = Just (negateBuilder x, negateBuilder y)
+    scaleBuilder a (x, y) = Just (scaleBuilder a x, scaleBuilder a y)
 
 newtype BackFun u v = BackFun { unBackFun :: v -> VecBuilder u }
 newtype FwdFun u v = FwdFun  {unFwdFun :: u -> VecBuilder v }

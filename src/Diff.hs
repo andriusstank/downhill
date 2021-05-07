@@ -133,7 +133,7 @@ snd (BVar (AffineFunc (_, b2) (BExpr dv))) = BVar (AffineFunc b2 (realBExpr node
 data DFunc1 a b = forall x. DFunc1 (a -> (b, VecBuilder b -> x, x -> VecBuilder a))
 data DFunc2 a b c = forall x. (BasicVector x, VecBuilder x ~ VecBuilder (GradOf c)) => DFunc2 (a -> b -> (c, x -> VecBuilder (GradOf a), x -> VecBuilder (GradOf b)))
 
-liftDenseFun1 :: forall c b a. BasicVector (GradOf b) => (c -> (b, GradOf b -> VecBuilder (GradOf c))) -> BVar a c -> BVar a b
+liftDenseFun1 :: forall c b a. BasicVector (GradOf b) => (c -> (b, GradOf b -> GradBuilder c)) -> BVar a c -> BVar a b
 liftDenseFun1 go = liftSparseFun1 go'
     where go' x = let (y, dy) = go x in (y, dy . sumBuilder')
 
