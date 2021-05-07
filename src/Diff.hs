@@ -70,14 +70,14 @@ realBExpr node = BExpr g
     where g :: (x -> VecBuilder v) -> [Term BackFun a x]
           g f = [Term (BackFun f) node]
 
-beToAny :: forall a v. BExpr a (VecBuilder v) -> AnyExpr BackFun a v
-beToAny (BExpr f) = AnyExpr (f . unBackFun)
+beToAny :: forall a v. BExpr a (VecBuilder v) -> AnyExpr a v
+beToAny (BExpr f) = AnyExpr f
 
-newtype BVar a v = BVar (AffineFunc v (AnyExpr BackFun (GradOf a) (GradOf v)))
+newtype BVar a v = BVar (AffineFunc v (AnyExpr (GradOf a) (GradOf v)))
 
-deriving via (AffineFunc v (AnyExpr BackFun (GradOf a) (GradOf v))) instance (Num v, HasGrad v, Scalar v ~ v) => Num (BVar a v)
-deriving via (AffineFunc v (AnyExpr BackFun (GradOf a) (GradOf v))) instance (Fractional v, HasGrad v, Scalar v ~ v) => Fractional (BVar a v)
-deriving via (AffineFunc v (AnyExpr BackFun (GradOf a) (GradOf v))) instance (Floating v, HasGrad v, Scalar v ~ v) => Floating (BVar a v)
+deriving via (AffineFunc v (AnyExpr (GradOf a) (GradOf v))) instance (Num v, HasGrad v, Scalar v ~ v) => Num (BVar a v)
+deriving via (AffineFunc v (AnyExpr (GradOf a) (GradOf v))) instance (Fractional v, HasGrad v, Scalar v ~ v) => Fractional (BVar a v)
+deriving via (AffineFunc v (AnyExpr (GradOf a) (GradOf v))) instance (Floating v, HasGrad v, Scalar v ~ v) => Floating (BVar a v)
 
 type BVarS a = BVar a a
 
@@ -105,7 +105,7 @@ backpropNodeMap m dv = case m of
 bexprEdges :: FullVector v => BExpr a (VecBuilder v) -> [Term BackFun a v]
 bexprEdges (BExpr f) = f identityBuilder
 
-backpropExpr :: forall a v. (BasicVector a, FullVector v) => AnyExpr BackFun a v -> v -> a
+backpropExpr :: forall a v. (BasicVector a, FullVector v) => AnyExpr a v -> v -> a
 backpropExpr f dv = unsafePerformIO $ do
     g <- runRecoverSharing7 f
     return (backpropNodeMap (cvtmap g) dv)
@@ -121,14 +121,14 @@ fst (BVar (AffineFunc (b1, _) (AnyExpr dv))) = BVar (AffineFunc b1 (castNode nod
     where f :: SparseVector (GradOf b1) -> GradBuilder (b1, b2)
           f (SparseVector x) = Just (x, mempty)
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b1))
-          node = ExprSum (dv (BackFun f))
+          node = ExprSum (dv f)
 
 snd :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar a (b1, b2) -> BVar a b2
 snd (BVar (AffineFunc (_, b2) (AnyExpr dv))) = BVar (AffineFunc b2 (castNode node))
     where f :: SparseVector (GradOf b2) -> GradBuilder (b1, b2)
           f (SparseVector x) = Just (mempty, x)
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b2))
-          node = ExprSum (dv (BackFun f))
+          node = ExprSum (dv f)
 
 data DFunc1 a b = forall x. DFunc1 (a -> (b, VecBuilder b -> x, x -> VecBuilder a))
 data DFunc2 a b c = forall x. (BasicVector x, VecBuilder x ~ VecBuilder (GradOf c)) => DFunc2 (a -> b -> (c, x -> VecBuilder (GradOf a), x -> VecBuilder (GradOf b)))
@@ -142,7 +142,7 @@ liftSparseFun1 go (BVar (AffineFunc v0 (AnyExpr dv))) = BVar (AffineFunc y0 (cas
     where f :: SparseVector (GradOf b) -> GradBuilder c
           f = \(SparseVector x) -> goo x
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b))
-          node = ExprSum (dv (BackFun f))
+          node = ExprSum (dv f)
           (y0, goo) = go v0
 
 liftFun1
@@ -152,7 +152,7 @@ liftFun1
 liftFun1 dfun (BVar (AffineFunc a0 (AnyExpr da))) = BVar (AffineFunc z0 (castNode node))
     where (z0, fa) = dfun a0
           node :: Expr BackFun (GradOf r) x
-          node = ExprSum (da (BackFun fa))
+          node = ExprSum (da fa)
 
 liftFun2
     :: forall x r a b z. (BasicVector (GradOf z), BasicVector x, VecBuilder x ~ GradBuilder z)
@@ -161,7 +161,7 @@ liftFun2
 liftFun2 dfun (BVar (AffineFunc a0 (AnyExpr da))) (BVar (AffineFunc b0 (AnyExpr db))) = BVar (AffineFunc z0 (castNode node))
     where (z0, fa, fb) = dfun a0 b0
           node :: Expr BackFun (GradOf r) x
-          node = ExprSum (da (BackFun fa) ++ db (BackFun fb))
+          node = ExprSum (da fa ++ db fb)
 
 
 liftFun3
@@ -171,7 +171,7 @@ liftFun3
 liftFun3 dfun (BVar (AffineFunc a0 (AnyExpr da))) (BVar (AffineFunc b0 (AnyExpr db))) (BVar (AffineFunc c0 (AnyExpr dc))) = BVar (AffineFunc z0 (castNode node))
     where (z0, fa, fb, fc) = dfun a0 b0 c0
           node :: Expr BackFun (GradOf r) x
-          node = ExprSum (da (BackFun fa) ++ db (BackFun fb) ++ dc (BackFun fc))
+          node = ExprSum (da fa ++ db fb ++ dc fc)
 
 snd' :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar a (b1, b2) -> BVar a b2
 snd' = liftSparseFun1 @(b1, b2) @b2 d_snd
@@ -184,7 +184,7 @@ zip (BVar (AffineFunc b1 (AnyExpr db1))) (BVar (AffineFunc b2 (AnyExpr db2))) = 
           f2' :: SparseGrad (b1, b2) -> GradBuilder b2
           f2' = Prelude.snd . maybeToMonoid . unSparseVector
           node :: Expr BackFun (GradOf a) (SparseGrad (b1, b2))
-          node = ExprSum (db1 (BackFun f1') ++ db2 (BackFun f2'))
+          node = ExprSum (db1 f1' ++ db2 f2')
 
 zip' :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BVar a (b1, b2)
 zip' = liftFun2 @(SparseGrad (b1, b2)) go

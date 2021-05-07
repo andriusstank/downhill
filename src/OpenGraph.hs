@@ -50,5 +50,5 @@ runRecoverSharing5 xs = do
         (final_node, graph) <- Sharing.runTreeBuilder (goEdges xs)
         return (OpenGraph final_node graph)
 
-runRecoverSharing7 :: forall a z. FullVector z => AnyExpr BackFun a z -> IO (OpenGraph BackFun a z)
-runRecoverSharing7 (AnyExpr x) = runRecoverSharing5 (x (BackFun identityBuilder))
+runRecoverSharing7 :: forall a z. FullVector z => AnyExpr a z -> IO (OpenGraph BackFun a z)
+runRecoverSharing7 (AnyExpr x) = runRecoverSharing5 (x identityBuilder)
