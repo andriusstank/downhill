@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -19,6 +20,7 @@ module Diff
     constant, var,
     backprop, backpropS,
     fst, snd, zip,
+    easyLift2
 )
 where
 import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(AnyExpr), anyVar, realExpr, castNode, sparseNode, SparseVector (SparseVector, unSparseVector), zeroE', zeroE)
@@ -38,6 +40,8 @@ import Data.Coerce (coerce, Coercible)
 import OpenGraph (runRecoverSharing7, OpenGraph, runRecoverSharing5)
 import Data.Kind (Type)
 import Data.Maybe (fromMaybe)
+import Data.Reflection (Reifies(reflect), reify)
+import Data.Proxy (Proxy(Proxy))
 
 -- add `Scalar v ~ Scalar (GradOf v)` or not?
 class (FullVector (GradOf v), Scalar (GradOf v) ~ Scalar v) => HasGrad v where
@@ -116,12 +120,13 @@ backprop (BVar (AffineFunc _y0 x)) = backpropExpr @(GradOf a) @(GradOf b) x
 backpropS :: forall b a. (Num (GradOf b), FullVector (GradOf b), BasicVector (GradOf a)) => BVar a b -> GradOf a
 backpropS x = backprop @b @a x 1
 
+intoFst :: Monoid x => (SparseVector v -> Maybe (VecBuilder v, x))
+intoFst (SparseVector dx) = Just (dx, mempty)
+
 fst :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar a (b1, b2) -> BVar a b1
-fst (BVar (AffineFunc (b1, _) (AnyExpr dv))) = BVar (AffineFunc b1 (castNode node))
-    where f :: SparseVector (GradOf b1) -> GradBuilder (b1, b2)
-          f (SparseVector x) = Just (x, mempty)
-          node :: Expr BackFun (GradOf a) (SparseVector (GradOf b1))
-          node = ExprSum (dv f)
+fst = liftFun1 @(SparseGrad b1) (go . Prelude.fst)
+    where go :: b1 -> (b1, SparseGrad b1 -> GradBuilder (b1, b2))
+          go x = (x, intoFst)
 
 snd :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar a (b1, b2) -> BVar a b2
 snd (BVar (AffineFunc (_, b2) (AnyExpr dv))) = BVar (AffineFunc b2 (castNode node))
@@ -154,15 +159,59 @@ liftFun1 dfun (BVar (AffineFunc a0 (AnyExpr da))) = BVar (AffineFunc z0 (castNod
           node :: Expr BackFun (GradOf r) x
           node = ExprSum (da fa)
 
-liftFun2
+-- x -> (GradBuilder a, GradBuilder b) is bad, because it misleadinhly suggests the function will only be called once
+liftFunX2
     :: forall x r a b z. (BasicVector (GradOf z), BasicVector x, VecBuilder x ~ GradBuilder z)
     => (a -> b -> (z, x -> GradBuilder a, x -> GradBuilder b))
     -> BVar r a -> BVar r b -> BVar r z
-liftFun2 dfun (BVar (AffineFunc a0 (AnyExpr da))) (BVar (AffineFunc b0 (AnyExpr db))) = BVar (AffineFunc z0 (castNode node))
+liftFunX2 dfun (BVar (AffineFunc a0 (AnyExpr da))) (BVar (AffineFunc b0 (AnyExpr db))) = BVar (AffineFunc z0 (castNode node))
     where (z0, fa, fb) = dfun a0 b0
           node :: Expr BackFun (GradOf r) x
           node = ExprSum (da fa ++ db fb)
 
+data BuilderPair s a b z = BuilderPair (VecBuilder a) (VecBuilder b)
+
+newtype Fun2 a b z = Fun2 (z -> (VecBuilder a, VecBuilder b))
+
+instance (Reifies s (Fun2 a b z), BasicVector z) => BasicVector (BuilderPair s a b z) where
+    type VecBuilder (BuilderPair s a b z) = VecBuilder z
+    sumBuilder' zbs = wrap (f z)
+        where z = sumBuilder' zbs :: z
+              wrap (a, b) = BuilderPair a b
+              Fun2 f = reflect (Proxy :: Proxy s):: Fun2 a b z
+
+builderPairFst :: BuilderPair s a b z -> VecBuilder a
+builderPairFst (BuilderPair x _) = x
+
+builderPairSnd :: BuilderPair s a b z -> VecBuilder b
+builderPairSnd (BuilderPair _ y) = y
+
+
+builderPairExpr' :: forall r a b z. (BasicVector z) => Fun2 a b z -> (AnyExpr r a, AnyExpr r b) -> AnyExpr r z
+builderPairExpr' f (t1, t2) = reify f go
+    where go :: forall s. Reifies s (Fun2 a b z) => Proxy s -> AnyExpr r z
+          go _ = castNode (ExprSum (mkT1 t1 ++ mkT2 t2) :: Expr BackFun r (BuilderPair s a b z))
+          mkT1 :: forall s. AnyExpr r a -> [Term BackFun r (BuilderPair s a b z)]
+          mkT1 (AnyExpr g) = g builderPairFst
+          mkT2 :: forall s. AnyExpr r b -> [Term BackFun r (BuilderPair s a b z)]
+          mkT2 (AnyExpr g) = g builderPairSnd
+
+easyLift2 :: forall r a b z. BasicVector z => (z -> (VecBuilder a, VecBuilder b)) -> AnyExpr r a -> AnyExpr r b -> AnyExpr r z
+easyLift2 f a b = builderPairExpr' (Fun2 f) (a, b)
+
+liftDenseFun2
+    :: forall r a b z. (BasicVector (GradOf z))
+    => (a -> b -> (z, GradOf z -> GradBuilder a,GradOf z -> GradBuilder b))
+    -> BVar r a -> BVar r b -> BVar r z
+liftDenseFun2 = liftFunX2 @(GradOf z)
+
+liftSparseFun2
+    :: forall r a b z. (BasicVector (GradOf z))
+    => (a -> b -> (z, GradBuilder z -> GradBuilder a, GradBuilder z -> GradBuilder b))
+    -> BVar r a -> BVar r b -> BVar r z
+liftSparseFun2 f = liftFunX2 @(SparseGrad z) f'
+    where f' a b = (z, da . unSparseVector, db . unSparseVector)
+            where (z, da, db) = f a b
 
 liftFun3
     :: forall x r a b c z. (BasicVector (GradOf c), BasicVector x, VecBuilder x ~ GradBuilder z)
@@ -178,18 +227,6 @@ snd' = liftSparseFun1 @(b1, b2) @b2 d_snd
     where d_snd (_, y) = (y, \dy -> Just (mempty, dy))
 
 zip :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BVar a (b1, b2)
-zip (BVar (AffineFunc b1 (AnyExpr db1))) (BVar (AffineFunc b2 (AnyExpr db2))) = BVar (AffineFunc (b1, b2) (castNode node))
-    where f1' :: SparseGrad (b1, b2) -> GradBuilder b1
-          f1' = Prelude.fst . maybeToMonoid . unSparseVector
-          f2' :: SparseGrad (b1, b2) -> GradBuilder b2
-          f2' = Prelude.snd . maybeToMonoid . unSparseVector
-          node :: Expr BackFun (GradOf a) (SparseGrad (b1, b2))
-          node = ExprSum (db1 f1' ++ db2 f2')
-
-zip' :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BVar a (b1, b2)
-zip' = liftFun2 @(SparseGrad (b1, b2)) go
-    where go x y = ((x, y), getFst, getSnd)
-            where getFst :: SparseGrad (b1, b2) -> GradBuilder b1
-                  getFst = Prelude.fst . maybeToMonoid . unSparseVector
-                  getSnd :: SparseGrad (b1, b2) -> GradBuilder b2
-                  getSnd = Prelude.snd . maybeToMonoid . unSparseVector
+zip = liftSparseFun2 go
+    where go :: b1 -> b2 -> ((b1, b2), Maybe (VecBuilder (GradOf b1), VecBuilder (GradOf b2)) -> VecBuilder (GradOf b1), Maybe (VecBuilder (GradOf b1), VecBuilder (GradOf b2)) -> VecBuilder (GradOf b2))
+          go b1 b2 = ((b1, b2), Prelude.fst . maybeToMonoid, Prelude.snd . maybeToMonoid)
