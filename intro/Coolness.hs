@@ -12,10 +12,9 @@
 {-# LANGUAGE DerivingVia #-}
 module Coolness
 where
-import Data.AdditiveGroup (sumV, AdditiveGroup (negateV))
+import Data.AdditiveGroup (sumV, AdditiveGroup)
 --import Tensor (AFunction, Bilinear(..), Vec(..), Bilinear'', transposeFunc)
 import Data.Kind (Type)
-import Data.VectorSpace (VectorSpace (Scalar, (*^)))
 
 
 class Bilinear u v where
@@ -26,10 +25,10 @@ newtype Vec dx = Vec { unVec :: dx }
     deriving Show
     deriving AdditiveGroup via dx
 
+--type family Vec dx where
+    --Vec dx = dx
+
 data AFunction u du v dv where
-    IndentityFunc :: AFunction u du u du
-    NegateFunc :: (AdditiveGroup u, AdditiveGroup du) => AFunction u du u du
-    ScaleFunc :: forall a v dv. (VectorSpace v, VectorSpace dv, a ~ Scalar v, a ~ Scalar dv) => a -> AFunction v dv v dv
     BlackBoxFunc :: (u -> v) -> (dv -> du) -> AFunction u du v dv
 
 data Expr a da v dv where
@@ -47,16 +46,10 @@ instance Bilinear (Expr a da v dv) (Vec a) where
 
 instance Bilinear (AFunction u du v dv) (Vec u) where
     type (AFunction u du v dv) ✕ (Vec u) = Vec v
-    IndentityFunc ✕ x = x
-    NegateFunc ✕ Vec x = Vec (negateV x)
-    ScaleFunc a ✕ Vec v = Vec (a *^ v)
     (BlackBoxFunc f _) ✕ Vec x = Vec (f x)
 
 instance Bilinear (Vec dv) (AFunction u du v dv) where
     type (Vec dv) ✕ (AFunction u du v dv) = Vec du
-    x ✕ IndentityFunc = x
-    Vec x ✕ NegateFunc = Vec (negateV x)
-    Vec v ✕ ScaleFunc a = Vec (a *^ v)
     Vec x ✕ (BlackBoxFunc _ f) = Vec (f x)
 
 -- Substitute
@@ -77,9 +70,6 @@ instance AdditiveGroup da => Bilinear (Vec dv) (Expr a da v dv) where
 
 transposeFunc :: AFunction u v du dv -> AFunction dv du v u
 transposeFunc = \case
-    IndentityFunc -> IndentityFunc
-    NegateFunc -> NegateFunc
-    ScaleFunc x -> ScaleFunc x
     BlackBoxFunc f g -> BlackBoxFunc g f
 
 transposeExpr :: AdditiveGroup da => Expr a da v dv -> Expr dv v da a
