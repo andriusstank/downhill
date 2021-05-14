@@ -1,25 +1,36 @@
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE FunctionalDependencies #-}
+
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
+
+{-# LANGUAGE DerivingVia #-}
 module Coolness
 where
-import Data.AdditiveGroup (sumV, AdditiveGroup)
-import Tensor (AFunction, Bilinear(..), Vec(..), Bilinear'', transposeFunc)
-import Data.Constraint (Dict(Dict), (:-)(Sub))
+import Data.AdditiveGroup (sumV, AdditiveGroup (negateV))
+--import Tensor (AFunction, Bilinear(..), Vec(..), Bilinear'', transposeFunc)
+import Data.Kind (Type)
+import Data.VectorSpace (VectorSpace (Scalar, (*^)))
 
-{-
-class Bilinear u v w | u v -> w where
-  (✕) :: u -> v -> w
 
-class Bilinear u v (u✕v) => Bilinear' u v where
+class Bilinear u v where
   type u ✕ v :: Type
--}
+  (✕) :: u -> v -> u ✕ v
+
+newtype Vec dx = Vec { unVec :: dx }
+    deriving Show
+    deriving AdditiveGroup via dx
+
+data AFunction u du v dv where
+    IndentityFunc :: AFunction u du u du
+    NegateFunc :: (AdditiveGroup u, AdditiveGroup du) => AFunction u du u du
+    ScaleFunc :: forall a v dv. (VectorSpace v, VectorSpace dv, a ~ Scalar v, a ~ Scalar dv) => a -> AFunction v dv v dv
+    BlackBoxFunc :: (u -> v) -> (dv -> du) -> AFunction u du v dv
 
 data Expr a da v dv where
     Variable :: Expr a da a da
@@ -33,6 +44,20 @@ instance Bilinear (Expr a da v dv) (Vec a) where
         Variable -> a
         Func f x -> f ✕ (x ✕ a)
         Sum xs -> sumV [x ✕ a | x <- xs]
+
+instance Bilinear (AFunction u du v dv) (Vec u) where
+    type (AFunction u du v dv) ✕ (Vec u) = Vec v
+    IndentityFunc ✕ x = x
+    NegateFunc ✕ Vec x = Vec (negateV x)
+    ScaleFunc a ✕ Vec v = Vec (a *^ v)
+    (BlackBoxFunc f _) ✕ Vec x = Vec (f x)
+
+instance Bilinear (Vec dv) (AFunction u du v dv) where
+    type (Vec dv) ✕ (AFunction u du v dv) = Vec du
+    x ✕ IndentityFunc = x
+    Vec x ✕ NegateFunc = Vec (negateV x)
+    Vec v ✕ ScaleFunc a = Vec (a *^ v)
+    Vec x ✕ (BlackBoxFunc _ f) = Vec (f x)
 
 -- Substitute
 instance Bilinear (Expr x dx v dv) (Expr a da x dx) where
@@ -50,43 +75,17 @@ instance AdditiveGroup da => Bilinear (Vec dv) (Expr a da v dv) where
         Func f x -> (dv ✕ f) ✕ x
         Sum xs -> sumV [dv ✕ x | x <- xs]
 
-instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction (Expr u du v dv) u v du dv
+transposeFunc :: AFunction u v du dv -> AFunction dv du v u
+transposeFunc = \case
+    IndentityFunc -> IndentityFunc
+    NegateFunc -> NegateFunc
+    ScaleFunc x -> ScaleFunc x
+    BlackBoxFunc f g -> BlackBoxFunc g f
 
-
--- f: u -> v
--- dv ~ Dual b v
--- du ~ Dual b u
---  f ✕ u ::  v
--- dv ✕ f :: du
--- (dv ✕ f) ✕ u == dv ✕ (f ✕ u)
-class
-  ( AdditiveGroup u
-  , AdditiveGroup v
-  , AdditiveGroup du
-  , AdditiveGroup dv
-  , Bilinear'' f (Vec u) (Vec v)
-  , Bilinear'' (Vec dv) f (Vec du)
-  ) => LinearFunction f u v du dv where
-
-class Bilinear'' (Vec dv) (Vec v) (Vec b) => BVector b v dv where
-
-class
-  ( 
-  ) => LinearFunction' f where
-    transpose :: LinearFunction (f u du v dv) u v du dv => f u du v dv -> f dv v du u
-    transposeC :: LinearFunction (f u du v dv) u v du dv :- LinearFunction (f dv v du u) dv du v u
-
-instance (AdditiveGroup u, AdditiveGroup du, AdditiveGroup v, AdditiveGroup dv) => LinearFunction (AFunction u du v dv) u v du dv
-
-instance LinearFunction' AFunction where
-    transpose = transposeFunc
-    transposeC = Sub Dict
-
-instance LinearFunction' Expr where
-    transpose = \case
-        Variable -> Variable
-        Func f x -> x' ✕ f'
-            where x' = transpose x
-                  f' = Func (transpose f) Variable
-        Sum xs -> Sum (transpose <$> xs)
-    transposeC = Sub Dict
+transposeExpr :: AdditiveGroup da => Expr a da v dv -> Expr dv v da a
+transposeExpr = \case
+    Variable -> Variable
+    Func f x -> x' ✕ f'
+        where x' = transposeExpr x
+              f' = Func (transposeFunc f) Variable
+    Sum xs -> Sum (transposeExpr <$> xs)
