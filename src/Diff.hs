@@ -79,17 +79,17 @@ realBExpr node = BExpr g
 beToAny :: forall a v. BExpr a (VecBuilder v) -> AnyExpr a v
 beToAny (BExpr f) = AnyExpr f
 
-data ExprDiffSym0 a :: Type ~> Type
-type instance Apply (ExprDiffSym0 a) v = AnyExpr (GradOf a) (GradOf v)
+data BackGrad a :: Type ~> Type
+type instance Apply (BackGrad a) v = AnyExpr (GradOf a) (GradOf v)
 
-data BackGrad a v = BackGrad (forall x. (x -> GradBuilder v) -> [Term BackFun (GradOf a) x])
+--data BackGrad a v = BackGrad (forall x. (x -> GradBuilder v) -> [Term BackFun (GradOf a) x])
 
-newtype BVar a v = BVar (AffineFunc (ExprDiffSym0 a) v)
+newtype BVar a v = BVar (AffineFunc (BackGrad a) v)
 
-deriving via (AffineFunc (ExprDiffSym0 a) v) instance (Num v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Num (BVar a v)
-deriving via (AffineFunc (ExprDiffSym0 a) v) instance (Fractional v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Fractional (BVar a v)
-deriving via (AffineFunc (ExprDiffSym0 a) v) instance (Floating v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Floating (BVar a v)
-deriving via (AffineFunc (ExprDiffSym0 a) v) instance (AdditiveGroup v, FullVector (GradOf v)) => AdditiveGroup (BVar a v)
+deriving via (AffineFunc (BackGrad a) v) instance (Num v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Num (BVar a v)
+deriving via (AffineFunc (BackGrad a) v) instance (Fractional v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Fractional (BVar a v)
+deriving via (AffineFunc (BackGrad a) v) instance (Floating v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Floating (BVar a v)
+deriving via (AffineFunc (BackGrad a) v) instance (AdditiveGroup v, FullVector (GradOf v)) => AdditiveGroup (BVar a v)
 
 type BVarS a = BVar a a
 
