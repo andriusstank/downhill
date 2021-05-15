@@ -66,4 +66,4 @@ backpropNum :: forall a. Num a => NumBVar a -> a
 backpropNum (NumBVar x) = unAsNum $ backprop @(AsNum a) @(AsNum a) x (AsNum 1)
 
 numbvarValue :: NumBVar a -> a
-numbvarValue (NumBVar (BVar (AffineFunc y0 _dy))) = unAsNum y0
+numbvarValue (NumBVar (AffineFunc y0 _dy)) = unAsNum y0
