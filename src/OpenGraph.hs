@@ -48,3 +48,4 @@ runRecoverSharing5 :: forall e a z. BasicVector z => [Term e a z] -> IO (OpenGra
 runRecoverSharing5 xs = do
         (final_node, graph) <- Sharing.runTreeBuilder (goEdges xs)
         return (OpenGraph final_node graph)
+
