@@ -7,11 +7,10 @@
 module OpenGraph (
     OpenArg, OpenTerm, OpenExpr,
     OpenGraph(..),
-    runRecoverSharing5,
-    runRecoverSharing7
+    runRecoverSharing5
 )
 where
-import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(..))
+import Expr(Expr(ExprSum, ExprVar), Term(..))
 import Sharing (BuildAction(BuildAction), TreeBuilder, BuildAction'(..))
 import qualified Sharing
 import Prelude hiding (lookup)
@@ -49,6 +48,3 @@ runRecoverSharing5 :: forall e a z. BasicVector z => [Term e a z] -> IO (OpenGra
 runRecoverSharing5 xs = do
         (final_node, graph) <- Sharing.runTreeBuilder (goEdges xs)
         return (OpenGraph final_node graph)
-
-runRecoverSharing7 :: forall a z. FullVector z => AnyExpr a z -> IO (OpenGraph BackFun a z)
-runRecoverSharing7 (AnyExpr x) = runRecoverSharing5 (x identityBuilder)

@@ -39,9 +39,11 @@ instance (AdditiveGroup b, AdditiveGroup (d @@ b)) => AdditiveGroup (DVar d b) w
     DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
     DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (VectorSpace b, VectorSpace (d @@ b), d @@ Scalar b ~ Scalar b, (d@@b) ~ b) => VectorSpace (DVar d b) where
-    type Scalar (DVar d b) = DVar d (Scalar b)
-    DVar a da *^ DVar v dv = DVar (a*^v) ( (da*^v) ^+^ (a*^dv))
+{-
+instance (VectorSpace v, VectorSpace (d @@ v)) => VectorSpace (DVar d v) where
+    type Scalar (DVar d v) = DVar d (Scalar v)
+    DVar a da *^ DVar v dv = DVar (a*^v) ( (_ da v) ^+^ (a*^dv))
+-}
 
 instance (Num b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Num (DVar d b) where
     (DVar f0 df) + (DVar g0 dg) = DVar (f0+g0) (df ^+^ dg)

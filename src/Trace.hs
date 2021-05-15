@@ -18,7 +18,7 @@ import Notensor (FullVector(..), BasicVector(..), BackFun(BackFun), NumBuilder (
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum, AsNum (unAsNum))
-import OpenGraph (runRecoverSharing7, OpenGraph)
+import OpenGraph (OpenGraph)
 import NodeMap
 import Diff (GradOf)
 

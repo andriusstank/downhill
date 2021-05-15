@@ -37,7 +37,7 @@ import Data.VectorSpace (AdditiveGroup(..), Scalar, VectorSpace(..))
 import ExprWalker ()
 import Graph (SomeGraph(SomeGraph), evalGraph)
 import Data.Coerce (coerce, Coercible)
-import OpenGraph (runRecoverSharing7, OpenGraph, runRecoverSharing5)
+import OpenGraph (OpenGraph, runRecoverSharing5)
 import Data.Kind (Type)
 import Data.Maybe (fromMaybe)
 import Data.Reflection (Reifies(reflect), reify)
@@ -68,53 +68,34 @@ instance (Scalar u ~ Scalar v, AdditiveGroup (GradOf (Scalar v)), HasGrad u, Has
     evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
 
 
-newtype BExpr a vb = BExpr (forall x. (x->vb) -> [Term BackFun a x])
-
-realBExpr :: forall a v. Expr BackFun a v -> BExpr a (VecBuilder v)
-realBExpr node = BExpr g
-    where g :: (x -> VecBuilder v) -> [Term BackFun a x]
-          g f = [Term (BackFun f) node]
-
-beToAny :: forall a v. BackGrad a v -> AnyExpr (GradOf a) (GradOf v)
-beToAny (BackGrad f) = AnyExpr f
-
-anyToBe :: forall a v. AnyExpr (GradOf a) (GradOf v) -> BackGrad a v
-anyToBe (AnyExpr f) = BackGrad f
-
---data BackGrad a :: Type ~> Type
---type instance Apply (BackGrad a) v = AnyExpr (GradOf a) (GradOf v)
 
 newtype BackGrad a v = BackGrad (forall x. (x -> GradBuilder v) -> [Term BackFun (GradOf a) x])
 
 type BVar a v = DVar (TyCon1 (BackGrad a)) v
 
+realGradNode :: Expr BackFun (GradOf a) (GradOf v) -> BackGrad a v
+realGradNode x = BackGrad (\f -> [Term (BackFun f) x])
+
+castGradNode :: forall r v z. (BasicVector v, GradBuilder z ~ VecBuilder v) => Expr BackFun (GradOf r) v -> BackGrad r z
+castGradNode node = BackGrad go
+    where go :: forall x. (x -> GradBuilder z) -> [Term BackFun (GradOf r) x]
+          go g = [Term (BackFun g) node]
+
+
 instance (HasGrad v) => AdditiveGroup (BackGrad a v) where
-    zeroV = anyToBe zeroE'
-    negateV (BackGrad x) = anyToBe $ realExpr (ExprSum (x negateBuilder))
-    BackGrad x ^+^ BackGrad y = anyToBe $ realExpr (ExprSum (x identityBuilder <> y identityBuilder))
-    BackGrad x ^-^ BackGrad y = anyToBe $ realExpr (ExprSum (x identityBuilder <> y negateBuilder))
+    zeroV = BackGrad (const [])
+    negateV (BackGrad x) = realGradNode (ExprSum (x negateBuilder))
+    BackGrad x ^+^ BackGrad y = realGradNode (ExprSum (x identityBuilder <> y identityBuilder))
+    BackGrad x ^-^ BackGrad y = realGradNode (ExprSum (x identityBuilder <> y negateBuilder))
 
 instance HasGrad v => VectorSpace (BackGrad a v) where
     type Scalar (BackGrad a v) = Scalar (GradOf v)
-    a *^ BackGrad v = anyToBe $ realExpr (ExprSum (v (scaleBuilder a)))
-
-{-
-deriving via (AffineFunc (BackGrad a) v) instance (Num v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Num (BVar a v)
-deriving via (AffineFunc (BackGrad a) v) instance (Fractional v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Fractional (BVar a v)
-deriving via (AffineFunc (BackGrad a) v) instance (Floating v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Floating (BVar a v)
-deriving via (AffineFunc (BackGrad a) v) instance (AdditiveGroup v, FullVector (GradOf v)) => AdditiveGroup (BVar a v)
--}
+    a *^ BackGrad v = realGradNode (ExprSum (v (scaleBuilder a)))
 
 type BVarS a = BVar a a
 
 bvarValue :: BVar a v -> v
 bvarValue (DVar y0 _) = y0
-
-zeroBe :: BExpr a vb
-zeroBe = BExpr (const [])
-
-anyBVar :: BExpr a (VecBuilder a)
-anyBVar = BExpr (\f -> [Term (BackFun f) ExprVar])
 
 constant :: a -> BVar a a
 constant x = DVar x (BackGrad (const []))
@@ -128,17 +109,13 @@ backpropNodeMap m dv = case m of
         where backGraph = Graph.Graph smap expr
               fwdGraph = Graph.flipGraph flipBackFun backGraph
 
-bexprEdges :: FullVector v => BExpr a (VecBuilder v) -> [Term BackFun a v]
-bexprEdges (BExpr f) = f identityBuilder
-
-
-backpropExpr :: forall a v. (BasicVector a, FullVector v) => AnyExpr a v -> v -> a
-backpropExpr f dv = unsafePerformIO $ do
-    g <- runRecoverSharing7 f
+backpropExpr :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> GradOf v -> GradOf a
+backpropExpr (BackGrad f) dv = unsafePerformIO $ do
+    g <- runRecoverSharing5 (f identityBuilder)
     return (backpropNodeMap (cvtmap g) dv)
 
 backprop :: forall b a. (FullVector (GradOf b), BasicVector (GradOf a)) => BVar a b -> GradOf b -> GradOf a
-backprop (DVar _y0 x) = backpropExpr @(GradOf a) @(GradOf b) (beToAny x)
+backprop (DVar _y0 x) = backpropExpr x
 
 backpropS :: forall b a. (Num (GradOf b), FullVector (GradOf b), BasicVector (GradOf a)) => BVar a b -> GradOf a
 backpropS x = backprop @b @a x 1
@@ -152,7 +129,7 @@ fst = liftFun1 @(SparseGrad b1) (go . Prelude.fst)
           go x = (x, intoFst)
 
 snd :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar a (b1, b2) -> BVar a b2
-snd (DVar (_, b2) (BackGrad dv)) = DVar b2 (anyToBe $ castNode node)
+snd (DVar (_, b2) (BackGrad dv)) = DVar b2 (castGradNode node)
     where f :: SparseVector (GradOf b2) -> GradBuilder (b1, b2)
           f (SparseVector x) = Just (mempty, x)
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b2))
@@ -166,7 +143,7 @@ liftDenseFun1 go = liftSparseFun1 go'
     where go' x = let (y, dy) = go x in (y, dy . sumBuilder')
 
 liftSparseFun1 :: forall c b a. BasicVector (GradOf b) => (c -> (b, VecBuilder (GradOf b) -> VecBuilder (GradOf c))) -> BVar a c -> BVar a b
-liftSparseFun1 go (DVar v0 (BackGrad dv)) = DVar y0 (anyToBe $ castNode node)
+liftSparseFun1 go (DVar v0 (BackGrad dv)) = DVar y0 (castGradNode node)
     where f :: SparseVector (GradOf b) -> GradBuilder c
           f = \(SparseVector x) -> goo x
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b))
@@ -177,7 +154,7 @@ liftFun1
     :: forall x r a z. (BasicVector (GradOf z), BasicVector x, VecBuilder x ~ GradBuilder z)
     => (a -> (z, x -> GradBuilder a))
     -> BVar r a -> BVar r z
-liftFun1 dfun (DVar a0 (BackGrad da)) = DVar z0 (anyToBe $ castNode node)
+liftFun1 dfun (DVar a0 (BackGrad da)) = DVar z0 (castGradNode node)
     where (z0, fa) = dfun a0
           node :: Expr BackFun (GradOf r) x
           node = ExprSum (da fa)
@@ -187,7 +164,7 @@ liftFunX2
     :: forall x r a b z. (BasicVector (GradOf z), BasicVector x, VecBuilder x ~ GradBuilder z)
     => (a -> b -> (z, x -> GradBuilder a, x -> GradBuilder b))
     -> BVar r a -> BVar r b -> BVar r z
-liftFunX2 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) = DVar z0 (anyToBe $ castNode node)
+liftFunX2 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) = DVar z0 (castGradNode node)
     where (z0, fa, fb) = dfun a0 b0
           node :: Expr BackFun (GradOf r) x
           node = ExprSum (da fa ++ db fb)
@@ -240,7 +217,7 @@ liftFun3
     :: forall x r a b c z. (BasicVector (GradOf c), BasicVector x, VecBuilder x ~ GradBuilder z)
     => (a -> b -> c -> (z, x -> GradBuilder a, x -> GradBuilder b, x -> GradBuilder c))
     -> BVar r a -> BVar r b -> BVar r c -> BVar r z
-liftFun3 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) (DVar c0 (BackGrad dc)) = DVar z0 (anyToBe $ castNode node)
+liftFun3 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) (DVar c0 (BackGrad dc)) = DVar z0 (castGradNode node)
     where (z0, fa, fb, fc) = dfun a0 b0 c0
           node :: Expr BackFun (GradOf r) x
           node = ExprSum (da fa ++ db fb ++ dc fc)
@@ -256,7 +233,7 @@ zip = liftSparseFun2 go
 
 instance (VectorSpace v, VectorSpace (GradOf v), FullVector (GradOf (Scalar v)), GradOf (Scalar v) ~ Scalar v, FullVector (GradOf v), HasGrad v) => VectorSpace (BVar a v) where
     type Scalar (BVar a v) = BVar a (Scalar v)
-    DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (anyToBe $ realExpr node)
+    DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castGradNode node)
         where node :: Expr BackFun (GradOf a) (GradOf v)
               node = ExprSum (term1 ++ term2)
                 where term1 :: [Term BackFun (GradOf a) (GradOf v)]
