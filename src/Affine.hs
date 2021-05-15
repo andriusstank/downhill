@@ -31,21 +31,15 @@ import Data.Singletons(type (~>), type (@@), TyCon1, Apply)
 import Data.Proxy (Proxy(Proxy))
 
 
-data DVar (d :: Type ~> Type) b = DVar b (d@@b)
+data DVar (d :: Type -> Type) a = DVar a (d a)
 
-instance (AdditiveGroup b, AdditiveGroup (d @@ b)) => AdditiveGroup (DVar d b) where
+instance (AdditiveGroup b, AdditiveGroup (d b)) => AdditiveGroup (DVar d b) where
     zeroV = DVar zeroV zeroV
     negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
     DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
     DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
 
-{-
-instance (VectorSpace v, VectorSpace (d @@ v)) => VectorSpace (DVar d v) where
-    type Scalar (DVar d v) = DVar d (Scalar v)
-    DVar a da *^ DVar v dv = DVar (a*^v) ( (_ da v) ^+^ (a*^dv))
--}
-
-instance (Num b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Num (DVar d b) where
+instance (Num b, VectorSpace (d b), b ~ Scalar (d b)) => Num (DVar d b) where
     (DVar f0 df) + (DVar g0 dg) = DVar (f0+g0) (df ^+^ dg)
     (DVar f0 df) - (DVar g0 dg) = DVar (f0-g0) (df ^-^ dg)
     (DVar f0 df) * (DVar g0 dg) = DVar (f0*g0) (f0*^dg ^+^ g0*^df)
@@ -61,13 +55,13 @@ sqr x = x*x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Fractional (DVar d b) where
+instance (Fractional b, VectorSpace (d b), b ~ Scalar (d b)) => Fractional (DVar d b) where
     fromRational x = DVar (fromRational x) zeroV
     recip (DVar x dx) = DVar (recip x) (df *^ dx)
         where df = negate (recip (sqr x))
     DVar x dx / DVar y dy = DVar (x/y) ((recip y *^ dx) ^-^ ((x/sqr y) *^ dy))
 
-instance (Floating b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Floating (DVar d b) where
+instance (Floating b, VectorSpace (d b), b ~ Scalar (d b)) => Floating (DVar d b) where
     pi = DVar pi zeroV
     exp (DVar x dx) = DVar (exp x) (exp x *^ dx)
     log (DVar x dx) = DVar (log x) (recip x *^ dx)

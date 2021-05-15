@@ -44,8 +44,7 @@ import Data.Reflection (Reifies(reflect), reify)
 import Data.Proxy (Proxy(Proxy))
 import Data.Singletons (type (~>), Apply, TyCon1)
 
--- add `Scalar v ~ Scalar (GradOf v)` or not?
-class (FullVector (GradOf v), Scalar (GradOf v) ~ GradOf (Scalar v)) => HasGrad v where
+class FullVector (GradOf v) => HasGrad v where
     type GradOf v :: Type
     evalGrad :: GradOf v -> v -> GradOf (Scalar v)
 
@@ -63,15 +62,14 @@ instance HasGrad Double where
     type GradOf Double = Double
     evalGrad = (*)
 
-instance (Scalar u ~ Scalar v, AdditiveGroup (GradOf (Scalar v)), HasGrad u, HasGrad v) => HasGrad (u, v) where
+instance (Scalar (GradOf u) ~ Scalar (GradOf v), Scalar u ~ Scalar v, AdditiveGroup (GradOf (Scalar v)), HasGrad u, HasGrad v) => HasGrad (u, v) where
     type GradOf (u, v) = (GradOf u, GradOf v)
     evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
 
 
-
 newtype BackGrad a v = BackGrad (forall x. (x -> GradBuilder v) -> [Term BackFun (GradOf a) x])
 
-type BVar a v = DVar (TyCon1 (BackGrad a)) v
+type BVar a v = DVar (BackGrad a) v
 
 realGradNode :: Expr BackFun (GradOf a) (GradOf v) -> BackGrad a v
 realGradNode x = BackGrad (\f -> [Term (BackFun f) x])
@@ -169,35 +167,41 @@ liftFunX2 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) = DVar z0 (castGr
           node :: Expr BackFun (GradOf r) x
           node = ExprSum (da fa ++ db fb)
 
-data BuilderPair s a b z = BuilderPair (VecBuilder a) (VecBuilder b)
+data BuilderPair s a b z = BuilderPair (GradBuilder a) (GradBuilder b)
 
-newtype Fun2 a b z = Fun2 (z -> (VecBuilder a, VecBuilder b))
+newtype Fun2 a b z = Fun2 (GradOf z -> (GradBuilder a, GradBuilder b))
 
-instance (Reifies s (Fun2 a b z), BasicVector z) => BasicVector (BuilderPair s a b z) where
-    type VecBuilder (BuilderPair s a b z) = VecBuilder z
+instance (Reifies s (Fun2 a b z), BasicVector (GradOf z)) => BasicVector (BuilderPair s a b z) where
+    type VecBuilder (BuilderPair s a b z) = GradBuilder z
     sumBuilder' zbs = wrap (f z)
-        where z = sumBuilder' zbs :: z
+        where z = sumBuilder' zbs :: GradOf z
               wrap (a, b) = BuilderPair a b
               Fun2 f = reflect (Proxy :: Proxy s):: Fun2 a b z
 
-builderPairFst :: BuilderPair s a b z -> VecBuilder a
+builderPairFst :: BuilderPair s a b z -> GradBuilder a
 builderPairFst (BuilderPair x _) = x
 
-builderPairSnd :: BuilderPair s a b z -> VecBuilder b
+builderPairSnd :: BuilderPair s a b z -> GradBuilder b
 builderPairSnd (BuilderPair _ y) = y
 
-
-builderPairExpr' :: forall r a b z. (BasicVector z) => Fun2 a b z -> (AnyExpr r a, AnyExpr r b) -> AnyExpr r z
+builderPairExpr' :: forall r a b z. (BasicVector (GradOf z)) => Fun2 a b z -> (BackGrad r a, BackGrad r b) -> BackGrad r z
 builderPairExpr' f (t1, t2) = reify f go
-    where go :: forall s. Reifies s (Fun2 a b z) => Proxy s -> AnyExpr r z
-          go _ = castNode (ExprSum (mkT1 t1 ++ mkT2 t2) :: Expr BackFun r (BuilderPair s a b z))
-          mkT1 :: forall s. AnyExpr r a -> [Term BackFun r (BuilderPair s a b z)]
-          mkT1 (AnyExpr g) = g builderPairFst
-          mkT2 :: forall s. AnyExpr r b -> [Term BackFun r (BuilderPair s a b z)]
-          mkT2 (AnyExpr g) = g builderPairSnd
+    where go :: forall s. Reifies s (Fun2 a b z) => Proxy s -> BackGrad r z
+          go _ = castGradNode (ExprSum (mkT1 t1 ++ mkT2 t2) :: Expr BackFun (GradOf r) (BuilderPair s a b z))
+          mkT1 :: forall s. BackGrad r a -> [Term BackFun (GradOf r) (BuilderPair s a b z)]
+          mkT1 (BackGrad g) = g builderPairFst
+          mkT2 :: forall s. BackGrad r b -> [Term BackFun (GradOf r) (BuilderPair s a b z)]
+          mkT2 (BackGrad g) = g builderPairSnd
 
-easyLift2 :: forall r a b z. BasicVector z => (z -> (VecBuilder a, VecBuilder b)) -> AnyExpr r a -> AnyExpr r b -> AnyExpr r z
+easyLift2 :: forall r a b z. BasicVector (GradOf z) => (GradOf z -> (GradBuilder a, GradBuilder b)) -> BackGrad r a -> BackGrad r b -> BackGrad r z
 easyLift2 f a b = builderPairExpr' (Fun2 f) (a, b)
+
+easyLift2'
+    :: BasicVector (GradOf z)
+    => (a -> b -> (z, GradOf z -> (GradBuilder a, GradBuilder b)))
+    -> BVar r a -> BVar r b -> BVar r z
+easyLift2' f (DVar a da) (DVar b db) = DVar z (easyLift2 df da db)
+    where (z, df) = f a b
 
 liftDenseFun2
     :: forall r a b z. (BasicVector (GradOf z))
@@ -231,7 +235,7 @@ zip = liftSparseFun2 go
     where go :: b1 -> b2 -> ((b1, b2), Maybe (VecBuilder (GradOf b1), VecBuilder (GradOf b2)) -> VecBuilder (GradOf b1), Maybe (VecBuilder (GradOf b1), VecBuilder (GradOf b2)) -> VecBuilder (GradOf b2))
           go b1 b2 = ((b1, b2), Prelude.fst . maybeToMonoid, Prelude.snd . maybeToMonoid)
 
-instance (VectorSpace v, VectorSpace (GradOf v), FullVector (GradOf (Scalar v)), GradOf (Scalar v) ~ Scalar v, FullVector (GradOf v), HasGrad v) => VectorSpace (BVar a v) where
+instance (VectorSpace v, VectorSpace (GradOf v), FullVector (GradOf (Scalar v)), Scalar (GradOf v) ~ Scalar v, FullVector (GradOf v), HasGrad v) => VectorSpace (BVar a v) where
     type Scalar (BVar a v) = BVar a (Scalar v)
     DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castGradNode node)
         where node :: Expr BackFun (GradOf a) (GradOf v)
