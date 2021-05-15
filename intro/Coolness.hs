@@ -41,7 +41,7 @@ instance TensorMul (Expr a da v dv) (Vec a) where
     type Expr a da v dv ✕ Vec a = Vec v
     expr ✕ a = case expr of
         Var -> a
-        Func f v -> f ✕ (v ✕ a)
+        Func f v -> f ✕ (v ✕ a)  -- (f ✕ v) ✕ a -> f ✕ (v ✕ a)
         Sum vs -> sumV [v ✕ a | v <- vs]
 
 

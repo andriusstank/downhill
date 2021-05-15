@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -8,11 +7,13 @@
 {-# language ScopedTypeVariables #-}
 {-# language GADTs #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-
 {-# OPTIONS_GHC -Wno-unused-imports -Wno-unused-top-binds #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds #-}
+
 module Diff
 (
     HasGrad(..),
@@ -42,11 +43,12 @@ import Data.Kind (Type)
 import Data.Maybe (fromMaybe)
 import Data.Reflection (Reifies(reflect), reify)
 import Data.Proxy (Proxy(Proxy))
+import Data.Singletons (type (~>), Apply)
 
 -- add `Scalar v ~ Scalar (GradOf v)` or not?
-class (FullVector (GradOf v), Scalar (GradOf v) ~ Scalar v) => HasGrad v where
+class (FullVector (GradOf v), Scalar (GradOf v) ~ GradOf (Scalar v)) => HasGrad v where
     type GradOf v :: Type
-    evalGrad :: GradOf v -> v -> Scalar v
+    evalGrad :: GradOf v -> v -> GradOf (Scalar v)
 
 type family GradBuilder v where
     GradBuilder v = VecBuilder (GradOf v)
@@ -62,7 +64,7 @@ instance HasGrad Double where
     type GradOf Double = Double
     evalGrad = (*)
 
-instance (Scalar u ~ Scalar v, AdditiveGroup (Scalar v), HasGrad u, HasGrad v) => HasGrad (u, v) where
+instance (Scalar u ~ Scalar v, AdditiveGroup (GradOf (Scalar v)), HasGrad u, HasGrad v) => HasGrad (u, v) where
     type GradOf (u, v) = (GradOf u, GradOf v)
     evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
 
@@ -77,11 +79,17 @@ realBExpr node = BExpr g
 beToAny :: forall a v. BExpr a (VecBuilder v) -> AnyExpr a v
 beToAny (BExpr f) = AnyExpr f
 
-newtype BVar a v = BVar (AffineFunc v (AnyExpr (GradOf a) (GradOf v)))
+data ExprDiffSym0 a :: Type ~> Type
+type instance Apply (ExprDiffSym0 a) v = AnyExpr (GradOf a) (GradOf v)
 
-deriving via (AffineFunc v (AnyExpr (GradOf a) (GradOf v))) instance (Num v, HasGrad v, Scalar v ~ v) => Num (BVar a v)
-deriving via (AffineFunc v (AnyExpr (GradOf a) (GradOf v))) instance (Fractional v, HasGrad v, Scalar v ~ v) => Fractional (BVar a v)
-deriving via (AffineFunc v (AnyExpr (GradOf a) (GradOf v))) instance (Floating v, HasGrad v, Scalar v ~ v) => Floating (BVar a v)
+data BackGrad a v = BackGrad (forall x. (x -> GradBuilder v) -> [Term BackFun (GradOf a) x])
+
+newtype BVar a v = BVar (AffineFunc (ExprDiffSym0 a) v)
+
+deriving via (AffineFunc (ExprDiffSym0 a) v) instance (Num v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Num (BVar a v)
+deriving via (AffineFunc (ExprDiffSym0 a) v) instance (Fractional v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Fractional (BVar a v)
+deriving via (AffineFunc (ExprDiffSym0 a) v) instance (Floating v, HasGrad v, Scalar v ~ v, GradOf v ~ v) => Floating (BVar a v)
+deriving via (AffineFunc (ExprDiffSym0 a) v) instance (AdditiveGroup v, FullVector (GradOf v)) => AdditiveGroup (BVar a v)
 
 type BVarS a = BVar a a
 
@@ -230,3 +238,13 @@ zip :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BVa
 zip = liftSparseFun2 go
     where go :: b1 -> b2 -> ((b1, b2), Maybe (VecBuilder (GradOf b1), VecBuilder (GradOf b2)) -> VecBuilder (GradOf b1), Maybe (VecBuilder (GradOf b1), VecBuilder (GradOf b2)) -> VecBuilder (GradOf b2))
           go b1 b2 = ((b1, b2), Prelude.fst . maybeToMonoid, Prelude.snd . maybeToMonoid)
+
+instance (VectorSpace v, VectorSpace (GradOf v), FullVector (GradOf (Scalar v)), GradOf (Scalar v) ~ Scalar v, FullVector (GradOf v), HasGrad v) => VectorSpace (BVar a v) where
+    type Scalar (BVar a v) = BVar a (Scalar v)
+    BVar (AffineFunc a (AnyExpr da)) *^ BVar (AffineFunc v (AnyExpr dv)) = BVar (AffineFunc (a *^ v) (realExpr node))
+        where node :: Expr BackFun (GradOf a) (GradOf v)
+              node = ExprSum (term1 ++ term2)
+                where term1 :: [Term BackFun (GradOf a) (GradOf v)]
+                      term1  = da (\v' -> identityBuilder (evalGrad v' v))
+                      term2 :: [Term BackFun (GradOf a) (GradOf v)]
+                      term2 = dv (\v' -> identityBuilder (a *^ v'))

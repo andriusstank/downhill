@@ -27,25 +27,25 @@ import Data.Constraint (Dict(Dict))
 import Expr (Expr(..), Term(..))
 import Control.Category (Category(..))
 import Prelude hiding (id, (.))
-
+import Data.Singletons(type (~>), type (@@), TyCon1, Apply)
+import Data.Proxy (Proxy(Proxy))
 
 
 -- IDEA: dv is a function of b (AffineFunc' d b = AffineFunc b (d b)) and then we can have VectorSpace instance
 -- with Scalar (AffineFunc' b) = AffineFunc' (Scalar b)
-data AffineFunc b dv = AffineFunc b dv
+data AffineFunc (d :: Type ~> Type) b = AffineFunc b (d@@b)
 
-class VectorSpace dv => LinearFunc dv where
-    identityFunc :: dv
-    scaleFunc' :: Scalar dv -> dv -- scaleFunc x == x *^ identityFunc
-    sumF :: [dv] -> dv
-
-instance (AdditiveGroup b, AdditiveGroup dv) => AdditiveGroup (AffineFunc b dv) where
+instance (AdditiveGroup b, AdditiveGroup (d @@ b)) => AdditiveGroup (AffineFunc d b) where
     zeroV = AffineFunc zeroV zeroV
     negateV (AffineFunc y0 dy) = AffineFunc (negateV y0) (negateV dy)
     AffineFunc y0 dy ^-^ AffineFunc z0 dz = AffineFunc (y0 ^-^ z0) (dy ^-^ dz)
     AffineFunc y0 dy ^+^ AffineFunc z0 dz = AffineFunc (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (Num b, VectorSpace dv, b ~ Scalar dv) => Num (AffineFunc b dv) where
+instance (VectorSpace b, VectorSpace (d @@ b), d @@ Scalar b ~ Scalar b, (d@@b) ~ b) => VectorSpace (AffineFunc d b) where
+    type Scalar (AffineFunc d b) = AffineFunc d (Scalar b)
+    AffineFunc a da *^ AffineFunc v dv = AffineFunc (a*^v) ( (da*^v) ^+^ (a*^dv))
+
+instance (Num b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Num (AffineFunc d b) where
     (AffineFunc f0 df) + (AffineFunc g0 dg) = AffineFunc (f0+g0) (df ^+^ dg)
     (AffineFunc f0 df) - (AffineFunc g0 dg) = AffineFunc (f0-g0) (df ^-^ dg)
     (AffineFunc f0 df) * (AffineFunc g0 dg) = AffineFunc (f0*g0) (f0*^dg ^+^ g0*^df)
@@ -61,13 +61,13 @@ sqr x = x*x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, VectorSpace dv, b ~ Scalar dv) => Fractional (AffineFunc b dv) where
+instance (Fractional b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Fractional (AffineFunc d b) where
     fromRational x = AffineFunc (fromRational x) zeroV
     recip (AffineFunc x dx) = AffineFunc (recip x) (df *^ dx)
         where df = negate (recip (sqr x))
     AffineFunc x dx / AffineFunc y dy = AffineFunc (x/y) ((recip y *^ dx) ^-^ ((x/sqr y) *^ dy))
 
-instance (Floating b, VectorSpace dv, b ~ Scalar dv) => Floating (AffineFunc b dv) where
+instance (Floating b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Floating (AffineFunc d b) where
     pi = AffineFunc pi zeroV
     exp (AffineFunc x dx) = AffineFunc (exp x) (exp x *^ dx)
     log (AffineFunc x dx) = AffineFunc (log x) (recip x *^ dx)
@@ -81,43 +81,3 @@ instance (Floating b, VectorSpace dv, b ~ Scalar dv) => Floating (AffineFunc b d
     asinh (AffineFunc x dx) = AffineFunc (asinh x) (rsqrt (1 + sqr x) *^ dx)
     acosh (AffineFunc x dx) = AffineFunc (acosh x) (rsqrt (sqr x - 1) *^ dx)
     atanh (AffineFunc x dx) = AffineFunc (atanh x) (recip (1 - sqr x) *^ dx)
-
--- instance Num b =BasicVector (AffineFunc (AsNum b) (AsNum dv)) where
---     type VecBuilder (AffineFunc (AsNum b) (AsNum dv)) = AffineFunc (AsNum b) (AsNum dv)
---     sumBuilder = sumV
-
--- instance ProdVector (AffineFunc (AsNum b) (AsNum dv)) where
-
--- instance FullVector (AffineFunc (AsNum b) (AsNum dv)) where
-
-
-
-
-data AffineFunc3 f a b = AffineFunc3 b (f a (Diff b))
-
-data FwdGrad a v where
-    FwdGrad :: v -> FwdGrad (Scalar v) v
-
-unaryAfFunc :: BasicVector (Diff b) => b -> e a (Diff b) -> AffineFunc3 (Expr e) a b
-unaryAfFunc x dx = AffineFunc3 x (ExprSum [ Term dx ExprVar ])
-
-scalarFunc :: (v ~ Diff p, a ~ Scalar v, FullVector v) => p -> a -> AffineFunc3 (Expr BackFun) v p
-scalarFunc fx dfx = unaryAfFunc fx (BackFun (scaleBuilder dfx))
-
-data ScalarEdge u v where
-    IdentityScalarEdge :: ScalarEdge v v
-    NegateScalarEdge :: ScalarEdge v v
-    ScaleScalarEdge :: Scalar v -> ScalarEdge v v
-
-sinAff :: forall a. (a ~ Scalar a, Diff a ~ a, FullVector a, Floating a) => a -> AffineFunc3 (Expr BackFun) a a
-sinAff x = scalarFunc (sin x) (cos x)
-
-sinScalar :: (a ~ Scalar a, Diff a ~ a, FullVector a, Floating a) => a -> AffineFunc3 ScalarEdge a a
-sinScalar x = AffineFunc3 (sin x) (ScaleScalarEdge $ cos x)
-
-instance (AdditiveGroup v, FullVector (Diff v)) => AdditiveGroup (AffineFunc3 (Expr BackFun) a v) where
-    zeroV = AffineFunc3 zeroV zeroV
-    negateV (AffineFunc3 x0 dx) = AffineFunc3 (negateV x0) (negateV dx)
-    AffineFunc3 x0 dx ^+^ AffineFunc3 y0 dy = AffineFunc3 (x0 ^+^ y0) (dx ^+^ dy)
-    AffineFunc3 x0 dx ^-^ AffineFunc3 y0 dy = AffineFunc3 (x0 ^+^ y0) (dx ^-^ dy)
-
