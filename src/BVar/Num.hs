@@ -9,14 +9,14 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module BVar.Num
 where
-import Affine (AffineFunc(AffineFunc))
+import Affine (DVar(DVar))
 import Data.Kind (Type)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
 import Expr (Expr, Expr (ExprVar), AnyExpr, anyVar)
 import Notensor (FullVector(..), BasicVector(..), BackFun, NumBuilder (..))
 import EType (Endpoint(SourceNode))
-import Diff (backprop, HasGrad(..), BVar(..))
+import Diff (backprop, HasGrad(..), BVar)
 import qualified Diff
 
 newtype AsNum a = AsNum { unAsNum :: a }
@@ -66,4 +66,4 @@ backpropNum :: forall a. Num a => NumBVar a -> a
 backpropNum (NumBVar x) = unAsNum $ backprop @(AsNum a) @(AsNum a) x (AsNum 1)
 
 numbvarValue :: NumBVar a -> a
-numbvarValue (NumBVar (AffineFunc y0 _dy)) = unAsNum y0
+numbvarValue (NumBVar (DVar y0 _dy)) = unAsNum y0

@@ -31,28 +31,26 @@ import Data.Singletons(type (~>), type (@@), TyCon1, Apply)
 import Data.Proxy (Proxy(Proxy))
 
 
--- IDEA: dv is a function of b (AffineFunc' d b = AffineFunc b (d b)) and then we can have VectorSpace instance
--- with Scalar (AffineFunc' b) = AffineFunc' (Scalar b)
-data AffineFunc (d :: Type ~> Type) b = AffineFunc b (d@@b)
+data DVar (d :: Type ~> Type) b = DVar b (d@@b)
 
-instance (AdditiveGroup b, AdditiveGroup (d @@ b)) => AdditiveGroup (AffineFunc d b) where
-    zeroV = AffineFunc zeroV zeroV
-    negateV (AffineFunc y0 dy) = AffineFunc (negateV y0) (negateV dy)
-    AffineFunc y0 dy ^-^ AffineFunc z0 dz = AffineFunc (y0 ^-^ z0) (dy ^-^ dz)
-    AffineFunc y0 dy ^+^ AffineFunc z0 dz = AffineFunc (y0 ^+^ z0) (dy ^+^ dz)
+instance (AdditiveGroup b, AdditiveGroup (d @@ b)) => AdditiveGroup (DVar d b) where
+    zeroV = DVar zeroV zeroV
+    negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
+    DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
+    DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (VectorSpace b, VectorSpace (d @@ b), d @@ Scalar b ~ Scalar b, (d@@b) ~ b) => VectorSpace (AffineFunc d b) where
-    type Scalar (AffineFunc d b) = AffineFunc d (Scalar b)
-    AffineFunc a da *^ AffineFunc v dv = AffineFunc (a*^v) ( (da*^v) ^+^ (a*^dv))
+instance (VectorSpace b, VectorSpace (d @@ b), d @@ Scalar b ~ Scalar b, (d@@b) ~ b) => VectorSpace (DVar d b) where
+    type Scalar (DVar d b) = DVar d (Scalar b)
+    DVar a da *^ DVar v dv = DVar (a*^v) ( (da*^v) ^+^ (a*^dv))
 
-instance (Num b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Num (AffineFunc d b) where
-    (AffineFunc f0 df) + (AffineFunc g0 dg) = AffineFunc (f0+g0) (df ^+^ dg)
-    (AffineFunc f0 df) - (AffineFunc g0 dg) = AffineFunc (f0-g0) (df ^-^ dg)
-    (AffineFunc f0 df) * (AffineFunc g0 dg) = AffineFunc (f0*g0) (f0*^dg ^+^ g0*^df)
-    negate (AffineFunc f0 df) = AffineFunc (negate f0) (negateV df)
-    abs (AffineFunc f0 df) = AffineFunc (abs f0) (signum f0 *^ df) -- TODO: ineffiency: multiplication by 1
-    signum (AffineFunc f0 _) = AffineFunc (signum f0) zeroV
-    fromInteger x = AffineFunc (fromInteger x) zeroV
+instance (Num b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Num (DVar d b) where
+    (DVar f0 df) + (DVar g0 dg) = DVar (f0+g0) (df ^+^ dg)
+    (DVar f0 df) - (DVar g0 dg) = DVar (f0-g0) (df ^-^ dg)
+    (DVar f0 df) * (DVar g0 dg) = DVar (f0*g0) (f0*^dg ^+^ g0*^df)
+    negate (DVar f0 df) = DVar (negate f0) (negateV df)
+    abs (DVar f0 df) = DVar (abs f0) (signum f0 *^ df) -- TODO: ineffiency: multiplication by 1
+    signum (DVar f0 _) = DVar (signum f0) zeroV
+    fromInteger x = DVar (fromInteger x) zeroV
 
 
 sqr :: Num a => a -> a
@@ -61,23 +59,23 @@ sqr x = x*x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Fractional (AffineFunc d b) where
-    fromRational x = AffineFunc (fromRational x) zeroV
-    recip (AffineFunc x dx) = AffineFunc (recip x) (df *^ dx)
+instance (Fractional b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Fractional (DVar d b) where
+    fromRational x = DVar (fromRational x) zeroV
+    recip (DVar x dx) = DVar (recip x) (df *^ dx)
         where df = negate (recip (sqr x))
-    AffineFunc x dx / AffineFunc y dy = AffineFunc (x/y) ((recip y *^ dx) ^-^ ((x/sqr y) *^ dy))
+    DVar x dx / DVar y dy = DVar (x/y) ((recip y *^ dx) ^-^ ((x/sqr y) *^ dy))
 
-instance (Floating b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Floating (AffineFunc d b) where
-    pi = AffineFunc pi zeroV
-    exp (AffineFunc x dx) = AffineFunc (exp x) (exp x *^ dx)
-    log (AffineFunc x dx) = AffineFunc (log x) (recip x *^ dx)
-    sin (AffineFunc x dx) = AffineFunc (sin x) (cos x *^ dx)
-    cos (AffineFunc x dx) = AffineFunc (cos x) (negate (sin x) *^ dx)
-    asin (AffineFunc x dx) = AffineFunc (asin x) (rsqrt (1 - sqr x) *^ dx)
-    acos (AffineFunc x dx) = AffineFunc (acos x) (negate (rsqrt (1 - sqr x)) *^ dx)
-    atan (AffineFunc x dx) = AffineFunc (atan x) (recip (1 + sqr x) *^ dx)
-    sinh (AffineFunc x dx) = AffineFunc (sinh x) (cosh x *^ dx)
-    cosh (AffineFunc x dx) = AffineFunc (cosh x) (sinh x *^ dx)
-    asinh (AffineFunc x dx) = AffineFunc (asinh x) (rsqrt (1 + sqr x) *^ dx)
-    acosh (AffineFunc x dx) = AffineFunc (acosh x) (rsqrt (sqr x - 1) *^ dx)
-    atanh (AffineFunc x dx) = AffineFunc (atanh x) (recip (1 - sqr x) *^ dx)
+instance (Floating b, VectorSpace (d @@ b), b ~ Scalar (d @@ b)) => Floating (DVar d b) where
+    pi = DVar pi zeroV
+    exp (DVar x dx) = DVar (exp x) (exp x *^ dx)
+    log (DVar x dx) = DVar (log x) (recip x *^ dx)
+    sin (DVar x dx) = DVar (sin x) (cos x *^ dx)
+    cos (DVar x dx) = DVar (cos x) (negate (sin x) *^ dx)
+    asin (DVar x dx) = DVar (asin x) (rsqrt (1 - sqr x) *^ dx)
+    acos (DVar x dx) = DVar (acos x) (negate (rsqrt (1 - sqr x)) *^ dx)
+    atan (DVar x dx) = DVar (atan x) (recip (1 + sqr x) *^ dx)
+    sinh (DVar x dx) = DVar (sinh x) (cosh x *^ dx)
+    cosh (DVar x dx) = DVar (cosh x) (sinh x *^ dx)
+    asinh (DVar x dx) = DVar (asinh x) (rsqrt (1 + sqr x) *^ dx)
+    acosh (DVar x dx) = DVar (acosh x) (rsqrt (sqr x - 1) *^ dx)
+    atanh (DVar x dx) = DVar (atanh x) (recip (1 - sqr x) *^ dx)
