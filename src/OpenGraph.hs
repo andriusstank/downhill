@@ -10,7 +10,7 @@ module OpenGraph (
     runRecoverSharing5
 )
 where
-import Expr(Expr(ExprSum, ExprVar), Term(..))
+import Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector)
 import Sharing (BuildAction(BuildAction), TreeBuilder, BuildAction'(..))
 import qualified Sharing
 import Prelude hiding (lookup)
@@ -18,7 +18,7 @@ import OpenMap (OpenMap, OpenKey)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
 import ExprWalker
 import qualified OpenMap
-import Notensor (BasicVector, FullVector (identityBuilder), BackFun(BackFun))
+import Notensor (FullVector (identityBuilder))
 
 type OpenArg = Endpoint OpenKey
 type OpenTerm e = Edge OpenKey e

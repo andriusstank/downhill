@@ -20,7 +20,7 @@ import Data.VectorSpace
     ( AdditiveGroup((^-^), negateV, zeroV),
       VectorSpace(Scalar, (*^)),
       sumV )
-import Notensor (BasicVector (VecBuilder, sumBuilder'), FullVector(..), Dense(..), BackFun(..), NumBuilder (NumBuilder, unNumBuilder))
+import Notensor (FullVector(..), Dense(..))
 import EType (Endpoint (InnerNode, SourceNode), Node(..),Edge (Edge))
 import Data.Kind
 import Data.Constraint (Dict(Dict))

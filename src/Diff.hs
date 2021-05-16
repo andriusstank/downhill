@@ -23,7 +23,7 @@ module Diff
     easyLift2
 )
 where
-import Expr(Expr(ExprSum, ExprVar), Term(..), AnyExpr(AnyExpr), anyVar, realExpr, castNode, sparseNode, SparseVector (SparseVector, unSparseVector), zeroE', zeroE)
+import Expr(Expr(ExprSum, ExprVar), Term(..), SparseVector (SparseVector, unSparseVector), zeroE, BasicVector (..), maybeToMonoid)
 import Prelude hiding (fst, snd, zip)
 import qualified Prelude
 import Affine (DVar(DVar))
@@ -31,7 +31,7 @@ import NodeMap (cvtmap, SomeSharedExprWithMap)
 import qualified Graph
 import qualified NodeMap
 import System.IO.Unsafe (unsafePerformIO)
-import Notensor (BasicVector(..), BackFun (BackFun, unBackFun), FullVector (identityBuilder, negateBuilder, scaleBuilder), flipBackFun, maybeToMonoid)
+import Notensor (FullVector (identityBuilder, negateBuilder, scaleBuilder))
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(..), Scalar, VectorSpace(..))
 import ExprWalker ()
@@ -43,16 +43,15 @@ import Data.Maybe (fromMaybe)
 import Data.Reflection (Reifies(reflect), reify)
 import Data.Proxy (Proxy(Proxy))
 import Data.Singletons (type (~>), Apply, TyCon1)
+import Back (BackFun(BackFun), flipBackFun)
 
 class FullVector (GradOf v) => HasGrad v where
     type GradOf v :: Type
     evalGrad :: GradOf v -> v -> GradOf (Scalar v)
 
-type family GradBuilder v where
-    GradBuilder v = VecBuilder (GradOf v)
+type GradBuilder v = VecBuilder (GradOf v)
 
-type family SparseGrad v where
-    SparseGrad v = SparseVector (GradOf v)
+type SparseGrad v = SparseVector (GradOf v)
 
 instance HasGrad Float where
     type GradOf Float = Float
@@ -62,7 +61,7 @@ instance HasGrad Double where
     type GradOf Double = Double
     evalGrad = (*)
 
-instance (Scalar (GradOf u) ~ Scalar (GradOf v), Scalar u ~ Scalar v, AdditiveGroup (GradOf (Scalar v)), HasGrad u, HasGrad v) => HasGrad (u, v) where
+instance (HasGrad u, HasGrad v, Scalar (GradOf u) ~ Scalar (GradOf v), a ~ Scalar u, a ~ Scalar v, AdditiveGroup (GradOf a)) => HasGrad (u, v) where
     type GradOf (u, v) = (GradOf u, GradOf v)
     evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
 
@@ -74,7 +73,7 @@ type BVar a v = DVar (BackGrad a) v
 realGradNode :: Expr BackFun (GradOf a) (GradOf v) -> BackGrad a v
 realGradNode x = BackGrad (\f -> [Term (BackFun f) x])
 
-castGradNode :: forall r v z. (BasicVector v, GradBuilder z ~ VecBuilder v) => Expr BackFun (GradOf r) v -> BackGrad r z
+castGradNode :: forall r dv z. (BasicVector dv, GradBuilder z ~ VecBuilder dv) => Expr BackFun (GradOf r) dv -> BackGrad r z
 castGradNode node = BackGrad go
     where go :: forall x. (x -> GradBuilder z) -> [Term BackFun (GradOf r) x]
           go g = [Term (BackFun g) node]
@@ -138,7 +137,7 @@ data DFunc2 a b c = forall x. (BasicVector x, VecBuilder x ~ VecBuilder (GradOf 
 
 liftDenseFun1 :: forall c b a. BasicVector (GradOf b) => (c -> (b, GradOf b -> GradBuilder c)) -> BVar a c -> BVar a b
 liftDenseFun1 go = liftSparseFun1 go'
-    where go' x = let (y, dy) = go x in (y, dy . sumBuilder')
+    where go' x = let (y, dy) = go x in (y, dy . sumBuilder)
 
 liftSparseFun1 :: forall c b a. BasicVector (GradOf b) => (c -> (b, VecBuilder (GradOf b) -> VecBuilder (GradOf c))) -> BVar a c -> BVar a b
 liftSparseFun1 go (DVar v0 (BackGrad dv)) = DVar y0 (castGradNode node)
@@ -173,8 +172,8 @@ newtype Fun2 a b z = Fun2 (GradOf z -> (GradBuilder a, GradBuilder b))
 
 instance (Reifies s (Fun2 a b z), BasicVector (GradOf z)) => BasicVector (BuilderPair s a b z) where
     type VecBuilder (BuilderPair s a b z) = GradBuilder z
-    sumBuilder' zbs = wrap (f z)
-        where z = sumBuilder' zbs :: GradOf z
+    sumBuilder zbs = wrap (f z)
+        where z = sumBuilder zbs :: GradOf z
               wrap (a, b) = BuilderPair a b
               Fun2 f = reflect (Proxy :: Proxy s):: Fun2 a b z
 

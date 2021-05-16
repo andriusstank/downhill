@@ -13,11 +13,12 @@ import Affine (DVar(DVar))
 import Data.Kind (Type)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
-import Expr (Expr, Expr (ExprVar), AnyExpr, anyVar)
-import Notensor (FullVector(..), BasicVector(..), BackFun, NumBuilder (..))
+import Expr (Expr, Expr (ExprVar), BasicVector(..))
+import Notensor (FullVector(..))
 import EType (Endpoint(SourceNode))
 import Diff (backprop, HasGrad(..), BVar)
 import qualified Diff
+import Data.Semigroup (Sum(Sum, getSum))
 
 newtype AsNum a = AsNum { unAsNum :: a }
     deriving Show
@@ -40,13 +41,13 @@ instance Num a => VectorSpace (AsNum a) where
     (*^) = (*)
 
 instance Num a => BasicVector (AsNum a) where
-    type VecBuilder (AsNum a) = NumBuilder a
-    sumBuilder' = AsNum . unNumBuilder
+    type VecBuilder (AsNum a) = Sum a
+    sumBuilder = AsNum . getSum
 
 instance Num a => FullVector (AsNum a) where
-    identityBuilder = NumBuilder . unAsNum
-    negateBuilder = NumBuilder . negate . unAsNum
-    scaleBuilder (AsNum x) (AsNum y) = NumBuilder $ x * y
+    identityBuilder = Sum . unAsNum
+    negateBuilder = Sum . negate . unAsNum
+    scaleBuilder (AsNum x) (AsNum y) = Sum $ x * y
 
 instance Num a => AffineSpace (AsNum a) where
     type Diff (AsNum a) = AsNum a

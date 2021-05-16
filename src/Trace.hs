@@ -14,13 +14,15 @@ import Sharing ()
 import Graph
 import Control.Monad (when)
 import qualified NodeMap
-import Notensor (FullVector(..), BasicVector(..), BackFun(BackFun), NumBuilder (NumBuilder, unNumBuilder))
+import Notensor (FullVector(..))
 import GHC.Generics (Generic)
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum, AsNum (unAsNum))
 import OpenGraph (OpenGraph)
 import NodeMap
 import Diff (GradOf)
+import Back (BackFun(BackFun))
+import Data.Semigroup (Sum(Sum, getSum))
 
 newtype R = R { unR :: Integer }
     deriving (Show, Generic)
@@ -52,13 +54,13 @@ instance VectorSpace R where
     type Scalar R = Integer
 
 instance BasicVector R where
-    type VecBuilder R = NumBuilder R
-    sumBuilder' = unNumBuilder
+    type VecBuilder R = Sum R
+    sumBuilder = getSum
 
 instance FullVector R where
-    identityBuilder = NumBuilder
-    negateBuilder = NumBuilder . negateV
-    scaleBuilder a = NumBuilder . (a *^)
+    identityBuilder = Sum
+    negateBuilder = Sum . negateV
+    scaleBuilder a = Sum . (a *^)
 
 tracingFunc :: String -> Integer -> BackFun R R
 tracingFunc name value = BackFun back
@@ -66,7 +68,7 @@ tracingFunc name value = BackFun back
             x' <- evaluate x
             let y = value*x'
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y)
-            return (NumBuilder (R (value*x')))
+            return (Sum (R (value*x')))
 
 exprToTerm :: FullVector dv => Expr BackFun da dv -> Term BackFun da dv
 exprToTerm = Term (BackFun identityBuilder)
