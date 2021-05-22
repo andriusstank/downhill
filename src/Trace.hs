@@ -7,7 +7,7 @@
 {-# LANGUAGE DerivingVia #-}
 module Trace where
 import Data.VectorSpace (sumV, VectorSpace(..), AdditiveGroup(..))
-import Expr
+import Downhill.Linear.Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
 import Sharing ()
@@ -21,7 +21,6 @@ import BVar.Num(var, backpropNum, AsNum (unAsNum))
 import OpenGraph (OpenGraph)
 import NodeMap
 import Diff (GradOf)
-import Back (BackFun(BackFun))
 import Data.Semigroup (Sum(Sum, getSum))
 
 newtype R = R { unR :: Integer }

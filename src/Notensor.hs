@@ -13,8 +13,7 @@ module Notensor
 
 ) where
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
-import Expr(BasicVector(..), FullVector(..))
-import Data.Semigroup (Sum(Sum))
+import Downhill.Linear.Expr(BasicVector(..), FullVector(..))
 
 newtype Dense a = Dense a
     deriving AdditiveGroup via a

@@ -10,7 +10,7 @@ module OpenGraph (
     runRecoverSharing5
 )
 where
-import Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector)
+import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector)
 import Sharing (BuildAction(BuildAction), TreeBuilder, BuildAction'(..))
 import qualified Sharing
 import Prelude hiding (lookup)

@@ -13,12 +13,13 @@ import Affine (DVar(DVar))
 import Data.Kind (Type)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
-import Expr (Expr, Expr (ExprVar), BasicVector(..))
+import Downhill.Linear.Expr (Expr, Expr (ExprVar), BasicVector(..))
 import Notensor (FullVector(..))
 import EType (Endpoint(SourceNode))
 import Diff (backprop, HasGrad(..), BVar)
 import qualified Diff
 import Data.Semigroup (Sum(Sum, getSum))
+import Downhill.Linear.BackGrad (HasGrad(evalGrad))
 
 newtype AsNum a = AsNum { unAsNum :: a }
     deriving Show

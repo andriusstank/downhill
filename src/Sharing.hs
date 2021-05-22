@@ -33,7 +33,7 @@ import Control.Exception (evaluate)
 import Types
 import OpenMap (OpenKey, OpenMap)
 import qualified OpenMap
-import Expr(Expr)
+import Downhill.Linear.Expr(Expr)
 
 newtype TreeBuilder f r = TreeCache { unTreeCache :: StateT (OpenMap f) IO r }
     deriving (Functor, Applicative, Monad)

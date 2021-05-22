@@ -16,7 +16,8 @@ category:            Math
 extra-source-files:  CHANGELOG.md
 
 library
-  exposed-modules:     Expr,
+  exposed-modules:     Downhill.Linear.Expr,
+                       Downhill.Linear.BackGrad,
                        Sharing,
                        Graph,
                        NodeMap,

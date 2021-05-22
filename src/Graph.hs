@@ -25,9 +25,8 @@ import NodeMap
 import Data.Either (partitionEithers)
 import qualified NodeMap
 import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
-import Back(FwdFun (unFwdFun))
 import Data.Functor.Identity (Identity(Identity, runIdentity))
-import Expr (BasicVector (VecBuilder, sumBuilder))
+import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FwdFun (unFwdFun))
 
 data Graph s e da dz = BasicVector da => Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
 

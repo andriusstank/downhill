@@ -3,7 +3,7 @@
 module EType where
 
 import Notensor ()
-import Expr (BasicVector)
+import Downhill.Linear.Expr (BasicVector)
 
 data Endpoint p da dv where
     SourceNode :: Endpoint p da da

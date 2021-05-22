@@ -24,7 +24,7 @@ import Notensor (FullVector(..), Dense(..))
 import EType (Endpoint (InnerNode, SourceNode), Node(..),Edge (Edge))
 import Data.Kind
 import Data.Constraint (Dict(Dict))
-import Expr (Expr(..), Term(..))
+import Downhill.Linear.Expr (Expr(..), Term(..))
 import Control.Category (Category(..))
 import Prelude hiding (id, (.))
 import Data.Singletons(type (~>), type (@@), TyCon1, Apply)
