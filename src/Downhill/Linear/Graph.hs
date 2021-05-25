@@ -11,7 +11,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# language ScopedTypeVariables #-}
 
-module Graph
+module Downhill.Linear.Graph
     ( Graph(..), SomeGraph(..)
     , graph, evalGraph
     , flipGraph
@@ -20,11 +20,11 @@ module Graph
 where
 import Prelude hiding (head, tail)
 import Sharing()
-import NodeMap
+import Downhill.Linear.Graph.NodeMap
     ( NodeSet, NodeMap, NodeKey, SomeItem(SomeItem), List2(List2) )
 import Data.Either (partitionEithers)
-import qualified NodeMap
-import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
+import qualified Downhill.Linear.Graph.NodeMap as NodeMap
+import Downhill.Linear.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.Functor.Identity (Identity(Identity, runIdentity))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FwdFun (unFwdFun))
 

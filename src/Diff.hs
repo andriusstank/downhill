@@ -27,17 +27,17 @@ import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), SparseVector (Spar
 import Prelude hiding (fst, snd, zip)
 import qualified Prelude
 import Affine (DVar(DVar))
-import NodeMap (cvtmap, SomeSharedExprWithMap)
-import qualified Graph
-import qualified NodeMap
+import Downhill.Linear.Graph.NodeMap (cvtmap, SomeSharedExprWithMap)
+import qualified Downhill.Linear.Graph as Graph
+import qualified Downhill.Linear.Graph.NodeMap as NodeMap
 import System.IO.Unsafe (unsafePerformIO)
 import Notensor (FullVector (identityBuilder, negateBuilder, scaleBuilder))
-import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
+import Downhill.Linear.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(..), Scalar, VectorSpace(..))
 import ExprWalker ()
-import Graph (SomeGraph(SomeGraph), evalGraph)
+import Downhill.Linear.Graph (SomeGraph(SomeGraph), evalGraph)
 import Data.Coerce (coerce, Coercible)
-import OpenGraph (OpenGraph, runRecoverSharing5)
+import Downhill.Linear.Graph.OpenGraph (OpenGraph, recoverSharing)
 import Data.Kind (Type)
 import Data.Maybe (fromMaybe)
 import Data.Reflection (Reifies(reflect), reify)
@@ -69,7 +69,7 @@ backpropNodeMap m dv = case m of
 
 backpropExpr :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> GradOf v -> GradOf a
 backpropExpr (BackGrad f) dv = unsafePerformIO $ do
-    g <- runRecoverSharing5 (f identityBuilder)
+    g <- recoverSharing (f identityBuilder)
     return (backpropNodeMap (cvtmap g) dv)
 
 backprop :: forall b a. (FullVector (GradOf b), BasicVector (GradOf a)) => BVar a b -> GradOf b -> GradOf a

@@ -11,15 +11,15 @@ import Downhill.Linear.Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
 import Sharing ()
-import Graph
+import Downhill.Linear.Graph
 import Control.Monad (when)
-import qualified NodeMap
+import qualified Downhill.Linear.Graph.NodeMap as NodeMap
 import Notensor (FullVector(..))
 import GHC.Generics (Generic)
-import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
+import Downhill.Linear.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum, AsNum (unAsNum))
-import OpenGraph (OpenGraph)
-import NodeMap
+import Downhill.Linear.Graph.OpenGraph (OpenGraph)
+import Downhill.Linear.Graph.NodeMap
 import Diff (GradOf)
 import Data.Semigroup (Sum(Sum, getSum))
 

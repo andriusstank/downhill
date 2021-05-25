@@ -4,26 +4,28 @@
 {-# language ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wno-unused-imports -Wno-unused-top-binds #-}
 
-module OpenGraph (
+module Downhill.Linear.Graph.OpenGraph (
     OpenArg, OpenTerm, OpenExpr,
     OpenGraph(..),
-    runRecoverSharing5
+    recoverSharing
 )
 where
 import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector)
 import Sharing (BuildAction(BuildAction), TreeBuilder, BuildAction'(..))
 import qualified Sharing
 import Prelude hiding (lookup)
-import OpenMap (OpenMap, OpenKey)
-import EType (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
+import Downhill.Linear.Graph.OpenMap (OpenMap, OpenKey)
+import Downhill.Linear.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
 import ExprWalker
-import qualified OpenMap
+import qualified Downhill.Linear.Graph.OpenMap as OpenMap
 import Notensor (FullVector (identityBuilder))
 
 type OpenArg = Endpoint OpenKey
 type OpenTerm e = Edge OpenKey e
 type OpenExpr e da = Node OpenKey e da
 
+-- | Computational graph under construction. "Open" refers to the set of the nodes – new nodes can be
+-- added to this graph.
 data OpenGraph e a z = OpenGraph (Node OpenKey e a z) (OpenMap (OpenExpr e a))
 
 goEdges :: BasicVector v => [Term e a v] -> TreeBuilder (OpenExpr e a) (Node OpenKey e a v)
@@ -44,8 +46,9 @@ goSharing4term = \case
         arg' <- goSharing4arg arg
         return (Edge f arg')
 
-runRecoverSharing5 :: forall e a z. BasicVector z => [Term e a z] -> IO (OpenGraph e a z)
-runRecoverSharing5 xs = do
+
+recoverSharing :: forall e a z. BasicVector z => [Term e a z] -> IO (OpenGraph e a z)
+recoverSharing xs = do
         (final_node, graph) <- Sharing.runTreeBuilder (goEdges xs)
         return (OpenGraph final_node graph)
 

@@ -2,8 +2,8 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module OpenMap
-    ( OpenKey, OpenMap
+module Downhill.Linear.Graph.OpenMap
+    ( OpenMap, OpenKey
     , SomeOpenItem(SomeOpenItem)
     , mapmap, mapmapWithKey, mapmapMaybe, lookup, toList
     , empty, insert, adjust
@@ -21,9 +21,11 @@ import Unsafe.Coerce (unsafeCoerce)
 import Control.Exception (evaluate)
 import System.Mem.StableName (makeStableName)
 
-data SomeExpr f = forall dv. SomeExpr (f dv)
+data SomeExpr f = forall v. SomeExpr (f v)
 
-newtype OpenKey dx = OpenKey (StableName Any)
+newtype OpenKey x = OpenKey (StableName Any)
+
+-- | Maps @OpenKey x@ to @f v@.
 newtype OpenMap f = OpenMap { unOpenMap :: HashMap (StableName Any) (SomeExpr f) }
 
 data SomeOpenItem f = forall dx. SomeOpenItem (OpenKey dx) (f dx)

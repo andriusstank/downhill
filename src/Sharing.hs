@@ -5,10 +5,7 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE GADTs #-}
-{-# language TypeApplications #-}
-{-# language ExplicitForAll #-}
 {-# language ScopedTypeVariables #-}
 {-# language DerivingVia #-}
 {-# language GeneralisedNewtypeDeriving #-}
@@ -31,8 +28,8 @@ import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Class
 import Control.Exception (evaluate)
 import Types
-import OpenMap (OpenKey, OpenMap)
-import qualified OpenMap
+import Downhill.Linear.Graph.OpenMap (OpenKey, OpenMap)
+import qualified Downhill.Linear.Graph.OpenMap as OpenMap
 import Downhill.Linear.Expr(Expr)
 
 newtype TreeBuilder f r = TreeCache { unTreeCache :: StateT (OpenMap f) IO r }
