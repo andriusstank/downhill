@@ -63,7 +63,8 @@ instance BasicVector Double where
     type VecBuilder Double = Sum Double
     sumBuilder = getSum
 
--- |Full-featured vector. Linear function form a vector space, @FullVector@ class enables 'VectorSpace' instance 
+-- |Full-featured vector. Linear function form a vector space, @FullVector@ class provides all the functionality
+-- to implement 'VectorSpace' instance 
 -- for 'Expr'.
 class BasicVector v => FullVector v where
     identityBuilder :: v -> VecBuilder v
@@ -83,7 +84,8 @@ instance (Scalar a ~ Scalar b, FullVector a, FullVector b) => FullVector (a, b) 
     negateBuilder (x, y) = Just (negateBuilder x, negateBuilder y)
     scaleBuilder a (x, y) = Just (scaleBuilder a x, scaleBuilder a y)
 
--- |Sometimes we need to forward gradients through the node without summing them. 
+-- | Sometimes we need to forward gradients through the node without summing them. 
+-- The type of the node would be @VecBuilder v@, but what would be @VecBuilder (VecBuilder v)@?
 newtype SparseVector v = SparseVector { unSparseVector :: VecBuilder v }
 
 deriving via (VecBuilder v) instance Semigroup (VecBuilder v) => Semigroup (SparseVector v)

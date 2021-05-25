@@ -7,9 +7,9 @@
 
 module Downhill.Linear.BackGrad
 (
+    BackGrad(..),
     HasGrad(..),
     GradBuilder, SparseGrad,
-    BackGrad(..),
     realNode, castNode, inlineNode
 )
 where
@@ -20,8 +20,12 @@ import Data.VectorSpace
 import Data.Kind (Type)
 import Affine (DVar(DVar))
 
+-- | Not absolutly required, but it's nice to parameterize expressions based on type
+-- of the variable, not on its gradient.
 class FullVector (GradOf v) => HasGrad v where
     type GradOf v :: Type
+    -- @GradOf (Scalar v)@ is normally the same as @Scalar v@. Unless we
+    -- attempt to backpropagate on something else than the scalar.
     evalGrad :: GradOf v -> v -> GradOf (Scalar v)
 
 type GradBuilder v = VecBuilder (GradOf v)
@@ -40,17 +44,27 @@ instance (HasGrad u, HasGrad v, Scalar (GradOf u) ~ Scalar (GradOf v), a ~ Scala
     type GradOf (u, v) = (GradOf u, GradOf v)
     evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
 
-
+-- | @BackGrad@ is a basic block for building computational graph of linear functions.
+-- @BackGrad a v@ is similar to @'Expr' 'BackFun' ('GradOf' a) ('GradOf' v)@, but it has a more
+-- flexible form. It encapsulates the type of the gradient of @v@, which can be different from @GradOf v@
+-- and can be chosen independently for each use.
 newtype BackGrad a v = BackGrad (forall x. (x -> GradBuilder v) -> [Term BackFun (GradOf a) x])
 
+-- | Creates a @BackGrad@ that is backed by a real node. Gradient of type '@GradOf@ v' will be computed for this node.
 realNode :: Expr BackFun (GradOf a) (GradOf v) -> BackGrad a v
 realNode x = BackGrad (\f -> [Term (BackFun f) x])
 
+-- | Type of a node can be changed freely, as long as its @VecBuilder@ stays the same.
 castNode :: forall r dv z. (BasicVector dv, GradBuilder z ~ VecBuilder dv) => Expr BackFun (GradOf r) dv -> BackGrad r z
 castNode node = BackGrad go
     where go :: forall x. (x -> GradBuilder z) -> [Term BackFun (GradOf r) x]
           go g = [Term (BackFun g) node]
 
+-- | @inlineNode f x@ will apply function @f@ to variable @x@ without creating a node. All the gradients
+-- coming to this expression will be forwarded to the parents of @x@. However, if this expression is used
+-- more than once, @f@ will be evaluated multiple times, too. It is intended to be used for @newtype@ wrappers.
+-- @inlineNode f x@ also shouldn't prevent
+-- compiler to inline and optimize @x@, but I should verify wether this is really the case.
 inlineNode :: forall a u v. (GradBuilder v -> GradBuilder u) -> BackGrad a u -> BackGrad a v
 inlineNode f (BackGrad g) = BackGrad go
     where go :: forall x. (x -> GradBuilder v) -> [Term BackFun (GradOf a) x]
