@@ -10,7 +10,7 @@ module Downhill.Linear.BackGrad
     HasGrad(..),
     GradBuilder, SparseGrad,
     BackGrad(..),
-    realGradNode, castGradNode
+    realNode, castNode, inlineNode
 )
 where
 
@@ -43,23 +43,28 @@ instance (HasGrad u, HasGrad v, Scalar (GradOf u) ~ Scalar (GradOf v), a ~ Scala
 
 newtype BackGrad a v = BackGrad (forall x. (x -> GradBuilder v) -> [Term BackFun (GradOf a) x])
 
-realGradNode :: Expr BackFun (GradOf a) (GradOf v) -> BackGrad a v
-realGradNode x = BackGrad (\f -> [Term (BackFun f) x])
+realNode :: Expr BackFun (GradOf a) (GradOf v) -> BackGrad a v
+realNode x = BackGrad (\f -> [Term (BackFun f) x])
 
-castGradNode :: forall r dv z. (BasicVector dv, GradBuilder z ~ VecBuilder dv) => Expr BackFun (GradOf r) dv -> BackGrad r z
-castGradNode node = BackGrad go
+castNode :: forall r dv z. (BasicVector dv, GradBuilder z ~ VecBuilder dv) => Expr BackFun (GradOf r) dv -> BackGrad r z
+castNode node = BackGrad go
     where go :: forall x. (x -> GradBuilder z) -> [Term BackFun (GradOf r) x]
           go g = [Term (BackFun g) node]
 
+inlineNode :: forall a u v. (GradBuilder v -> GradBuilder u) -> BackGrad a u -> BackGrad a v
+inlineNode f (BackGrad g) = BackGrad go
+    where go :: forall x. (x -> GradBuilder v) -> [Term BackFun (GradOf a) x]
+          go h = g (f . h)
+
 instance (HasGrad v) => AdditiveGroup (BackGrad a v) where
     zeroV = BackGrad (const [])
-    negateV (BackGrad x) = realGradNode (ExprSum (x negateBuilder))
-    BackGrad x ^+^ BackGrad y = realGradNode (ExprSum (x identityBuilder <> y identityBuilder))
-    BackGrad x ^-^ BackGrad y = realGradNode (ExprSum (x identityBuilder <> y negateBuilder))
+    negateV (BackGrad x) = realNode (ExprSum (x negateBuilder))
+    BackGrad x ^+^ BackGrad y = realNode (ExprSum (x identityBuilder <> y identityBuilder))
+    BackGrad x ^-^ BackGrad y = realNode (ExprSum (x identityBuilder <> y negateBuilder))
 
 instance HasGrad v => VectorSpace (BackGrad a v) where
     type Scalar (BackGrad a v) = Scalar (GradOf v)
-    a *^ BackGrad v = realGradNode (ExprSum (v (scaleBuilder a)))
+    a *^ BackGrad v = realNode (ExprSum (v (scaleBuilder a)))
 
 instance
   ( VectorSpace v
@@ -70,7 +75,7 @@ instance
   , HasGrad v
   ) => VectorSpace (DVar (BackGrad a) v) where
     type Scalar (DVar (BackGrad a) v) = DVar (BackGrad a) (Scalar v)
-    DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castGradNode node)
+    DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castNode node)
         where node :: Expr BackFun (GradOf a) (GradOf v)
               node = ExprSum (term1 ++ term2)
                 where term1 :: [Term BackFun (GradOf a) (GradOf v)]

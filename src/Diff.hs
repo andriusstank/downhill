@@ -43,7 +43,8 @@ import Data.Maybe (fromMaybe)
 import Data.Reflection (Reifies(reflect), reify)
 import Data.Proxy (Proxy(Proxy))
 import Data.Singletons (type (~>), Apply, TyCon1)
-import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf, evalGrad), GradBuilder, SparseGrad, castGradNode)
+import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf, evalGrad), GradBuilder, SparseGrad, castNode, realNode)
+import Data.Functor.Identity (Identity(Identity, runIdentity))
 
 type BVar a v = DVar (BackGrad a) v
 
@@ -57,7 +58,8 @@ constant :: a -> BVar a a
 constant x = DVar x (BackGrad (const []))
 
 var :: b -> BVar b b
-var x = DVar x (BackGrad (\f -> [Term (BackFun f) ExprVar]))
+--var x = DVar x (BackGrad (\f -> [Term (BackFun f) ExprVar]))
+var x = DVar x (realNode ExprVar)
 
 backpropNodeMap :: forall a z. BasicVector a => SomeSharedExprWithMap BackFun a z -> z -> a
 backpropNodeMap m dv = case m of
@@ -85,7 +87,7 @@ fst = liftFun1 @(SparseGrad b1) (go . Prelude.fst)
           go x = (x, intoFst)
 
 snd :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar a (b1, b2) -> BVar a b2
-snd (DVar (_, b2) (BackGrad dv)) = DVar b2 (castGradNode node)
+snd (DVar (_, b2) (BackGrad dv)) = DVar b2 (castNode node)
     where f :: SparseVector (GradOf b2) -> GradBuilder (b1, b2)
           f (SparseVector x) = Just (mempty, x)
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b2))
@@ -99,7 +101,7 @@ liftDenseFun1 go = liftSparseFun1 go'
     where go' x = let (y, dy) = go x in (y, dy . sumBuilder)
 
 liftSparseFun1 :: forall c b a. BasicVector (GradOf b) => (c -> (b, VecBuilder (GradOf b) -> VecBuilder (GradOf c))) -> BVar a c -> BVar a b
-liftSparseFun1 go (DVar v0 (BackGrad dv)) = DVar y0 (castGradNode node)
+liftSparseFun1 go (DVar v0 (BackGrad dv)) = DVar y0 (castNode node)
     where f :: SparseVector (GradOf b) -> GradBuilder c
           f = \(SparseVector x) -> goo x
           node :: Expr BackFun (GradOf a) (SparseVector (GradOf b))
@@ -110,7 +112,7 @@ liftFun1
     :: forall x r a z. (BasicVector (GradOf z), BasicVector x, VecBuilder x ~ GradBuilder z)
     => (a -> (z, x -> GradBuilder a))
     -> BVar r a -> BVar r z
-liftFun1 dfun (DVar a0 (BackGrad da)) = DVar z0 (castGradNode node)
+liftFun1 dfun (DVar a0 (BackGrad da)) = DVar z0 (castNode node)
     where (z0, fa) = dfun a0
           node :: Expr BackFun (GradOf r) x
           node = ExprSum (da fa)
@@ -120,7 +122,7 @@ liftFunX2
     :: forall x r a b z. (BasicVector (GradOf z), BasicVector x, VecBuilder x ~ GradBuilder z)
     => (a -> b -> (z, x -> GradBuilder a, x -> GradBuilder b))
     -> BVar r a -> BVar r b -> BVar r z
-liftFunX2 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) = DVar z0 (castGradNode node)
+liftFunX2 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) = DVar z0 (castNode node)
     where (z0, fa, fb) = dfun a0 b0
           node :: Expr BackFun (GradOf r) x
           node = ExprSum (da fa ++ db fb)
@@ -145,7 +147,7 @@ builderPairSnd (BuilderPair _ y) = y
 builderPairExpr' :: forall r a b z. (BasicVector (GradOf z)) => Fun2 a b z -> (BackGrad r a, BackGrad r b) -> BackGrad r z
 builderPairExpr' f (t1, t2) = reify f go
     where go :: forall s. Reifies s (Fun2 a b z) => Proxy s -> BackGrad r z
-          go _ = castGradNode (ExprSum (mkT1 t1 ++ mkT2 t2) :: Expr BackFun (GradOf r) (BuilderPair s a b z))
+          go _ = castNode (ExprSum (mkT1 t1 ++ mkT2 t2) :: Expr BackFun (GradOf r) (BuilderPair s a b z))
           mkT1 :: forall s. BackGrad r a -> [Term BackFun (GradOf r) (BuilderPair s a b z)]
           mkT1 (BackGrad g) = g builderPairFst
           mkT2 :: forall s. BackGrad r b -> [Term BackFun (GradOf r) (BuilderPair s a b z)]
@@ -179,7 +181,7 @@ liftFun3
     :: forall x r a b c z. (BasicVector (GradOf c), BasicVector x, VecBuilder x ~ GradBuilder z)
     => (a -> b -> c -> (z, x -> GradBuilder a, x -> GradBuilder b, x -> GradBuilder c))
     -> BVar r a -> BVar r b -> BVar r c -> BVar r z
-liftFun3 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) (DVar c0 (BackGrad dc)) = DVar z0 (castGradNode node)
+liftFun3 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) (DVar c0 (BackGrad dc)) = DVar z0 (castNode node)
     where (z0, fa, fb, fc) = dfun a0 b0 c0
           node :: Expr BackFun (GradOf r) x
           node = ExprSum (da fa ++ db fb ++ dc fc)
@@ -192,3 +194,6 @@ zip :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BVa
 zip = liftSparseFun2 go
     where go :: b1 -> b2 -> ((b1, b2), Maybe (VecBuilder (GradOf b1), VecBuilder (GradOf b2)) -> VecBuilder (GradOf b1), Maybe (VecBuilder (GradOf b1), VecBuilder (GradOf b2)) -> VecBuilder (GradOf b2))
           go b1 b2 = ((b1, b2), Prelude.fst . maybeToMonoid, Prelude.snd . maybeToMonoid)
+
+--unIdentity :: BVar a (Identity v) -> BVar a v
+--unIdentity (DVar x dx) = DVar (runIdentity x) _
