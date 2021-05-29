@@ -28,11 +28,11 @@ import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), SparseVector (Spar
 import Prelude hiding (fst, snd, zip)
 import qualified Prelude
 import Affine (DVar(DVar))
-import Notensor (FullVector)
 import Data.Reflection (Reifies(reflect), reify)
 import Data.Proxy (Proxy(Proxy))
 import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf, evalGrad), GradBuilder, SparseGrad, castNode, realNode)
 import Downhill.Linear.Graph(backpropExpr)
+import Downhill.Linear.Expr(FullVector(..))
 
 type BVar a v = DVar (BackGrad a) v
 

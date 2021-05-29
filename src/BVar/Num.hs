@@ -11,8 +11,7 @@ where
 import Affine (DVar(DVar))
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
-import Downhill.Linear.Expr (BasicVector(..))
-import Notensor (FullVector(..))
+import Downhill.Linear.Expr (BasicVector(..), FullVector (scaleBuilder, negateBuilder, identityBuilder))
 import Diff (backprop, HasGrad(..), BVar)
 import qualified Diff
 import Data.Semigroup (Sum(Sum, getSum))

@@ -6,9 +6,9 @@
 
 module Main where
 import Diff
-import Notensor (FullVector)
 import Data.VectorSpace (VectorSpace(..))
 import BVar.Num (AsNum(AsNum, unAsNum))
+import Downhill.Linear.Expr (FullVector)
 
 f :: Floating a => a -> a
 f x = sin (2*x)
@@ -17,7 +17,7 @@ x0 :: BVarS (BVarS Double)
 x0 = var 0
 
 f' :: forall a. (Floating a) => BVarS (AsNum a) -> BVarS (AsNum a)
-f' x = f @(BVarS (AsNum a)) x
+f' = f @(BVarS (AsNum a))
 
 checkFloating :: Floating (BVarS Double) => ()
 checkFloating = ()

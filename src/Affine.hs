@@ -9,25 +9,16 @@
 {-# LANGUAGE RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# language UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
 module Affine where
 
-import Data.AffineSpace (AffineSpace((.-.), Diff, (.+^)))
 import Data.AdditiveGroup (AdditiveGroup((^+^)))
 import Data.VectorSpace
     ( AdditiveGroup((^-^), negateV, zeroV),
-      VectorSpace(Scalar, (*^)),
-      sumV )
-import Notensor (FullVector(..), Dense(..))
-import Data.Kind
-import Data.Constraint (Dict(Dict))
-import Downhill.Linear.Expr (Expr(..), Term(..))
-import Control.Category (Category(..))
+      VectorSpace(Scalar, (*^)) )
+import Data.Kind ( Type )
 import Prelude hiding (id, (.))
-import Data.Singletons(type (~>), type (@@), TyCon1, Apply)
-import Data.Proxy (Proxy(Proxy))
 
 
 data DVar (d :: Type -> Type) a = DVar a (d a)
