@@ -8,7 +8,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module BVar.Num
 where
-import Affine (DVar(DVar))
+import Downhill.DVar (DVar(DVar))
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
 import Downhill.Linear.Expr (BasicVector(..), FullVector (scaleBuilder, negateBuilder, identityBuilder))

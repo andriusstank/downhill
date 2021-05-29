@@ -15,10 +15,8 @@ import Downhill.Internal.Graph.Sharing ()
 import Prelude hiding (lookup)
 import Downhill.Internal.Graph.OpenMap (OpenMap, OpenKey)
 import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
-import Control.Monad.Trans.State.Strict
+import Control.Monad.Trans.State.Strict ( StateT(..), get, modify )
 import Control.Monad.Trans.Class(lift)
-import qualified System.Mem.StableName
-
 import qualified Downhill.Internal.Graph.OpenMap as OpenMap
 
 -- | Maintains a cache of visited 'Expr's.

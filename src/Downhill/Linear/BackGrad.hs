@@ -18,7 +18,6 @@ import Downhill.Linear.Expr (Term(Term), FullVector (negateBuilder, identityBuil
 import Data.VectorSpace
     ( Scalar, VectorSpace(..), AdditiveGroup(..) )
 import Data.Kind (Type)
-import Affine (DVar(DVar))
 
 -- | Not absolutly required, but it's nice to parameterize expressions based on type
 -- of the variable, not on its gradient.
@@ -80,19 +79,3 @@ instance HasGrad v => VectorSpace (BackGrad a v) where
     type Scalar (BackGrad a v) = Scalar (GradOf v)
     a *^ BackGrad v = realNode (ExprSum (v (scaleBuilder a)))
 
-instance
-  ( VectorSpace v
-  , VectorSpace (GradOf v)
-  , FullVector (GradOf (Scalar v))
-  , Scalar (GradOf v) ~ Scalar v
-  , FullVector (GradOf v)
-  , HasGrad v
-  ) => VectorSpace (DVar (BackGrad a) v) where
-    type Scalar (DVar (BackGrad a) v) = DVar (BackGrad a) (Scalar v)
-    DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castNode node)
-        where node :: Expr BackFun (GradOf a) (GradOf v)
-              node = ExprSum (term1 ++ term2)
-                where term1 :: [Term BackFun (GradOf a) (GradOf v)]
-                      term1  = da (\v' -> identityBuilder (evalGrad v' v))
-                      term2 :: [Term BackFun (GradOf a) (GradOf v)]
-                      term2 = dv (\v' -> identityBuilder (a *^ v'))

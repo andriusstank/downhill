@@ -4,7 +4,7 @@ module Downhill.Linear.Graph(
     Graph,
     SomeGraph(..),
     evalSomeGraph, flipSomeGraph,
-    buildSomeGraph, backpropExpr
+    buildSomeGraph, backprop
 )
 where
 import Downhill.Internal.Graph.Graph
@@ -27,5 +27,5 @@ buildSomeGraph (BackGrad f) = unsafePerformIO $ do
     og <- recoverSharing (f identityBuilder)
     return (Graph.fromOpenGraph og)
 
-backpropExpr :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> GradOf v -> GradOf a
-backpropExpr f = evalSomeGraph (flipSomeGraph (buildSomeGraph  f))
+backprop :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> GradOf v -> GradOf a
+backprop f = evalSomeGraph (flipSomeGraph (buildSomeGraph  f))

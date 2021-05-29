@@ -11,17 +11,31 @@
 {-# language UndecidableInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ConstraintKinds #-}
-module Affine where
 
-import Data.AdditiveGroup (AdditiveGroup((^+^)))
+module Downhill.DVar (
+    DVar(..),
+    dvarValue,
+    -- * BVar
+    BVar,
+    var, constant, backprop
+)
+where
+
+import Data.AdditiveGroup (AdditiveGroup)
 import Data.VectorSpace
-    ( AdditiveGroup((^-^), negateV, zeroV),
-      VectorSpace(Scalar, (*^)) )
+    ( VectorSpace((*^)), Scalar, VectorSpace(..), AdditiveGroup(..) )
 import Data.Kind ( Type )
 import Prelude hiding (id, (.))
-
+import Downhill.Linear.Expr (FullVector (identityBuilder), Expr (ExprSum, ExprVar), BackFun, Term, BasicVector)
+import Downhill.Linear.BackGrad
+    ( castNode, BackGrad(..), HasGrad(..), realNode )
+import qualified Downhill.Linear.Graph as Graph
 
 data DVar (d :: Type -> Type) a = DVar a (d a)
+
+dvarValue :: DVar d a -> a
+dvarValue (DVar x _) = x
+
 
 instance (AdditiveGroup b, AdditiveGroup (d b)) => AdditiveGroup (DVar d b) where
     zeroV = DVar zeroV zeroV
@@ -65,3 +79,32 @@ instance (Floating b, VectorSpace (d b), b ~ Scalar (d b)) => Floating (DVar d b
     asinh (DVar x dx) = DVar (asinh x) (rsqrt (1 + sqr x) *^ dx)
     acosh (DVar x dx) = DVar (acosh x) (rsqrt (sqr x - 1) *^ dx)
     atanh (DVar x dx) = DVar (atanh x) (recip (1 - sqr x) *^ dx)
+
+
+instance
+  ( VectorSpace v
+  , VectorSpace (GradOf v)
+  , FullVector (GradOf (Scalar v))
+  , Scalar (GradOf v) ~ Scalar v
+  , FullVector (GradOf v)
+  , HasGrad v
+  ) => VectorSpace (DVar (BackGrad a) v) where
+    type Scalar (DVar (BackGrad a) v) = DVar (BackGrad a) (Scalar v)
+    DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castNode node)
+        where node :: Expr BackFun (GradOf a) (GradOf v)
+              node = ExprSum (term1 ++ term2)
+                where term1 :: [Term BackFun (GradOf a) (GradOf v)]
+                      term1  = da (\v' -> identityBuilder (evalGrad v' v))
+                      term2 :: [Term BackFun (GradOf a) (GradOf v)]
+                      term2 = dv (\v' -> identityBuilder (a *^ v'))
+
+type BVar a v = DVar (BackGrad a) v
+
+constant :: a -> BVar a a
+constant x = DVar x (BackGrad (const []))
+
+var :: a -> BVar a a
+var x = DVar x (realNode ExprVar)
+
+backprop :: forall a v. (FullVector (GradOf v), BasicVector (GradOf a)) => BVar a v -> GradOf v -> GradOf a
+backprop (DVar _y0 x) = Graph.backprop x
