@@ -10,7 +10,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes #-}
 {-# language ScopedTypeVariables #-}
-module Downhill.Linear.Graph.NodeMap (
+module Downhill.Internal.Graph.NodeMap (
     NodeKey,
     NodeMap,
     SomeItem(..),
@@ -32,12 +32,12 @@ module Downhill.Linear.Graph.NodeMap (
     cvtmap
 ) where
 import Prelude hiding (lookup, zipWith)
-import Downhill.Linear.Graph.OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
-import Downhill.Linear.Graph.OpenGraph (OpenExpr, OpenGraph (OpenGraph))
-import qualified Downhill.Linear.Graph.OpenMap as OpenMap
+import Downhill.Internal.Graph.OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
+import Downhill.Internal.Graph.OpenGraph (OpenExpr, OpenGraph (OpenGraph))
+import qualified Downhill.Internal.Graph.OpenMap as OpenMap
 import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
-import Downhill.Linear.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
+import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
 
 data Unit dx = Unit
 

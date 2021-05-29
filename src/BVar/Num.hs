@@ -15,7 +15,7 @@ import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
 import Downhill.Linear.Expr (Expr, Expr (ExprVar), BasicVector(..))
 import Notensor (FullVector(..))
-import Downhill.Linear.Graph.Types (Endpoint(SourceNode))
+import Downhill.Internal.Graph.Types (Endpoint(SourceNode))
 import Diff (backprop, HasGrad(..), BVar)
 import qualified Diff
 import Data.Semigroup (Sum(Sum, getSum))

@@ -27,16 +27,16 @@ import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), SparseVector (Spar
 import Prelude hiding (fst, snd, zip)
 import qualified Prelude
 import Affine (DVar(DVar))
-import Downhill.Linear.Graph.NodeMap (cvtmap, SomeSharedExprWithMap)
-import qualified Downhill.Linear.Graph as Graph
-import qualified Downhill.Linear.Graph.NodeMap as NodeMap
+import Downhill.Internal.Graph.NodeMap (cvtmap, SomeSharedExprWithMap)
+import qualified Downhill.Internal.Graph.Graph as Graph
+import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import System.IO.Unsafe (unsafePerformIO)
 import Notensor (FullVector (identityBuilder, negateBuilder, scaleBuilder))
-import Downhill.Linear.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
+import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(..), Scalar, VectorSpace(..))
-import Downhill.Linear.Graph (SomeGraph(SomeGraph), evalGraph)
+import Downhill.Internal.Graph.Graph (SomeGraph(SomeGraph), evalGraph)
 import Data.Coerce (coerce, Coercible)
-import Downhill.Linear.Graph.OpenGraph (OpenGraph, recoverSharing)
+import Downhill.Internal.Graph.OpenGraph (OpenGraph, recoverSharing)
 import Data.Kind (Type)
 import Data.Maybe (fromMaybe)
 import Data.Reflection (Reifies(reflect), reify)

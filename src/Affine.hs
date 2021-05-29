@@ -21,7 +21,6 @@ import Data.VectorSpace
       VectorSpace(Scalar, (*^)),
       sumV )
 import Notensor (FullVector(..), Dense(..))
-import Downhill.Linear.Graph.Types (Endpoint (InnerNode, SourceNode), Node(..),Edge (Edge))
 import Data.Kind
 import Data.Constraint (Dict(Dict))
 import Downhill.Linear.Expr (Expr(..), Term(..))

@@ -10,16 +10,16 @@ import Data.VectorSpace (sumV, VectorSpace(..), AdditiveGroup(..))
 import Downhill.Linear.Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
-import Downhill.Linear.Graph.Sharing ()
+import Downhill.Internal.Graph.Sharing ()
 import Downhill.Linear.Graph
 import Control.Monad (when)
-import qualified Downhill.Linear.Graph.NodeMap as NodeMap
+import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import Notensor (FullVector(..))
 import GHC.Generics (Generic)
-import Downhill.Linear.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
+import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import BVar.Num(var, backpropNum, AsNum (unAsNum))
-import Downhill.Linear.Graph.OpenGraph (OpenGraph)
-import Downhill.Linear.Graph.NodeMap
+import Downhill.Internal.Graph.OpenGraph (OpenGraph)
+import Downhill.Internal.Graph.NodeMap
 import Diff (GradOf)
 import Data.Semigroup (Sum(Sum, getSum))
 

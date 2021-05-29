@@ -2,7 +2,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Downhill.Linear.Graph.OpenMap
+module Downhill.Internal.Graph.OpenMap
     ( OpenMap, OpenKey
     , SomeOpenItem(SomeOpenItem)
     , mapmap, mapmapWithKey, mapmapMaybe, lookup, toList

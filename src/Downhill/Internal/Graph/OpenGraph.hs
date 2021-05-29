@@ -4,22 +4,22 @@
 {-# language ScopedTypeVariables #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 
-module Downhill.Linear.Graph.OpenGraph (
+module Downhill.Internal.Graph.OpenGraph (
     OpenArg, OpenTerm, OpenExpr,
     OpenGraph(..),
     recoverSharing
 )
 where
 import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector)
-import Downhill.Linear.Graph.Sharing ()
+import Downhill.Internal.Graph.Sharing ()
 import Prelude hiding (lookup)
-import Downhill.Linear.Graph.OpenMap (OpenMap, OpenKey)
-import Downhill.Linear.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
+import Downhill.Internal.Graph.OpenMap (OpenMap, OpenKey)
+import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
 import Control.Monad.Trans.State.Strict
 import Control.Monad.Trans.Class(lift)
 import qualified System.Mem.StableName
 
-import qualified Downhill.Linear.Graph.OpenMap as OpenMap
+import qualified Downhill.Internal.Graph.OpenMap as OpenMap
 
 -- | Maintains a cache of visited 'Expr's.
 newtype TreeBuilder e a r = TreeCache { unTreeCache :: StateT (OpenMap (OpenExpr e a)) IO r }

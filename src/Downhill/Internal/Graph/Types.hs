@@ -2,7 +2,7 @@
 -}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
-module Downhill.Linear.Graph.Types where
+module Downhill.Internal.Graph.Types where
 
 import Downhill.Linear.Expr (BasicVector)
 
