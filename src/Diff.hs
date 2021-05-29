@@ -27,7 +27,6 @@ import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), SparseVector (Spar
 import Prelude hiding (fst, snd, zip)
 import qualified Prelude
 import Affine (DVar(DVar))
-import Downhill.Internal.Graph.NodeMap (cvtmap, SomeSharedExprWithMap)
 --import qualified Downhill.Linear.Graph as Graph
 import qualified Downhill.Internal.Graph.Graph as Graph
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
@@ -35,7 +34,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Notensor (FullVector (identityBuilder, negateBuilder, scaleBuilder))
 import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(..), Scalar, VectorSpace(..))
-import Downhill.Internal.Graph.Graph (SomeGraph(SomeGraph), evalGraph)
+import Downhill.Internal.Graph.Graph (SomeGraph(SomeGraph), evalGraph, SomeSharedExprWithMap, cvtmap)
 import Data.Coerce (coerce, Coercible)
 import Downhill.Internal.Graph.OpenGraph (OpenGraph, recoverSharing)
 import Data.Kind (Type)
@@ -63,7 +62,7 @@ var x = DVar x (realNode ExprVar)
 
 backpropNodeMap :: forall a z. BasicVector a => SomeSharedExprWithMap BackFun a z -> z -> a
 backpropNodeMap m dv = case m of
-    NodeMap.SomeSharedExprWithMap smap expr -> evalGraph fwdGraph dv
+    Graph.SomeSharedExprWithMap smap expr -> evalGraph fwdGraph dv
         where backGraph = Graph.Graph smap expr
               fwdGraph = Graph.flipGraph flipBackFun backGraph
 

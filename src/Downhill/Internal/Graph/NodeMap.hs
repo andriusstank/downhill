@@ -14,19 +14,16 @@ module Downhill.Internal.Graph.NodeMap (
     NodeKey,
     NodeMap,
     SomeItem(..),
-    SomeNodeMap(..),
     mapmap, mapmapWithKey,
     toList,
     zipWith,
     lookup, tryLookup,
     generate,
-    SomeSharedExprWithMap(..),
-    uncheckedMakeNodeMap,
     NodeSet,
-
     fromList, List2(..),
 
-    cvtmap
+    uncheckedMakeNodeMap, SomeNodeMap(..)
+
 ) where
 import Prelude hiding (lookup, zipWith)
 import Downhill.Internal.Graph.OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
@@ -91,39 +88,14 @@ fromList = foldr prepend s0
           s0 :: NodeMap s (List2 f)
           s0 = generate (const (List2 []))
 
-data SomeSharedExprWithMap e a z where
-    SomeSharedExprWithMap :: NodeSet s => NodeMap s (Node (NodeKey s) e a) -> Node (NodeKey s) e a z -> SomeSharedExprWithMap e a z
-
-cvthelper :: forall s e da dv. NodeSet s => NodeMap s (OpenExpr e da) -> Node OpenKey e da dv -> SomeSharedExprWithMap e da dv
-cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
-    where cvtexpr :: forall dx. OpenExpr e da dx -> Node (NodeKey s) e da dx
-          cvtexpr = \case
-            Node terms -> Node (cvtterm <$> terms)
-          cvtterm :: forall dx. Edge OpenKey e da dx -> Edge (NodeKey s) e da dx
-          cvtterm = \case
-            Edge f x' -> Edge f (cvtarg x')
-          cvtarg :: forall du. Endpoint OpenKey da du -> Endpoint (NodeKey s) da du
-          cvtarg = \case
-            SourceNode -> SourceNode
-            InnerNode key -> case tryLookup m key of
-                Just (key', _value) -> InnerNode key'
-                Nothing -> error "oh fuck"
-
-cvtmap :: OpenGraph e da dv -> SomeSharedExprWithMap e da dv
-cvtmap (OpenGraph x m) =
-    case uncheckedMakeNodeMap m of
-        SomeNodeMap m' -> cvthelper m' x
-
---runRecoverSharing5 :: forall e da dv. Expr5 e da dv -> IO (SomeSharedExprWithMap e da dv)
---runRecoverSharing5 x = cvtmap <$> OpenGraph.runRecoverSharing4' (InnerNode' x)
-
-data SomeNodeMap f where
-    SomeNodeMap :: NodeSet s => NodeMap s f -> SomeNodeMap f
-
 data NodeSetWrapper s
 
 instance Reifies s (OpenMap Unit) => NodeSet (NodeSetWrapper s) where
     nodesetDict = reflect @s Proxy
+
+
+data SomeNodeMap f where
+    SomeNodeMap :: NodeSet s => NodeMap s f -> SomeNodeMap f
 
 -- TODO: why "unchecked" in name?
 uncheckedMakeNodeMap :: forall f. OpenMap f -> SomeNodeMap f
@@ -132,5 +104,3 @@ uncheckedMakeNodeMap x = reify nodes go
           nodes = OpenMap.mapmap (const Unit) x
           go :: forall s. Reifies s (OpenMap Unit) => Proxy s -> SomeNodeMap f
           go _proxy = SomeNodeMap @(NodeSetWrapper s) (NodeMap x)
-
---nodemapKnot :: forall f g. OpenMap f -> (forall s x. NodeMap s g -> f x -> g x) -> SomeNodeMap g

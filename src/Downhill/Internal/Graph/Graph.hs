@@ -10,23 +10,32 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# language ScopedTypeVariables #-}
+{-# language TypeApplications #-}
 
 module Downhill.Internal.Graph.Graph
     ( Graph(..), SomeGraph(..)
     , graph, evalGraph
     , flipGraph
     , mapEdges
+
+
+    , SomeNodeMap(..),
+    SomeSharedExprWithMap(..),
+    cvtmap,
     )
 where
 import Prelude hiding (head, tail)
 import Downhill.Internal.Graph.Sharing()
 import Downhill.Internal.Graph.NodeMap
-    ( NodeSet, NodeMap, NodeKey, SomeItem(SomeItem), List2(List2) )
+    ( NodeSet, NodeMap, NodeKey, SomeItem(SomeItem), List2(List2), SomeNodeMap(SomeNodeMap), mapmap, tryLookup, uncheckedMakeNodeMap )
 import Data.Either (partitionEithers)
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.Functor.Identity (Identity(Identity, runIdentity))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FwdFun (unFwdFun))
+import Downhill.Internal.Graph.OpenGraph (OpenExpr, OpenGraph(OpenGraph))
+import Downhill.Internal.Graph.OpenMap (OpenKey, OpenMap)
+import Data.Reflection (Reifies)
 
 data Graph s e a z = BasicVector a => Graph (NodeMap s (Node (NodeKey s) e a)) (Node (NodeKey s) e a z)
 
@@ -125,3 +134,31 @@ mapEdges f (Graph inner final) = Graph (NodeMap.mapmap go inner) (go final)
 
 graph :: BasicVector a => NodeMap s (Node (NodeKey s) e a) -> Node (NodeKey s) e a z -> Graph s e a z
 graph = Graph
+
+
+
+
+
+data SomeSharedExprWithMap e a z where
+    SomeSharedExprWithMap :: NodeSet s => NodeMap s (Node (NodeKey s) e a) -> Node (NodeKey s) e a z -> SomeSharedExprWithMap e a z
+
+cvthelper :: forall s e da dv. NodeSet s => NodeMap s (OpenExpr e da) -> Node OpenKey e da dv -> SomeSharedExprWithMap e da dv
+cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
+    where cvtexpr :: forall dx. OpenExpr e da dx -> Node (NodeKey s) e da dx
+          cvtexpr = \case
+            Node terms -> Node (cvtterm <$> terms)
+          cvtterm :: forall dx. Edge OpenKey e da dx -> Edge (NodeKey s) e da dx
+          cvtterm = \case
+            Edge f x' -> Edge f (cvtarg x')
+          cvtarg :: forall du. Endpoint OpenKey da du -> Endpoint (NodeKey s) da du
+          cvtarg = \case
+            SourceNode -> SourceNode
+            InnerNode key -> case tryLookup m key of
+                Just (key', _value) -> InnerNode key'
+                Nothing -> error "oh fuck"
+
+cvtmap :: OpenGraph e da dv -> SomeSharedExprWithMap e da dv
+cvtmap (OpenGraph x m) =
+    case uncheckedMakeNodeMap m of
+        SomeNodeMap m' -> cvthelper m' x
+
