@@ -28,6 +28,7 @@ import Prelude hiding (fst, snd, zip)
 import qualified Prelude
 import Affine (DVar(DVar))
 import Downhill.Internal.Graph.NodeMap (cvtmap, SomeSharedExprWithMap)
+--import qualified Downhill.Linear.Graph as Graph
 import qualified Downhill.Internal.Graph.Graph as Graph
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import System.IO.Unsafe (unsafePerformIO)

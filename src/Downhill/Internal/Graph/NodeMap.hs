@@ -15,9 +15,6 @@ module Downhill.Internal.Graph.NodeMap (
     NodeMap,
     SomeItem(..),
     SomeNodeMap(..),
-    SharedArgS,
-    SharedTermS,
-    SharedExprS,
     mapmap, mapmapWithKey,
     toList,
     zipWith,
@@ -94,16 +91,12 @@ fromList = foldr prepend s0
           s0 :: NodeMap s (List2 f)
           s0 = generate (const (List2 []))
 
-type SharedArgS s = Endpoint (NodeKey s)
-type SharedTermS s e = Edge (NodeKey s) e
-type SharedExprS s e da = Node (NodeKey s) e da
-
 data SomeSharedExprWithMap e a z where
-    SomeSharedExprWithMap :: NodeSet s => NodeMap s (SharedExprS s e a) -> SharedExprS s e a z -> SomeSharedExprWithMap e a z
+    SomeSharedExprWithMap :: NodeSet s => NodeMap s (Node (NodeKey s) e a) -> Node (NodeKey s) e a z -> SomeSharedExprWithMap e a z
 
 cvthelper :: forall s e da dv. NodeSet s => NodeMap s (OpenExpr e da) -> Node OpenKey e da dv -> SomeSharedExprWithMap e da dv
 cvthelper m x = SomeSharedExprWithMap (mapmap cvtexpr m) (cvtexpr x)
-    where cvtexpr :: forall dx. OpenExpr e da dx -> SharedExprS s e da dx
+    where cvtexpr :: forall dx. OpenExpr e da dx -> Node (NodeKey s) e da dx
           cvtexpr = \case
             Node terms -> Node (cvtterm <$> terms)
           cvtterm :: forall dx. Edge OpenKey e da dx -> Edge (NodeKey s) e da dx
