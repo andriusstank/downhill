@@ -23,7 +23,7 @@ module Diff
     easyLift2
 )
 where
-import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), SparseVector (SparseVector, unSparseVector), zeroExpr, BasicVector (..), maybeToMonoid, BackFun(..), flipBackFun)
+import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), SparseVector (SparseVector, unSparseVector), zeroExpr, BasicVector (..), maybeToMonoid, BackFun(..), FwdFun, flipBackFun)
 import Prelude hiding (fst, snd, zip)
 import qualified Prelude
 import Affine (DVar(DVar))
@@ -32,9 +32,8 @@ import qualified Downhill.Internal.Graph.Graph as Graph
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import System.IO.Unsafe (unsafePerformIO)
 import Notensor (FullVector (identityBuilder, negateBuilder, scaleBuilder))
-import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(..), Scalar, VectorSpace(..))
-import Downhill.Internal.Graph.Graph (SomeGraph(SomeGraph), evalGraph, fromOpenGraph)
+import Downhill.Internal.Graph.Graph (SomeGraph(SomeGraph), evalGraph)
 import Data.Coerce (coerce, Coercible)
 import Downhill.Internal.Graph.OpenGraph (OpenGraph, recoverSharing)
 import Data.Kind (Type)
@@ -42,8 +41,9 @@ import Data.Maybe (fromMaybe)
 import Data.Reflection (Reifies(reflect), reify)
 import Data.Proxy (Proxy(Proxy))
 import Data.Singletons (type (~>), Apply, TyCon1)
-import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf, evalGrad), GradBuilder, SparseGrad, castNode, realNode)
+import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf, evalGrad), GradBuilder, SparseGrad, castNode, realNode, backpropExpr)
 import Data.Functor.Identity (Identity(Identity, runIdentity))
+import Downhill.Linear.Graph(flipSomeGraph, evalSomeGraph)
 
 type BVar a v = DVar (BackGrad a) v
 
@@ -59,17 +59,6 @@ constant x = DVar x (BackGrad (const []))
 var :: b -> BVar b b
 --var x = DVar x (BackGrad (\f -> [Term (BackFun f) ExprVar]))
 var x = DVar x (realNode ExprVar)
-
-backpropNodeMap :: forall a z. BasicVector a => SomeGraph BackFun a z -> z -> a
-backpropNodeMap m dv = case m of
-    Graph.SomeGraph (Graph.Graph smap expr) -> evalGraph fwdGraph dv
-        where backGraph = Graph.Graph smap expr
-              fwdGraph = Graph.flipGraph flipBackFun backGraph
-
-backpropExpr :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> GradOf v -> GradOf a
-backpropExpr (BackGrad f) dv = unsafePerformIO $ do
-    g <- recoverSharing (f identityBuilder)
-    return (backpropNodeMap (fromOpenGraph g) dv)
 
 backprop :: forall b a. (FullVector (GradOf b), BasicVector (GradOf a)) => BVar a b -> GradOf b -> GradOf a
 backprop (DVar _y0 x) = backpropExpr x

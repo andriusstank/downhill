@@ -6,7 +6,6 @@
 {-# LANGUAGE RoleAnnotations #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE RankNTypes #-}
 {-# language ScopedTypeVariables #-}
@@ -27,11 +26,9 @@ module Downhill.Internal.Graph.NodeMap (
 ) where
 import Prelude hiding (lookup, zipWith)
 import Downhill.Internal.Graph.OpenMap (OpenKey, OpenMap, SomeOpenItem(SomeOpenItem))
-import Downhill.Internal.Graph.OpenGraph (OpenExpr, OpenGraph (OpenGraph))
 import qualified Downhill.Internal.Graph.OpenMap as OpenMap
 import Data.Reflection (reify, Reifies(reflect))
 import Data.Data (Proxy(Proxy))
-import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
 
 data Unit dx = Unit
 

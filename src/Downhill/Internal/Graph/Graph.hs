@@ -10,14 +10,12 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# language ScopedTypeVariables #-}
-{-# language TypeApplications #-}
 
 module Downhill.Internal.Graph.Graph
     ( Graph(..), SomeGraph(..)
     , graph, evalGraph
     , flipGraph
     , mapEdges
-    , SomeGraph(..)
     , fromOpenGraph
     )
 where
@@ -31,8 +29,7 @@ import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNod
 import Data.Functor.Identity (Identity(Identity, runIdentity))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FwdFun (unFwdFun))
 import Downhill.Internal.Graph.OpenGraph (OpenExpr, OpenGraph(OpenGraph))
-import Downhill.Internal.Graph.OpenMap (OpenKey, OpenMap)
-import Data.Reflection (Reifies)
+import Downhill.Internal.Graph.OpenMap (OpenKey)
 
 data Graph s e a z = BasicVector a => Graph (NodeMap s (Node (NodeKey s) e a)) (Node (NodeKey s) e a z)
 
