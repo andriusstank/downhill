@@ -22,7 +22,7 @@ module Downhill.Internal.Graph.NodeMap (
     NodeSet,
     fromList, List2(..),
 
-    uncheckedMakeNodeMap, SomeNodeMap(..)
+    SomeNodeMap(..), uncheckedMakeNodeMap
 
 ) where
 import Prelude hiding (lookup, zipWith)
@@ -92,7 +92,6 @@ data NodeSetWrapper s
 
 instance Reifies s (OpenMap Unit) => NodeSet (NodeSetWrapper s) where
     nodesetDict = reflect @s Proxy
-
 
 data SomeNodeMap f where
     SomeNodeMap :: NodeSet s => NodeMap s f -> SomeNodeMap f

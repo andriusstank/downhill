@@ -34,7 +34,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Notensor (FullVector (identityBuilder, negateBuilder, scaleBuilder))
 import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(..), Scalar, VectorSpace(..))
-import Downhill.Internal.Graph.Graph (SomeGraph(SomeGraph), evalGraph, SomeSharedExprWithMap, cvtmap)
+import Downhill.Internal.Graph.Graph (SomeGraph(SomeGraph), evalGraph, cvtmap)
 import Data.Coerce (coerce, Coercible)
 import Downhill.Internal.Graph.OpenGraph (OpenGraph, recoverSharing)
 import Data.Kind (Type)
@@ -60,9 +60,9 @@ var :: b -> BVar b b
 --var x = DVar x (BackGrad (\f -> [Term (BackFun f) ExprVar]))
 var x = DVar x (realNode ExprVar)
 
-backpropNodeMap :: forall a z. BasicVector a => SomeSharedExprWithMap BackFun a z -> z -> a
+backpropNodeMap :: forall a z. BasicVector a => SomeGraph BackFun a z -> z -> a
 backpropNodeMap m dv = case m of
-    Graph.SomeSharedExprWithMap smap expr -> evalGraph fwdGraph dv
+    Graph.SomeGraph (Graph.Graph smap expr) -> evalGraph fwdGraph dv
         where backGraph = Graph.Graph smap expr
               fwdGraph = Graph.flipGraph flipBackFun backGraph
 
