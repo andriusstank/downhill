@@ -10,7 +10,7 @@ import Data.VectorSpace (sumV, VectorSpace(..), AdditiveGroup(..))
 import Downhill.Linear.Expr
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
-import Sharing ()
+import Downhill.Linear.Graph.Sharing ()
 import Downhill.Linear.Graph
 import Control.Monad (when)
 import qualified Downhill.Linear.Graph.NodeMap as NodeMap

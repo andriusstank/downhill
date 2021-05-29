@@ -12,8 +12,8 @@
 {-# language ScopedTypeVariables #-}
 module Downhill.Linear.Graph.NodeMap (
     NodeKey,
-    SomeItem(..),
     NodeMap,
+    SomeItem(..),
     SomeNodeMap(..),
     SharedArgS,
     SharedTermS,

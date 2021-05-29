@@ -19,7 +19,7 @@ module Downhill.Linear.Graph
     )
 where
 import Prelude hiding (head, tail)
-import Sharing()
+import Downhill.Linear.Graph.Sharing()
 import Downhill.Linear.Graph.NodeMap
     ( NodeSet, NodeMap, NodeKey, SomeItem(SomeItem), List2(List2) )
 import Data.Either (partitionEithers)
@@ -28,7 +28,7 @@ import Downhill.Linear.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode)
 import Data.Functor.Identity (Identity(Identity, runIdentity))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FwdFun (unFwdFun))
 
-data Graph s e da dz = BasicVector da => Graph (NodeMap s (Node (NodeKey s) e da)) (Node (NodeKey s) e da dz)
+data Graph s e a z = BasicVector a => Graph (NodeMap s (Node (NodeKey s) e a)) (Node (NodeKey s) e a z)
 
 data SomeGraph e a z where
   SomeGraph :: NodeSet s => Graph s e a z -> SomeGraph e a z

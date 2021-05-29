@@ -23,13 +23,10 @@ library
                        Downhill.Linear.Graph.NodeMap,
                        Downhill.Linear.Graph.OpenGraph,
                        Downhill.Linear.Graph,
-                       Sharing,
-                       Types,
+                       Downhill.Linear.Graph.Sharing,
                        Affine,
                        Diff,
                        Notensor,
-                       EType,
-                       ExprWalker,
                        BVar.Num
   -- other-modules:
   -- other-extensions:
