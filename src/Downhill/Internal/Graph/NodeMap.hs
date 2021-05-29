@@ -22,7 +22,7 @@ module Downhill.Internal.Graph.NodeMap (
     NodeSet,
     fromList, List2(..),
 
-    SomeNodeMap(..), uncheckedMakeNodeMap
+    SomeNodeMap(..), fromOpenMap
 
 ) where
 import Prelude hiding (lookup, zipWith)
@@ -97,8 +97,8 @@ data SomeNodeMap f where
     SomeNodeMap :: NodeSet s => NodeMap s f -> SomeNodeMap f
 
 -- TODO: why "unchecked" in name?
-uncheckedMakeNodeMap :: forall f. OpenMap f -> SomeNodeMap f
-uncheckedMakeNodeMap x = reify nodes go
+fromOpenMap :: forall f. OpenMap f -> SomeNodeMap f
+fromOpenMap x = reify nodes go
     where nodes :: OpenMap Unit
           nodes = OpenMap.mapmap (const Unit) x
           go :: forall s. Reifies s (OpenMap Unit) => Proxy s -> SomeNodeMap f

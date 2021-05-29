@@ -34,7 +34,7 @@ import System.IO.Unsafe (unsafePerformIO)
 import Notensor (FullVector (identityBuilder, negateBuilder, scaleBuilder))
 import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
 import Data.VectorSpace (AdditiveGroup(..), Scalar, VectorSpace(..))
-import Downhill.Internal.Graph.Graph (SomeGraph(SomeGraph), evalGraph, cvtmap)
+import Downhill.Internal.Graph.Graph (SomeGraph(SomeGraph), evalGraph, fromOpenGraph)
 import Data.Coerce (coerce, Coercible)
 import Downhill.Internal.Graph.OpenGraph (OpenGraph, recoverSharing)
 import Data.Kind (Type)
@@ -69,7 +69,7 @@ backpropNodeMap m dv = case m of
 backpropExpr :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> GradOf v -> GradOf a
 backpropExpr (BackGrad f) dv = unsafePerformIO $ do
     g <- recoverSharing (f identityBuilder)
-    return (backpropNodeMap (cvtmap g) dv)
+    return (backpropNodeMap (fromOpenGraph g) dv)
 
 backprop :: forall b a. (FullVector (GradOf b), BasicVector (GradOf a)) => BVar a b -> GradOf b -> GradOf a
 backprop (DVar _y0 x) = backpropExpr x

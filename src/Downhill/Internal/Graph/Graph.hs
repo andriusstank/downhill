@@ -18,13 +18,13 @@ module Downhill.Internal.Graph.Graph
     , flipGraph
     , mapEdges
     , SomeGraph(..)
-    , cvtmap
+    , fromOpenGraph
     )
 where
 import Prelude hiding (head, tail)
 import Downhill.Internal.Graph.Sharing()
 import Downhill.Internal.Graph.NodeMap
-    ( NodeSet, NodeMap, NodeKey, SomeItem(SomeItem), List2(List2), SomeNodeMap(SomeNodeMap), mapmap, tryLookup, uncheckedMakeNodeMap )
+    ( NodeSet, NodeMap, NodeKey, SomeItem(SomeItem), List2(List2), SomeNodeMap(SomeNodeMap), mapmap, tryLookup, fromOpenMap )
 import Data.Either (partitionEithers)
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
@@ -148,8 +148,8 @@ cvthelper m x = SomeGraph (Graph (mapmap cvtexpr m) (cvtexpr x))
                 Just (key', _value) -> InnerNode key'
                 Nothing -> error "oh fuck"
 
-cvtmap :: BasicVector a => OpenGraph e a v -> SomeGraph e a v
-cvtmap (OpenGraph x m) =
-    case uncheckedMakeNodeMap m of
+fromOpenGraph :: BasicVector a => OpenGraph e a v -> SomeGraph e a v
+fromOpenGraph (OpenGraph x m) =
+    case fromOpenMap m of
         SomeNodeMap m' -> cvthelper m' x
 
