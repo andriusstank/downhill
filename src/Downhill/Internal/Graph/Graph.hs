@@ -149,4 +149,3 @@ fromOpenGraph :: BasicVector a => OpenGraph e a v -> SomeGraph e a v
 fromOpenGraph (OpenGraph x m) =
     case fromOpenMap m of
         SomeNodeMap m' -> cvthelper m' x
-

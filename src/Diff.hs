@@ -7,11 +7,12 @@
 {-# language ScopedTypeVariables #-}
 {-# language GADTs #-}
 {-# LANGUAGE PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports -Wno-unused-top-binds #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
+
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 module Diff
 (
@@ -23,27 +24,15 @@ module Diff
     easyLift2
 )
 where
-import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), SparseVector (SparseVector, unSparseVector), zeroExpr, BasicVector (..), maybeToMonoid, BackFun(..), FwdFun, flipBackFun)
+import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), SparseVector (SparseVector, unSparseVector), BasicVector (..), maybeToMonoid, BackFun(..))
 import Prelude hiding (fst, snd, zip)
 import qualified Prelude
 import Affine (DVar(DVar))
---import qualified Downhill.Linear.Graph as Graph
-import qualified Downhill.Internal.Graph.Graph as Graph
-import qualified Downhill.Internal.Graph.NodeMap as NodeMap
-import System.IO.Unsafe (unsafePerformIO)
-import Notensor (FullVector (identityBuilder, negateBuilder, scaleBuilder))
-import Data.VectorSpace (AdditiveGroup(..), Scalar, VectorSpace(..))
-import Downhill.Internal.Graph.Graph (SomeGraph(SomeGraph), evalGraph)
-import Data.Coerce (coerce, Coercible)
-import Downhill.Internal.Graph.OpenGraph (OpenGraph, recoverSharing)
-import Data.Kind (Type)
-import Data.Maybe (fromMaybe)
+import Notensor (FullVector)
 import Data.Reflection (Reifies(reflect), reify)
 import Data.Proxy (Proxy(Proxy))
-import Data.Singletons (type (~>), Apply, TyCon1)
-import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf, evalGrad), GradBuilder, SparseGrad, castNode, realNode, backpropExpr)
-import Data.Functor.Identity (Identity(Identity, runIdentity))
-import Downhill.Linear.Graph(flipSomeGraph, evalSomeGraph)
+import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf, evalGrad), GradBuilder, SparseGrad, castNode, realNode)
+import Downhill.Linear.Graph(backpropExpr)
 
 type BVar a v = DVar (BackGrad a) v
 

@@ -3,24 +3,22 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
 {-# language PartialTypeSignatures #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
+-- {-# OPTIONS_GHC -Wno-unused-imports #-}
 {-# LANGUAGE DerivingVia #-}
 module Trace where
-import Data.VectorSpace (sumV, VectorSpace(..), AdditiveGroup(..))
+import Data.VectorSpace (VectorSpace(..), AdditiveGroup(..))
 import Downhill.Linear.Expr
+    ( BackFun(BackFun),
+      BasicVector(..),
+      Expr(..),
+      FullVector(..),
+      Term(..) )
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
 import Downhill.Internal.Graph.Sharing ()
-import Downhill.Linear.Graph
 import Control.Monad (when)
-import qualified Downhill.Internal.Graph.NodeMap as NodeMap
-import Notensor (FullVector(..))
 import GHC.Generics (Generic)
-import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(..))
-import BVar.Num(var, backpropNum, AsNum (unAsNum))
-import Downhill.Internal.Graph.OpenGraph (OpenGraph)
-import Downhill.Internal.Graph.NodeMap
-import Diff (GradOf)
+import BVar.Num(var, backpropNum)
 import Data.Semigroup (Sum(Sum, getSum))
 
 newtype R = R { unR :: Integer }

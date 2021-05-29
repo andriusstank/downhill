@@ -1,12 +1,18 @@
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Downhill.Linear.Graph(
     Graph,
     SomeGraph(..),
-    evalSomeGraph, flipSomeGraph
+    evalSomeGraph, flipSomeGraph,
+    buildSomeGraph, backpropExpr
 )
 where
 import Downhill.Internal.Graph.Graph
-import Downhill.Linear.Expr (FwdFun, BackFun, flipBackFun)
+    ( SomeGraph(..), Graph, evalGraph )
+import Downhill.Linear.Expr (FwdFun, BackFun, flipBackFun, BasicVector, FullVector (identityBuilder))
+import Downhill.Linear.BackGrad (HasGrad(GradOf), BackGrad(..))
+import GHC.IO.Unsafe (unsafePerformIO)
+import Downhill.Internal.Graph.OpenGraph (recoverSharing)
 import qualified Downhill.Internal.Graph.Graph as Graph
 
 evalSomeGraph :: SomeGraph FwdFun a p -> a -> p
@@ -15,3 +21,11 @@ evalSomeGraph g v = case g of
 
 flipSomeGraph :: SomeGraph BackFun a z -> SomeGraph FwdFun z a
 flipSomeGraph (SomeGraph g) = SomeGraph (Graph.flipGraph flipBackFun g)
+
+buildSomeGraph :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> SomeGraph BackFun (GradOf a) (GradOf v)
+buildSomeGraph (BackGrad f) = unsafePerformIO $ do
+    og <- recoverSharing (f identityBuilder)
+    return (Graph.fromOpenGraph og)
+
+backpropExpr :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> GradOf v -> GradOf a
+backpropExpr f = evalSomeGraph (flipSomeGraph (buildSomeGraph  f))

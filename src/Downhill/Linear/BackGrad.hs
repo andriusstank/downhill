@@ -11,7 +11,6 @@ module Downhill.Linear.BackGrad
     HasGrad(..),
     GradBuilder, SparseGrad,
     realNode, castNode, inlineNode,
-    buildSomeGraph, backpropExpr
 )
 where
 
@@ -20,11 +19,6 @@ import Data.VectorSpace
     ( Scalar, VectorSpace(..), AdditiveGroup(..) )
 import Data.Kind (Type)
 import Affine (DVar(DVar))
-import qualified Downhill.Internal.Graph.Graph as Graph
-import Downhill.Internal.Graph.Graph (SomeGraph)
-import GHC.IO.Unsafe (unsafePerformIO)
-import Downhill.Internal.Graph.OpenGraph (recoverSharing)
-import Downhill.Linear.Graph (evalSomeGraph, flipSomeGraph)
 
 -- | Not absolutly required, but it's nice to parameterize expressions based on type
 -- of the variable, not on its gradient.
@@ -102,11 +96,3 @@ instance
                       term1  = da (\v' -> identityBuilder (evalGrad v' v))
                       term2 :: [Term BackFun (GradOf a) (GradOf v)]
                       term2 = dv (\v' -> identityBuilder (a *^ v'))
-
-buildSomeGraph :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> SomeGraph BackFun (GradOf a) (GradOf v)
-buildSomeGraph (BackGrad f) = unsafePerformIO $ do
-    og <- recoverSharing (f identityBuilder)
-    return (Graph.fromOpenGraph og)
-
-backpropExpr :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> GradOf v -> GradOf a
-backpropExpr f = evalSomeGraph (flipSomeGraph (buildSomeGraph  f))

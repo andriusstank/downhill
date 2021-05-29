@@ -4,22 +4,18 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# language ScopedTypeVariables #-}
 {-# LANGUAGE DerivingVia #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module BVar.Num
 where
 import Affine (DVar(DVar))
-import Data.Kind (Type)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
-import Downhill.Linear.Expr (Expr, Expr (ExprVar), BasicVector(..))
+import Downhill.Linear.Expr (BasicVector(..))
 import Notensor (FullVector(..))
-import Downhill.Internal.Graph.Types (Endpoint(SourceNode))
 import Diff (backprop, HasGrad(..), BVar)
 import qualified Diff
 import Data.Semigroup (Sum(Sum, getSum))
-import Downhill.Linear.BackGrad (HasGrad(evalGrad))
 
 newtype AsNum a = AsNum { unAsNum :: a }
     deriving Show
