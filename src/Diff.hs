@@ -12,9 +12,6 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
 
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-
-{-# LANGUAGE TypeApplications #-}
 module Diff
 (
     -- * ???
@@ -42,6 +39,7 @@ import Downhill.DVar (DVar(DVar), dvarValue, constant, var, backprop, BVar)
 import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf, evalGrad), GradBuilder, castNode)
 import qualified Downhill.Linear.EasyLift as Easy
 import qualified Downhill.Linear.Prelude as Linear
+import Downhill.Linear.EasyLift (LinFun3, lift3)
 
 type BVarS a = BVar a a
 
@@ -94,44 +92,33 @@ liftFun2 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) = DVar z0 (castNod
           node :: Expr BackFun (GradOf r) x
           node = ExprSum (da fa ++ db fb)
 
-data EasyLin3 a b c where
-    EasyLin3 :: (GradOf z -> (GradBuilder a, GradBuilder b, GradBuilder c)) -> EasyLin3 a b c
-
-data LinFun3 a b c z where
-    LinFun3 :: (BasicVector x, VecBuilder x ~ GradBuilder z) => (x -> GradBuilder a) -> (x -> GradBuilder b) -> (x -> GradBuilder c) -> LinFun3 a b c z
-
-linLift3 :: forall r a b c z. ()
-    => LinFun3 a b c z
-    -> BackGrad r a -> BackGrad r b -> BackGrad r c -> BackGrad r z
-linLift3 (LinFun3 fa fb fc) (BackGrad da) (BackGrad db) (BackGrad dc) = castNode node
-    where node = ExprSum (da fa ++ db fb ++ dc fc)
-
 liftFun3
     :: forall x r a b c z. (BasicVector x, VecBuilder x ~ GradBuilder z)
     => (a -> b -> c -> (z, LinFun3 a b c z))
     -> BVar r a -> BVar r b -> BVar r c -> BVar r z
-liftFun3 dfun (DVar a0 da) (DVar b0 db) (DVar c0 dc) = DVar z0 (linLift3 f3 da db dc)
+liftFun3 dfun (DVar a0 da) (DVar b0 db) (DVar c0 dc) = DVar z0 (lift3 f3 da db dc)
     where (z0, f3) = dfun a0 b0 c0
+
 
 easyLift1
     :: BasicVector (GradOf z)
     => (a -> (z, GradOf z -> GradBuilder a))
     -> BVar r a -> BVar r z
-easyLift1 f (DVar a da) = DVar z (Easy.lift1 df da)
+easyLift1 f (DVar a da) = DVar z (Easy.easyLift1 (Easy.EasyFun1 df) da)
     where (z, df) = f a
 
 easyLift2
     :: BasicVector (GradOf z)
     => (a -> b -> (z, GradOf z -> (GradBuilder a, GradBuilder b)))
     -> BVar r a -> BVar r b -> BVar r z
-easyLift2 f (DVar a da) (DVar b db) = DVar z (Easy.lift2 df da db)
+easyLift2 f (DVar a da) (DVar b db) = DVar z (Easy.easyLift2 (Easy.EasyFun2 df) da db)
     where (z, df) = f a b
 
 easyLift3
     :: BasicVector (GradOf z)
     => (a -> b -> c -> (z, GradOf z -> (GradBuilder a, GradBuilder b, GradBuilder c)))
     -> BVar r a -> BVar r b -> BVar r c -> BVar r z
-easyLift3 f (DVar a da) (DVar b db) (DVar c dc) = DVar z (Easy.lift3 df da db dc)
+easyLift3 f (DVar a da) (DVar b db) (DVar c dc) = DVar z (Easy.easyLift3 (Easy.EasyFun3 df) da db dc)
     where (z, df) = f a b c
 
 zip :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BVar a (b1, b2)
