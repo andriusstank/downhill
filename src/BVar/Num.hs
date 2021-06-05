@@ -12,9 +12,10 @@ import Downhill.DVar (DVar(DVar))
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
 import Downhill.Linear.Expr (BasicVector(..), FullVector (scaleBuilder, negateBuilder, identityBuilder))
-import Diff (backprop, HasGrad(..), BVar)
+import Diff (backprop, BVar)
 import qualified Diff
 import Data.Semigroup (Sum(Sum, getSum))
+import Downhill.Linear.BackGrad (HasGrad(..))
 
 newtype AsNum a = AsNum { unAsNum :: a }
     deriving Show

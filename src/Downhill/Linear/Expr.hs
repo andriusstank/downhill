@@ -55,6 +55,11 @@ instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
     sumBuilder = sumPair . maybeToMonoid
         where sumPair (a, b) = (sumBuilder a, sumBuilder b)
 
+instance (BasicVector a, BasicVector b, BasicVector c) => BasicVector (a, b, c) where
+    type VecBuilder (a, b, c) = Maybe (VecBuilder a, VecBuilder b, VecBuilder c)
+    sumBuilder = sumTriple . maybeToMonoid
+        where sumTriple (a, b, c) = (sumBuilder a, sumBuilder b, sumBuilder c)
+
 instance BasicVector Float where
     type VecBuilder Float = Sum Float
     sumBuilder = getSum
@@ -83,6 +88,10 @@ instance (Scalar a ~ Scalar b, FullVector a, FullVector b) => FullVector (a, b) 
     identityBuilder (x, y) = Just (identityBuilder x, identityBuilder y)
     negateBuilder (x, y) = Just (negateBuilder x, negateBuilder y)
     scaleBuilder a (x, y) = Just (scaleBuilder a x, scaleBuilder a y)
+instance (s ~ Scalar a, s ~ Scalar b, s ~ Scalar c, FullVector a, FullVector b, FullVector c) => FullVector (a, b, c) where
+    identityBuilder (x, y, z) = Just (identityBuilder x, identityBuilder y, identityBuilder z)
+    negateBuilder (x, y, z) = Just (negateBuilder x, negateBuilder y, negateBuilder z)
+    scaleBuilder a (x, y, z) = Just (scaleBuilder a x, scaleBuilder a y, scaleBuilder a z)
 
 -- | Sometimes we need to forward gradients through the node without summing them. 
 -- The type of the node would be @VecBuilder v@, but what would be @VecBuilder (VecBuilder v)@?

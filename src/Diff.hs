@@ -1,4 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -12,10 +11,10 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE DataKinds #-}
 
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
 module Diff
 (
     -- * ???
-    HasGrad(..),
     BVar, BVarS, bvarValue,
     constant, var,
     backprop, backpropS,
@@ -23,8 +22,6 @@ module Diff
     liftFun1, liftFun2, liftFun3,
     -- * Easy lift
     easyLift1, easyLift2, easyLift3,
-    -- * Prelude
-    fst, snd, zip,
 )
 where
 import Downhill.Linear.Expr
@@ -34,12 +31,11 @@ import Downhill.Linear.Expr
       BackFun(..),
       FullVector(..) )
 import Prelude hiding (fst, snd, zip)
-import qualified Prelude
 import Downhill.DVar (DVar(DVar), dvarValue, constant, var, backprop, BVar)
-import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf, evalGrad), GradBuilder, castNode)
+import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf), GradBuilder, castNode)
 import qualified Downhill.Linear.Lift as Easy
-import qualified Downhill.Linear.Prelude as Linear
-import Downhill.Linear.Lift (LinFun3, lift3)
+import Downhill.Linear.Lift (LinFun1, LinFun3, lift3)
+import qualified Downhill.Linear.Lift as Lift
 
 type BVarS a = BVar a a
 
@@ -52,13 +48,8 @@ backpropS x = backprop x 1
 intoFst :: Monoid x => (SparseVector v -> Maybe (VecBuilder v, x))
 intoFst (SparseVector dx) = Just (dx, mempty)
 
-fst :: forall r b1 b2. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar r (b1, b2) -> BVar r b1
-fst (DVar x dx) = DVar (Prelude.fst x) (Linear.fst dx)
 
-snd :: forall b1 b2 a. (BasicVector (GradOf b1), BasicVector (GradOf b2)) => BVar a (b1, b2) -> BVar a b2
-snd (DVar x dx) = DVar (Prelude.snd x) (Linear.snd dx)
-
-data DFunc1 a b = forall x. DFunc1 (a -> (b, VecBuilder b -> x, x -> VecBuilder a))
+newtype DFun1 a b = DFun1 { unDFun1 :: a -> (b, LinFun1 a b) }
 data DFunc2 a b c = forall x. (BasicVector x, VecBuilder x ~ VecBuilder (GradOf c)) => DFunc2 (a -> b -> (c, x -> VecBuilder (GradOf a), x -> VecBuilder (GradOf b)))
 
 liftDenseFun1 :: forall c b a. BasicVector (GradOf b) => (c -> (b, GradOf b -> GradBuilder c)) -> BVar a c -> BVar a b
@@ -74,13 +65,11 @@ liftSparseFun1 go (DVar v0 (BackGrad dv)) = DVar y0 (castNode node)
           (y0, goo) = go v0
 
 liftFun1
-    :: forall x r a z. (BasicVector x, VecBuilder x ~ GradBuilder z)
-    => (a -> (z, x -> GradBuilder a))
+    :: forall r a z. ()
+    => DFun1 a z
     -> BVar r a -> BVar r z
-liftFun1 dfun (DVar a0 (BackGrad da)) = DVar z0 (castNode node)
+liftFun1 (DFun1 dfun) (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
     where (z0, fa) = dfun a0
-          node :: Expr BackFun (GradOf r) x
-          node = ExprSum (da fa)
 
 
 liftFun2
@@ -121,5 +110,3 @@ easyLift3
 easyLift3 f (DVar a da) (DVar b db) (DVar c dc) = DVar z (Easy.easyLift3 (Easy.EasyFun3 df) da db dc)
     where (z, df) = f a b c
 
-zip :: forall b1 b2 a. (HasGrad b1, HasGrad b2) => BVar a b1 -> BVar a b2 -> BVar a (b1, b2)
-zip (DVar a da) (DVar b db) = DVar (a, b) (Linear.zip da db)
