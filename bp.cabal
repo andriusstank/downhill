@@ -19,7 +19,7 @@ library
   exposed-modules:     Downhill.Linear.Expr,
                        Downhill.Linear.BackGrad,
                        Downhill.Linear.Graph,
-                       Downhill.Linear.EasyLift,
+                       Downhill.Linear.Lift,
                        Downhill.Linear.Prelude,
                        Downhill.Internal.Graph.Types,
                        Downhill.Internal.Graph.OpenMap,

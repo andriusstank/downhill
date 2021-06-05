@@ -37,9 +37,9 @@ import Prelude hiding (fst, snd, zip)
 import qualified Prelude
 import Downhill.DVar (DVar(DVar), dvarValue, constant, var, backprop, BVar)
 import Downhill.Linear.BackGrad(BackGrad(..), HasGrad (GradOf, evalGrad), GradBuilder, castNode)
-import qualified Downhill.Linear.EasyLift as Easy
+import qualified Downhill.Linear.Lift as Easy
 import qualified Downhill.Linear.Prelude as Linear
-import Downhill.Linear.EasyLift (LinFun3, lift3)
+import Downhill.Linear.Lift (LinFun3, lift3)
 
 type BVarS a = BVar a a
 

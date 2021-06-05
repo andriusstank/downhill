@@ -12,12 +12,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 {-# LANGUAGE PartialTypeSignatures #-}
-module Downhill.Linear.EasyLift
+module Downhill.Linear.Lift
   (
     -- * @LinFunN@
     -- | A linear function of type @a -> b -> ... -> z@. Type of gradient of @z@ is @x@, which might
-    -- be @GradOf z@ or some other type with compatible @VecBuilder@. It containts @BasicVector@ tinstance hat tells
-    -- how gradients should be accumulated, a proof that gradient builder type is right and a set functions that
+    -- be @GradOf z@ or some other type with compatible @VecBuilder@. It containts @BasicVector@ instance that tells
+    -- how gradients should be accumulated, a proof that gradient builder type is right and a set of functions which
     -- propagate gradients to each of the parent nodes.
     LinFun1 (..),
     LinFun2 (..),
