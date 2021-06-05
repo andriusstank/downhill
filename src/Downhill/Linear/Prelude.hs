@@ -7,10 +7,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Downhill.Linear.Prelude
-  ( fst,
-    snd,
-    zip,
-    pattern T2,
+  ( pattern T2,
     pattern T3,
   )
 where
@@ -33,24 +30,8 @@ snd = Lift.lift1 (Lift.LinFun1 go)
     go :: SparseGrad b -> GradBuilder (a, b)
     go (SparseVector db) = Just (mempty, db)
 
-zip :: forall r a b. (BasicVector (GradOf a), BasicVector (GradOf b)) => BackGrad r a -> BackGrad r b -> BackGrad r (a, b)
-zip = Lift.lift2 (Lift.LinFun2 go1 go2)
-  where
-    go1 :: SparseGrad (a, b) -> GradBuilder a
-    go2 :: SparseGrad (a, b) -> GradBuilder b
-    go1 = maybeToMonoid . fmap Prelude.fst . unSparseVector
-    go2 = maybeToMonoid . fmap Prelude.snd . unSparseVector
-
 toPair :: (BasicVector (GradOf a), BasicVector (GradOf b)) => BackGrad r (a, b) -> (BackGrad r a, BackGrad r b)
 toPair x = (fst x, snd x)
-
-fromPair :: forall r a b. (BasicVector (GradOf a), BasicVector (GradOf b)) => BackGrad r a -> BackGrad r b -> BackGrad r (a, b)
-fromPair = Lift.lift2 (Lift.LinFun2 go1 go2)
-  where
-    go1 :: SparseGrad (a, b) -> GradBuilder a
-    go2 :: SparseGrad (a, b) -> GradBuilder b
-    go1 = maybeToMonoid . fmap Prelude.fst . unSparseVector
-    go2 = maybeToMonoid . fmap Prelude.snd . unSparseVector
 
 toTriple ::
   forall r a b c.
@@ -66,22 +47,6 @@ toTriple x = (Lift.lift1 (Lift.LinFun1 go1) x, Lift.lift1 (Lift.LinFun1 go2) x, 
     go2 (SparseVector db) = Just (mempty, db, mempty)
     go3 (SparseVector dc) = Just (mempty, mempty, dc)
 
-fromTriple ::
-  forall r a b c.
-  (BasicVector (GradOf a), BasicVector (GradOf b), BasicVector (GradOf c)) =>
-  BackGrad r a ->
-  BackGrad r b ->
-  BackGrad r c ->
-  BackGrad r (a, b, c)
-fromTriple = Lift.lift3 (Lift.LinFun3 go1 go2 go3)
-  where
-    go1 :: SparseGrad (a, b, c) -> GradBuilder a
-    go2 :: SparseGrad (a, b, c) -> GradBuilder b
-    go3 :: SparseGrad (a, b, c) -> GradBuilder c
-    go1 = maybeToMonoid . fmap (\(x, _, _) -> x) . unSparseVector
-    go2 = maybeToMonoid . fmap (\(_, x, _) -> x) . unSparseVector
-    go3 = maybeToMonoid . fmap (\(_, _, x) -> x) . unSparseVector
-
 -- |
 --
 -- @
@@ -95,15 +60,21 @@ fromTriple = Lift.lift3 (Lift.LinFun3 go1 go2 go3)
 -- @
 {-# COMPLETE T2 #-}
 
-pattern T2 :: (BasicVector (GradOf a), BasicVector (GradOf b)) => BackGrad r a -> BackGrad r b -> BackGrad r (a, b)
+pattern T2 :: forall r a b. (BasicVector (GradOf a), BasicVector (GradOf b)) => BackGrad r a -> BackGrad r b -> BackGrad r (a, b)
 pattern T2 a b <-
   (toPair -> (a, b))
   where
-    T2 a b = fromPair a b
+    T2 = Lift.lift2 (Lift.LinFun2 go1 go2)
+      where
+        go1 :: SparseGrad (a, b) -> GradBuilder a
+        go2 :: SparseGrad (a, b) -> GradBuilder b
+        go1 = maybeToMonoid . fmap Prelude.fst . unSparseVector
+        go2 = maybeToMonoid . fmap Prelude.snd . unSparseVector
 
 {-# COMPLETE T3 #-}
 
 pattern T3 ::
+  forall r a b c.
   (BasicVector (GradOf a), BasicVector (GradOf b), BasicVector (GradOf c)) =>
   BackGrad r a ->
   BackGrad r b ->
@@ -112,4 +83,11 @@ pattern T3 ::
 pattern T3 a b c <-
   (toTriple -> (a, b, c))
   where
-    T3 a b c = fromTriple a b c
+    T3 = Lift.lift3 (Lift.LinFun3 go1 go2 go3)
+      where
+        go1 :: SparseGrad (a, b, c) -> GradBuilder a
+        go2 :: SparseGrad (a, b, c) -> GradBuilder b
+        go3 :: SparseGrad (a, b, c) -> GradBuilder c
+        go1 = maybeToMonoid . fmap (\(x, _, _) -> x) . unSparseVector
+        go2 = maybeToMonoid . fmap (\(_, x, _) -> x) . unSparseVector
+        go3 = maybeToMonoid . fmap (\(_, _, x) -> x) . unSparseVector

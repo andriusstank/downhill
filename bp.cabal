@@ -28,6 +28,7 @@ library
                        Downhill.Internal.Graph.Sharing,
                        Downhill.Internal.Graph.Graph,
                        Downhill.DVar,
+                       Downhill.BVar.Prelude
                        Diff,
                        BVar.Num
   -- other-modules:
