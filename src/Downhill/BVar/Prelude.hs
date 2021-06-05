@@ -3,7 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# language ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
-module Downhill.BVar.Prelude (pattern T2) where
+module Downhill.BVar.Prelude (pattern T2, pattern T3) where
 
 import Downhill.DVar (BVar, DVar (DVar))
 import Downhill.Linear.BackGrad (HasGrad (GradOf))
@@ -19,3 +19,12 @@ toPair (DVar (x, y) (Linear.T2 dx dy)) = (DVar x dx, DVar y dy)
 pattern T2 :: (BasicVector (GradOf a), BasicVector (GradOf b)) => BVar r a -> BVar r b -> BVar r (a, b)
 pattern T2 a b <- (toPair -> (a, b)) where
     T2 (DVar a da) (DVar b db) = DVar (a, b) (Linear.T2 da db)
+
+toTriple :: (BasicVector (GradOf a), BasicVector (GradOf b), BasicVector (GradOf c)) => BVar r (a, b, c) -> (BVar r a, BVar r b, BVar r c)
+toTriple (DVar (x, y, z) (Linear.T3 dx dy dz)) = (DVar x dx, DVar y dy, DVar z dz)
+
+{-# COMPLETE T3 #-}
+
+pattern T3 :: (BasicVector (GradOf a), BasicVector (GradOf b), BasicVector (GradOf c)) => BVar r a -> BVar r b -> BVar r c -> BVar r (a, b, c)
+pattern T3 a b c <- (toTriple -> (a, b, c)) where
+    T3 (DVar a da) (DVar b db) (DVar c dc) = DVar (a, b, c) (Linear.T3 da db dc)
