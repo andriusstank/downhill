@@ -14,8 +14,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Downhill.DVar
-  ( DVar (..),
-    dvarValue,
+  ( -- * DVar
+    DVar (..),
 
     -- * BVar
     BVar,
@@ -24,9 +24,11 @@ module Downhill.DVar
     backprop,
 
     -- * Lift
+    -- | Apply differentiable function to 'BVar'
     liftFun1,
     liftFun2,
     liftFun3,
+    -- * Easy lift
     easyLift1,
     easyLift2,
     easyLift3,
@@ -49,11 +51,17 @@ import Downhill.Linear.BackGrad
   )
 import Downhill.Linear.Expr (BackFun, BasicVector (VecBuilder), Expr (ExprSum, ExprVar), FullVector (identityBuilder), Term)
 import qualified Downhill.Linear.Graph as Graph
-import Downhill.Linear.Lift (LinFun1 (LinFun1), LinFun3, lift3)
+import Downhill.Linear.Lift (LinFun1, LinFun3, LinFun2)
 import qualified Downhill.Linear.Lift as Easy
 import qualified Downhill.Linear.Lift as Lift
 import Prelude hiding (id, (.))
 
+-- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
+-- map @r -> a@ for some @r@. Type @d@ determines both @r@ and a way of encoding derivatives.
+-- 
+-- In case of @d ~ BackGrad r@, @dvarGrad@ stores computational graph of derivatives, enabling reverse mode
+-- differentiantion. Choosing @d ~ Identity@ turns @DVar@ into dual number,
+-- giving rise to simple forward mode differentiation.
 data DVar (d :: Type -> Type) a = DVar
   { dvarValue :: a,
     dvarGrad :: d a
@@ -122,53 +130,50 @@ instance
           term2 :: [Term BackFun (GradOf a) (GradOf v)]
           term2 = dv (\v' -> identityBuilder (a *^ v'))
 
+-- | 'DVar' specialized for reverse mode differentiation.
 type BVar a v = DVar (BackGrad a) v
 
-constant :: a -> BVar a a
-constant x = DVar x (BackGrad (const []))
+-- | A variable with derivative of zero.
+constant :: a -> BVar r a
+constant x = DVar x (BackGrad (const [])) -- could be zeroV here, but that would require `HasGrad a` constraint..
 
+-- | A variable with identity derivative.
 var :: a -> BVar a a
 var x = DVar x (realNode ExprVar)
 
+-- | Compute gradient
 backprop :: forall a v. (FullVector (GradOf v), BasicVector (GradOf a)) => BVar a v -> GradOf v -> GradOf a
 backprop (DVar _y0 x) = Graph.backprop x
 
-newtype DFun1 a b = DFun1 {unDFun1 :: a -> (b, LinFun1 a b)}
-
-data DFunc2 a b c = forall x. (BasicVector x, VecBuilder x ~ VecBuilder (GradOf c)) => DFunc2 (a -> b -> (c, x -> VecBuilder (GradOf a), x -> VecBuilder (GradOf b)))
-
 liftFun1 ::
-  forall r a z.
-  () =>
-  DFun1 a z ->
+  forall r a b.
+  (a -> (b, LinFun1 a b)) ->
   BVar r a ->
-  BVar r z
-liftFun1 (DFun1 dfun) (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
+  BVar r b
+liftFun1 dfun (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
   where
     (z0, fa) = dfun a0
 
 liftFun2 ::
   forall x r a b z.
   (BasicVector x, VecBuilder x ~ GradBuilder z) =>
-  (a -> b -> (z, x -> GradBuilder a, x -> GradBuilder b)) ->
+  (a -> b -> (z, LinFun2 a b z)) ->
   BVar r a ->
   BVar r b ->
   BVar r z
-liftFun2 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) = DVar z0 (castNode node)
+liftFun2 dfun (DVar a0 da) (DVar b0 db) = DVar z0 (Lift.lift2 f2 da db)
   where
-    (z0, fa, fb) = dfun a0 b0
-    node :: Expr BackFun (GradOf r) x
-    node = ExprSum (da fa ++ db fb)
+    (z0, f2) = dfun a0 b0
 
 liftFun3 ::
-  forall x r a b c z.
-  (BasicVector x, VecBuilder x ~ GradBuilder z) =>
+  forall r a b c z.
+  () =>
   (a -> b -> c -> (z, LinFun3 a b c z)) ->
   BVar r a ->
   BVar r b ->
   BVar r c ->
   BVar r z
-liftFun3 dfun (DVar a0 da) (DVar b0 db) (DVar c0 dc) = DVar z0 (lift3 f3 da db dc)
+liftFun3 dfun (DVar a0 da) (DVar b0 db) (DVar c0 dc) = DVar z0 (Lift.lift3 f3 da db dc)
   where
     (z0, f3) = dfun a0 b0 c0
 
