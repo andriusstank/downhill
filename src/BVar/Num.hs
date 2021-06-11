@@ -8,14 +8,13 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module BVar.Num
 where
-import Downhill.DVar (DVar(DVar))
+import Downhill.DVar (DVar(DVar), BVar, backprop)
 import Data.VectorSpace (zeroV, AdditiveGroup(..), VectorSpace(..))
 import Data.AffineSpace (AffineSpace(..))
 import Downhill.Linear.Expr (BasicVector(..), FullVector (scaleBuilder, negateBuilder, identityBuilder))
-import Diff (backprop, BVar)
-import qualified Diff
 import Data.Semigroup (Sum(Sum, getSum))
 import Downhill.Linear.BackGrad (HasGrad(..))
+import qualified Downhill.DVar as DVar
 
 newtype AsNum a = AsNum { unAsNum :: a }
     deriving Show
@@ -55,10 +54,10 @@ newtype NumBVar a = NumBVar (BVar (AsNum a) (AsNum a))
     deriving (Num, Fractional, Floating)
 
 constant :: Num a => a -> NumBVar a
-constant x = NumBVar (Diff.constant (AsNum x))
+constant x = NumBVar (DVar.constant (AsNum x))
 
 var :: Num a => a -> NumBVar a
-var x = NumBVar (Diff.var (AsNum x))
+var x = NumBVar (DVar.var (AsNum x))
 
 backpropNum :: forall a. Num a => NumBVar a -> a
 backpropNum (NumBVar x) = unAsNum $ backprop @(AsNum a) @(AsNum a) x (AsNum 1)

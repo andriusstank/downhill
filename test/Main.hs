@@ -1,4 +1,4 @@
-import Diff(bvarValue, BVarS, backpropS)
+import Downhill.DVar(dvarValue)
 import Test.Tasty (defaultMain, testGroup, TestTree)
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 
@@ -6,9 +6,9 @@ import qualified Test.Tasty as Tasty
 import BVar.Num (NumBVar(..), backpropNum, constant, var, numbvarValue, AsNum)
 
 basicTests = testGroup "Basic tests"
-  [ testCase "Derivative of constant == 0" $ testConstant
-  , testCase "Derivative of identity == 1" $ testIdentity
-  , testCase "Derivative of simple polynomial" $ testPoly
+  [ testCase "Derivative of constant == 0" testConstant
+  , testCase "Derivative of identity == 1" testIdentity
+  , testCase "Derivative of simple polynomial" testPoly
   ]
   where testConstant = backpropNum (constant 3 :: NumBVar Integer) @?= 0
         testIdentity = backpropNum (var 3 :: NumBVar Integer) @?= 1 
