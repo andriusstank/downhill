@@ -18,7 +18,7 @@ import GHC.IO (evaluate, unsafePerformIO)
 import Downhill.Internal.Graph.Sharing ()
 import Control.Monad (when)
 import GHC.Generics (Generic)
-import BVar.Num(var, backpropNum)
+import Downhill.BVar.Num(var, backpropNum)
 import Data.Semigroup (Sum(Sum, getSum))
 
 newtype R = R { unR :: Integer }

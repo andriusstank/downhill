@@ -27,9 +27,9 @@ library
                        Downhill.Internal.Graph.OpenGraph,
                        Downhill.Internal.Graph.Sharing,
                        Downhill.Internal.Graph.Graph,
-                       Downhill.DVar,
+                       Downhill.BVar.Num,
                        Downhill.BVar.Prelude
-                       BVar.Num
+                       Downhill.DVar
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.12.0.0 && <4.14,
