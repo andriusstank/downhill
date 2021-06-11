@@ -28,4 +28,4 @@ buildSomeGraph (BackGrad f) = unsafePerformIO $ do
     return (Graph.fromOpenGraph og)
 
 backprop :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> GradOf v -> GradOf a
-backprop f = evalSomeGraph (flipSomeGraph (buildSomeGraph  f))
+backprop = evalSomeGraph . flipSomeGraph . buildSomeGraph

@@ -1,102 +1,126 @@
-{-# LANGUAGE DerivingVia #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE RankNTypes #-}
-{-# language ScopedTypeVariables #-}
-{-# language UndecidableInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Downhill.DVar (
-    DVar(..),
+module Downhill.DVar
+  ( DVar (..),
     dvarValue,
+
     -- * BVar
     BVar,
-    var, constant, backprop
-)
+    var,
+    constant,
+    backprop,
+
+    -- * Lift
+    liftFun1,
+    liftFun2,
+    liftFun3,
+    easyLift1,
+    easyLift2,
+    easyLift3,
+  )
 where
 
 import Data.AdditiveGroup (AdditiveGroup)
+import Data.Kind (Type)
 import Data.VectorSpace
-    ( VectorSpace((*^)), Scalar, VectorSpace(..), AdditiveGroup(..) )
-import Data.Kind ( Type )
-import Prelude hiding (id, (.))
-import Downhill.Linear.Expr (FullVector (identityBuilder), Expr (ExprSum, ExprVar), BackFun, Term, BasicVector)
+  ( AdditiveGroup (..),
+    Scalar,
+    VectorSpace (..),
+  )
 import Downhill.Linear.BackGrad
-    ( castNode, BackGrad(..), HasGrad(..), realNode )
+  ( BackGrad (..),
+    GradBuilder,
+    HasGrad (..),
+    castNode,
+    realNode,
+  )
+import Downhill.Linear.Expr (BackFun, BasicVector (VecBuilder), Expr (ExprSum, ExprVar), FullVector (identityBuilder), Term)
 import qualified Downhill.Linear.Graph as Graph
+import Downhill.Linear.Lift (LinFun1 (LinFun1), LinFun3, lift3)
+import qualified Downhill.Linear.Lift as Easy
+import qualified Downhill.Linear.Lift as Lift
+import Prelude hiding (id, (.))
 
-data DVar (d :: Type -> Type) a = DVar a (d a)
-
-dvarValue :: DVar d a -> a
-dvarValue (DVar x _) = x
-
+data DVar (d :: Type -> Type) a = DVar
+  { dvarValue :: a,
+    dvarGrad :: d a
+  }
 
 instance (AdditiveGroup b, AdditiveGroup (d b)) => AdditiveGroup (DVar d b) where
-    zeroV = DVar zeroV zeroV
-    negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
-    DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
-    DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
+  zeroV = DVar zeroV zeroV
+  negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
+  DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
+  DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
 
 instance (Num b, VectorSpace (d b), b ~ Scalar (d b)) => Num (DVar d b) where
-    (DVar f0 df) + (DVar g0 dg) = DVar (f0+g0) (df ^+^ dg)
-    (DVar f0 df) - (DVar g0 dg) = DVar (f0-g0) (df ^-^ dg)
-    (DVar f0 df) * (DVar g0 dg) = DVar (f0*g0) (f0*^dg ^+^ g0*^df)
-    negate (DVar f0 df) = DVar (negate f0) (negateV df)
-    abs (DVar f0 df) = DVar (abs f0) (signum f0 *^ df) -- TODO: ineffiency: multiplication by 1
-    signum (DVar f0 _) = DVar (signum f0) zeroV
-    fromInteger x = DVar (fromInteger x) zeroV
-
+  (DVar f0 df) + (DVar g0 dg) = DVar (f0 + g0) (df ^+^ dg)
+  (DVar f0 df) - (DVar g0 dg) = DVar (f0 - g0) (df ^-^ dg)
+  (DVar f0 df) * (DVar g0 dg) = DVar (f0 * g0) (f0 *^ dg ^+^ g0 *^ df)
+  negate (DVar f0 df) = DVar (negate f0) (negateV df)
+  abs (DVar f0 df) = DVar (abs f0) (signum f0 *^ df) -- TODO: ineffiency: multiplication by 1
+  signum (DVar f0 _) = DVar (signum f0) zeroV
+  fromInteger x = DVar (fromInteger x) zeroV
 
 sqr :: Num a => a -> a
-sqr x = x*x
+sqr x = x * x
 
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
 instance (Fractional b, VectorSpace (d b), b ~ Scalar (d b)) => Fractional (DVar d b) where
-    fromRational x = DVar (fromRational x) zeroV
-    recip (DVar x dx) = DVar (recip x) (df *^ dx)
-        where df = negate (recip (sqr x))
-    DVar x dx / DVar y dy = DVar (x/y) ((recip y *^ dx) ^-^ ((x/sqr y) *^ dy))
+  fromRational x = DVar (fromRational x) zeroV
+  recip (DVar x dx) = DVar (recip x) (df *^ dx)
+    where
+      df = negate (recip (sqr x))
+  DVar x dx / DVar y dy = DVar (x / y) ((recip y *^ dx) ^-^ ((x / sqr y) *^ dy))
 
 instance (Floating b, VectorSpace (d b), b ~ Scalar (d b)) => Floating (DVar d b) where
-    pi = DVar pi zeroV
-    exp (DVar x dx) = DVar (exp x) (exp x *^ dx)
-    log (DVar x dx) = DVar (log x) (recip x *^ dx)
-    sin (DVar x dx) = DVar (sin x) (cos x *^ dx)
-    cos (DVar x dx) = DVar (cos x) (negate (sin x) *^ dx)
-    asin (DVar x dx) = DVar (asin x) (rsqrt (1 - sqr x) *^ dx)
-    acos (DVar x dx) = DVar (acos x) (negate (rsqrt (1 - sqr x)) *^ dx)
-    atan (DVar x dx) = DVar (atan x) (recip (1 + sqr x) *^ dx)
-    sinh (DVar x dx) = DVar (sinh x) (cosh x *^ dx)
-    cosh (DVar x dx) = DVar (cosh x) (sinh x *^ dx)
-    asinh (DVar x dx) = DVar (asinh x) (rsqrt (1 + sqr x) *^ dx)
-    acosh (DVar x dx) = DVar (acosh x) (rsqrt (sqr x - 1) *^ dx)
-    atanh (DVar x dx) = DVar (atanh x) (recip (1 - sqr x) *^ dx)
-
+  pi = DVar pi zeroV
+  exp (DVar x dx) = DVar (exp x) (exp x *^ dx)
+  log (DVar x dx) = DVar (log x) (recip x *^ dx)
+  sin (DVar x dx) = DVar (sin x) (cos x *^ dx)
+  cos (DVar x dx) = DVar (cos x) (negate (sin x) *^ dx)
+  asin (DVar x dx) = DVar (asin x) (rsqrt (1 - sqr x) *^ dx)
+  acos (DVar x dx) = DVar (acos x) (negate (rsqrt (1 - sqr x)) *^ dx)
+  atan (DVar x dx) = DVar (atan x) (recip (1 + sqr x) *^ dx)
+  sinh (DVar x dx) = DVar (sinh x) (cosh x *^ dx)
+  cosh (DVar x dx) = DVar (cosh x) (sinh x *^ dx)
+  asinh (DVar x dx) = DVar (asinh x) (rsqrt (1 + sqr x) *^ dx)
+  acosh (DVar x dx) = DVar (acosh x) (rsqrt (sqr x - 1) *^ dx)
+  atanh (DVar x dx) = DVar (atanh x) (recip (1 - sqr x) *^ dx)
 
 instance
-  ( VectorSpace v
-  , VectorSpace (GradOf v)
-  , FullVector (GradOf (Scalar v))
-  , Scalar (GradOf v) ~ Scalar v
-  , FullVector (GradOf v)
-  , HasGrad v
-  ) => VectorSpace (DVar (BackGrad a) v) where
-    type Scalar (DVar (BackGrad a) v) = DVar (BackGrad a) (Scalar v)
-    DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castNode node)
-        where node :: Expr BackFun (GradOf a) (GradOf v)
-              node = ExprSum (term1 ++ term2)
-                where term1 :: [Term BackFun (GradOf a) (GradOf v)]
-                      term1  = da (\v' -> identityBuilder (evalGrad v' v))
-                      term2 :: [Term BackFun (GradOf a) (GradOf v)]
-                      term2 = dv (\v' -> identityBuilder (a *^ v'))
+  ( VectorSpace v,
+    VectorSpace (GradOf v),
+    FullVector (GradOf (Scalar v)),
+    Scalar (GradOf v) ~ Scalar v,
+    HasGrad v
+  ) =>
+  VectorSpace (DVar (BackGrad a) v)
+  where
+  type Scalar (DVar (BackGrad a) v) = DVar (BackGrad a) (Scalar v)
+  DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castNode node)
+    where
+      node :: Expr BackFun (GradOf a) (GradOf v)
+      node = ExprSum (term1 ++ term2)
+        where
+          term1 :: [Term BackFun (GradOf a) (GradOf v)]
+          term1 = da (\v' -> identityBuilder (evalGrad v' v))
+          term2 :: [Term BackFun (GradOf a) (GradOf v)]
+          term2 = dv (\v' -> identityBuilder (a *^ v'))
 
 type BVar a v = DVar (BackGrad a) v
 
@@ -108,3 +132,72 @@ var x = DVar x (realNode ExprVar)
 
 backprop :: forall a v. (FullVector (GradOf v), BasicVector (GradOf a)) => BVar a v -> GradOf v -> GradOf a
 backprop (DVar _y0 x) = Graph.backprop x
+
+newtype DFun1 a b = DFun1 {unDFun1 :: a -> (b, LinFun1 a b)}
+
+data DFunc2 a b c = forall x. (BasicVector x, VecBuilder x ~ VecBuilder (GradOf c)) => DFunc2 (a -> b -> (c, x -> VecBuilder (GradOf a), x -> VecBuilder (GradOf b)))
+
+liftFun1 ::
+  forall r a z.
+  () =>
+  DFun1 a z ->
+  BVar r a ->
+  BVar r z
+liftFun1 (DFun1 dfun) (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
+  where
+    (z0, fa) = dfun a0
+
+liftFun2 ::
+  forall x r a b z.
+  (BasicVector x, VecBuilder x ~ GradBuilder z) =>
+  (a -> b -> (z, x -> GradBuilder a, x -> GradBuilder b)) ->
+  BVar r a ->
+  BVar r b ->
+  BVar r z
+liftFun2 dfun (DVar a0 (BackGrad da)) (DVar b0 (BackGrad db)) = DVar z0 (castNode node)
+  where
+    (z0, fa, fb) = dfun a0 b0
+    node :: Expr BackFun (GradOf r) x
+    node = ExprSum (da fa ++ db fb)
+
+liftFun3 ::
+  forall x r a b c z.
+  (BasicVector x, VecBuilder x ~ GradBuilder z) =>
+  (a -> b -> c -> (z, LinFun3 a b c z)) ->
+  BVar r a ->
+  BVar r b ->
+  BVar r c ->
+  BVar r z
+liftFun3 dfun (DVar a0 da) (DVar b0 db) (DVar c0 dc) = DVar z0 (lift3 f3 da db dc)
+  where
+    (z0, f3) = dfun a0 b0 c0
+
+easyLift1 ::
+  BasicVector (GradOf z) =>
+  (a -> (z, GradOf z -> GradBuilder a)) ->
+  BVar r a ->
+  BVar r z
+easyLift1 f (DVar a da) = DVar z (Easy.easyLift1 (Easy.EasyFun1 df) da)
+  where
+    (z, df) = f a
+
+easyLift2 ::
+  BasicVector (GradOf z) =>
+  (a -> b -> (z, GradOf z -> (GradBuilder a, GradBuilder b))) ->
+  BVar r a ->
+  BVar r b ->
+  BVar r z
+easyLift2 f (DVar a da) (DVar b db) = DVar z (Easy.easyLift2 (Easy.EasyFun2 df) da db)
+  where
+    (z, df) = f a b
+
+easyLift3 ::
+  BasicVector (GradOf z) =>
+  (a -> b -> c -> (z, GradOf z -> (GradBuilder a, GradBuilder b, GradBuilder c))) ->
+  BVar r a ->
+  BVar r b ->
+  BVar r c ->
+  BVar r z
+easyLift3 f (DVar a da) (DVar b db) (DVar c dc) = DVar z (Easy.easyLift3 (Easy.EasyFun3 df) da db dc)
+  where
+    (z, df) = f a b c
