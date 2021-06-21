@@ -1,20 +1,18 @@
-{- | While 'BackGrad' is intended to be simple to construct manually, this module provides a way to do
-   that with a bit less of boilerplate.
--}
-
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-{-# LANGUAGE PartialTypeSignatures #-}
+-- | While 'BackGrad' is intended to be simple to construct manually, this module provides a way to do
+--   that with a bit less of boilerplate.
 module Downhill.Linear.Lift
-  (
-    -- * @LinFunN@
+  ( -- * @LinFunN@
+
     -- | A linear function of type @a -> b -> ... -> z@. Type of gradient of @z@ is @x@, which might
     -- be @GradOf z@ or some other type with compatible @VecBuilder@. It containts @BasicVector@ instance that tells
     -- how gradients should be accumulated, a proof that gradient builder type is right and a set of functions which
@@ -25,8 +23,13 @@ module Downhill.Linear.Lift
     lift1,
     lift2,
     lift3,
+    -- | Special cases. Not sure if they are really useful.
+    lift1',
+    lift1_dense, lift1_sparse,
+
     -- * @EasyFunN@
-    -- | @EasyFunN@ doesn\'t even have a type for the gradient. @fromEasyN@ will invent an ad-hoc type and 
+
+    -- | @EasyFunN@ doesn\'t even have a type for the gradient. @fromEasyN@ will invent an ad-hoc type and
     -- convert it to @LinFunN@. It's a bit hacky, but arguably easier way to use @BackGrad@s.
     EasyFun1 (..),
     EasyFun2 (..),
@@ -42,7 +45,7 @@ where
 
 import Data.Proxy (Proxy (Proxy))
 import Data.Reflection (Reifies (reflect), reify)
-import Downhill.Linear.BackGrad (BackGrad (..), GradBuilder, HasGrad (GradOf), castNode)
+import Downhill.Linear.BackGrad (BackGrad (..), GradBuilder, HasGrad (GradOf), SparseGrad, castNode)
 import Downhill.Linear.Expr (BasicVector (..), Expr (ExprSum))
 import Prelude hiding (fst, snd, zip)
 
@@ -69,7 +72,6 @@ data LinFun1 a z where
     (BasicVector x, VecBuilder x ~ GradBuilder z) =>
     (x -> GradBuilder a) ->
     LinFun1 a z
-
 
 lift3 ::
   forall r a b c z.
@@ -101,10 +103,36 @@ lift1 (LinFun1 fa) (BackGrad da) = castNode node
   where
     node = ExprSum (da fa)
 
+lift1' ::
+  forall x r a z.
+  (BasicVector x, VecBuilder x ~ GradBuilder z) =>
+  (x -> GradBuilder a) ->
+  BackGrad r a ->
+  BackGrad r z
+lift1' fa (BackGrad da) = castNode node
+  where
+    node = ExprSum (da fa)
 
+lift1_dense ::
+  forall r a z.
+  HasGrad z =>
+  (GradOf z -> GradBuilder a) ->
+  BackGrad r a ->
+  BackGrad r z
+lift1_dense = lift1'
+
+lift1_sparse ::
+  forall r a z.
+  HasGrad z =>
+  (SparseGrad z -> GradBuilder a) ->
+  BackGrad r a ->
+  BackGrad r z
+lift1_sparse = lift1'
 
 newtype EasyFun3 a b c z = EasyFun3 (GradOf z -> (GradBuilder a, GradBuilder b, GradBuilder c))
+
 newtype EasyFun2 a b z = EasyFun2 (GradOf z -> (GradBuilder a, GradBuilder b))
+
 newtype EasyFun1 a z = EasyFun1 (GradOf z -> GradBuilder a)
 
 -- The trick is to invoke EasyFun in sumBuilder. Normally data flow looks like this:
@@ -120,10 +148,9 @@ newtype EasyFun1 a z = EasyFun1 (GradOf z -> GradBuilder a)
 -- Sparse gradients `GradBuilder z` are summed and converted to dense gradient `z`. Linear function df
 -- takes gradient z and produces sparse gradients (GradBuilder a, ...) which are then forwaded to
 -- parents.
--- 
+--
 -- Gradient z is stored in the node, then for each outgoing edge corresponding part of function `df z`
 -- is evaluated.
-
 
 -- EasyFun is different. We have no z!
 --
@@ -181,9 +208,6 @@ easyLift3 ::
   BackGrad r z
 easyLift3 = lift3 . fromEasy3
 
-
-
-
 data BuilderTuple2 s a b z = BuilderTuple2
   { b2get1 :: GradBuilder a,
     b2get2 :: GradBuilder b
@@ -216,9 +240,7 @@ easyLift2 ::
   BackGrad r z
 easyLift2 = lift2 . fromEasy2
 
-
-
-newtype BuilderTuple1 s a z = BuilderTuple1 { b1get1 :: GradBuilder a }
+newtype BuilderTuple1 s a z = BuilderTuple1 {b1get1 :: GradBuilder a}
 
 instance (Reifies s (EasyFun1 a z), BasicVector (GradOf z)) => BasicVector (BuilderTuple1 s a z) where
   type VecBuilder (BuilderTuple1 s a z) = GradBuilder z

@@ -68,9 +68,12 @@ instance BasicVector Double where
     type VecBuilder Double = Sum Double
     sumBuilder = getSum
 
--- |Full-featured vector. Linear function form a vector space, @FullVector@ class provides all the functionality
--- to implement 'VectorSpace' instance 
--- for 'Expr'.
+-- | Full-featured vector.
+--
+-- 'Expr' is a linear function, linear functions form a vector space,
+-- so it's very nice to have 'VectorSpace' instance for 'Expr'.
+-- @FullVector@ class provides all the functionality that is needed to do that.
+
 class BasicVector v => FullVector v where
     identityBuilder :: v -> VecBuilder v
     negateBuilder :: v -> VecBuilder v

@@ -1,8 +1,11 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -13,25 +16,19 @@ module Downhill.Linear.Prelude
 where
 
 import Downhill.Linear.BackGrad (BackGrad, GradBuilder, HasGrad (GradOf), SparseGrad)
-import Downhill.Linear.Expr (BasicVector, SparseVector (SparseVector, unSparseVector), maybeToMonoid)
+import Downhill.Linear.Expr (BasicVector (VecBuilder), SparseVector (SparseVector, unSparseVector), maybeToMonoid)
 import qualified Downhill.Linear.Lift as Lift
+import qualified Downhill.Linear.Lift as Linear
 import Prelude (Maybe (Just), Monoid (mempty), fmap, (.))
 import qualified Prelude
 
-fst :: forall r a b. (BasicVector (GradOf a), BasicVector (GradOf b)) => BackGrad r (a, b) -> BackGrad r a
-fst = Lift.lift1 (Lift.LinFun1 go)
+toPair :: forall r a b. (HasGrad a, HasGrad b) => BackGrad r (a, b) -> (BackGrad r a, BackGrad r b)
+toPair x = (Linear.lift1_sparse go1 x, Lift.lift1 (Lift.LinFun1 go2) x)
   where
-    go :: SparseGrad a -> GradBuilder (a, b)
-    go (SparseVector da) = Just (da, mempty)
-
-snd :: forall r a b. (BasicVector (GradOf a), BasicVector (GradOf b)) => BackGrad r (a, b) -> BackGrad r b
-snd = Lift.lift1 (Lift.LinFun1 go)
-  where
-    go :: SparseGrad b -> GradBuilder (a, b)
-    go (SparseVector db) = Just (mempty, db)
-
-toPair :: (BasicVector (GradOf a), BasicVector (GradOf b)) => BackGrad r (a, b) -> (BackGrad r a, BackGrad r b)
-toPair x = (fst x, snd x)
+    go1 :: SparseGrad a -> GradBuilder (a, b)
+    go2 :: SparseGrad b -> GradBuilder (a, b)
+    go1 (SparseVector da) = Just (da, mempty)
+    go2 (SparseVector db) = Just (mempty, db)
 
 toTriple ::
   forall r a b c.
