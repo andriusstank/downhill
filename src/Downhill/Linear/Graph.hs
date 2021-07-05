@@ -10,7 +10,7 @@ where
 import Downhill.Internal.Graph.Graph
     ( SomeGraph(..), Graph, evalGraph )
 import Downhill.Linear.Expr (FwdFun, BackFun, flipBackFun, BasicVector, FullVector (identityBuilder))
-import Downhill.Linear.BackGrad (HasGrad(GradOf), BackGrad(..))
+import Downhill.Linear.BackGrad (HasDual(DualOf), BackGrad(..))
 import GHC.IO.Unsafe (unsafePerformIO)
 import Downhill.Internal.Graph.OpenGraph (recoverSharing)
 import qualified Downhill.Internal.Graph.Graph as Graph
@@ -22,10 +22,10 @@ evalSomeGraph g v = case g of
 flipSomeGraph :: SomeGraph BackFun a z -> SomeGraph FwdFun z a
 flipSomeGraph (SomeGraph g) = SomeGraph (Graph.flipGraph flipBackFun g)
 
-buildSomeGraph :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> SomeGraph BackFun (GradOf a) (GradOf v)
+buildSomeGraph :: forall a v. (BasicVector (DualOf a), FullVector (DualOf v)) => BackGrad a v -> SomeGraph BackFun (DualOf a) (DualOf v)
 buildSomeGraph (BackGrad f) = unsafePerformIO $ do
     og <- recoverSharing (f identityBuilder)
     return (Graph.fromOpenGraph og)
 
-backprop :: forall a v. (BasicVector (GradOf a), FullVector (GradOf v)) => BackGrad a v -> GradOf v -> GradOf a
+backprop :: forall a v. (BasicVector (DualOf a), FullVector (DualOf v)) => BackGrad a v -> DualOf v -> DualOf a
 backprop = evalSomeGraph . flipSomeGraph . buildSomeGraph
