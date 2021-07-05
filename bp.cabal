@@ -43,7 +43,8 @@ library
                        singletons ^>= 3.0,
                        these,
                        semialign,
-                       manifolds-core
+                       manifolds-core,
+                       tagged
 
   hs-source-dirs:      src
   other-modules:       Trace

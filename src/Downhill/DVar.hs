@@ -55,7 +55,7 @@ import Downhill.Linear.Lift (LinFun1, LinFun3, LinFun2)
 import qualified Downhill.Linear.Lift as Easy
 import qualified Downhill.Linear.Lift as Lift
 import Prelude hiding (id, (.))
-import Math.Manifold.Core.PseudoAffine ()
+import Math.Manifold.Core.PseudoAffine (Semimanifold(Needle))
 
 -- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
 -- map @r -> a@ for some @r@. Type @d@ determines both @r@ and a way of encoding derivatives.
@@ -132,7 +132,7 @@ instance
           term2 = dv (\v' -> identityBuilder (a *^ v'))
 
 -- | 'DVar' specialized for reverse mode differentiation.
-type BVar a v = DVar (BackGrad a) v
+type BVar a p = DVar (BackGrad a) p
 
 -- | A variable with derivative of zero.
 constant :: a -> BVar r a
