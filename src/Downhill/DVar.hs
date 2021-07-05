@@ -18,16 +18,20 @@ module Downhill.DVar
     DVar (..),
 
     -- * BVar
-    BVar, HasGrad, GradOf,
+    BVar,
+    HasGrad,
+    GradOf,
     var,
     constant,
     backprop,
 
     -- * Lift
+
     -- | Apply differentiable function to 'BVar'
     liftFun1,
     liftFun2,
     liftFun3,
+
     -- * Easy lift
     easyLift1,
     easyLift2,
@@ -50,15 +54,15 @@ import Downhill.Linear.BackGrad
   )
 import Downhill.Linear.Expr (BackFun, BasicVector (VecBuilder), Expr (ExprSum, ExprVar), FullVector (identityBuilder), Term)
 import qualified Downhill.Linear.Graph as Graph
-import Downhill.Linear.Lift (LinFun1, LinFun3, LinFun2)
+import Downhill.Linear.Lift (LinFun1, LinFun2, LinFun3)
 import qualified Downhill.Linear.Lift as Easy
 import qualified Downhill.Linear.Lift as Lift
+import Math.Manifold.Core.PseudoAffine (Semimanifold (Needle))
 import Prelude hiding (id, (.))
-import Math.Manifold.Core.PseudoAffine (Semimanifold(Needle))
 
 -- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
 -- map @r -> a@ for some @r@. Type @d@ determines both @r@ and a way of encoding derivatives.
--- 
+--
 -- In case of @d ~ BackGrad r@, @dvarGrad@ stores computational graph of derivatives, enabling reverse mode
 -- differentiantion. Choosing @d ~ Identity@ turns @DVar@ into dual number,
 -- giving rise to simple forward mode differentiation.
@@ -134,7 +138,9 @@ instance
 type BVar a p = DVar p (BackGrad a (Needle p))
 
 type HasGrad p = HasDual (Needle p)
+
 type GradOf p = DualOf (Needle p)
+
 type GradBuilder v = VecBuilder (DualOf (Needle v))
 
 -- | A variable with derivative of zero.
