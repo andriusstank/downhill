@@ -15,25 +15,28 @@ class TensorMul u v where
   type u ✕ v :: Type
   (✕) :: u -> v -> u ✕ v
 
-newtype Vec dx = Vec { unVec :: dx }
+newtype Vec x = Vec { unVec :: x }
     deriving Show
-    deriving AdditiveGroup via dx
+    deriving AdditiveGroup via x
 
 
-data BlackBoxFunc u du v dv = BlackBoxFunc (u -> v) (dv -> du)
+data PrimFunc u du v dv = PrimFunc
+  { fwdFun :: u -> v
+  , backFun :: dv -> du
+  }
 
-instance TensorMul (BlackBoxFunc u du v dv) (Vec u) where
-    type (BlackBoxFunc u du v dv) ✕ (Vec u) = Vec v
-    (BlackBoxFunc f _) ✕ Vec v = Vec (f v)
+instance TensorMul (PrimFunc u du v dv) (Vec u) where
+    type (PrimFunc u du v dv) ✕ (Vec u) = Vec v
+    (PrimFunc f _) ✕ Vec v = Vec (f v)
 
-instance TensorMul (Vec dv) (BlackBoxFunc u du v dv) where
-    type (Vec dv) ✕ (BlackBoxFunc u du v dv) = Vec du
-    Vec v ✕ (BlackBoxFunc _ f) = Vec (f v)
+instance TensorMul (Vec dv) (PrimFunc u du v dv) where
+    type (Vec dv) ✕ (PrimFunc u du v dv) = Vec du
+    Vec v ✕ (PrimFunc _ f) = Vec (f v)
 
 
 data Expr a da v dv where
     Var :: Expr a da a da
-    Func :: BlackBoxFunc u du v dv -> Expr a da u du -> Expr a da v dv
+    Func :: PrimFunc u du v dv -> Expr a da u du -> Expr a da v dv
     Sum :: AdditiveGroup v => [Expr a da v dv] -> Expr a da v dv
 
 -- Evaluate
@@ -62,8 +65,8 @@ instance TensorMul (Expr x dx v dv) (Expr a da x dx) where
         Sum ys -> Sum [y ✕ v | y <- ys]
 
 
-transposeFunc :: BlackBoxFunc u v du dv -> BlackBoxFunc dv du v u
-transposeFunc (BlackBoxFunc f g) =  BlackBoxFunc g f
+transposeFunc :: PrimFunc u v du dv -> PrimFunc dv du v u
+transposeFunc (PrimFunc f g) =  PrimFunc g f
 
 transposeExpr :: AdditiveGroup da => Expr a da v dv -> Expr dv v da a
 transposeExpr = \case
