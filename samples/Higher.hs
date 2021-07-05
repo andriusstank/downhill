@@ -10,33 +10,26 @@ import Downhill.BVar.Num (AsNum(AsNum, unAsNum), NumBVar, backpropNum, numbvarVa
 import Downhill.Linear.Expr (FullVector)
 import Downhill.DVar (var)
 
+diff :: forall a. Floating a => (forall b. Floating b => (b -> b)) -> a -> a
+diff f x0 = backpropNum (f (var (AsNum x0)))
+
 f :: Floating a => a -> a
-f x = sin (2*x)
+f x = exp (2*x)
 
-x0 :: NumBVar (NumBVar Double)
-x0 = var 0
+f' :: Floating a => a -> a
+f' = diff f
 
-f' :: forall a. (Floating a) => NumBVar a -> NumBVar a
-f' = f @(NumBVar a)
+f'' :: Floating a => a -> a
+f'' = diff f'
 
-checkFloating :: Floating (NumBVar Double) => ()
-checkFloating = ()
-
-checkFullVector :: FullVector (NumBVar Double) => ()
-checkFullVector = ()
-
-y0 :: NumBVar (AsNum (NumBVar Double))
-y0 = undefined
-
-dy :: NumBVar Double
-dy = unAsNum (backpropNum y0)
-
-dyy :: Double
-dyy = backpropNum dy
+f''' :: Floating a => a -> a
+f''' = diff f''
 
 main :: IO ()
 main = do
-    putStrLn ("x0 = " ++ show (numbvarValue . numbvarValue $ x0))
-    putStrLn ("y0 = " ++ show (numbvarValue . unAsNum . numbvarValue $ y0))
-    putStrLn ("dy = " ++ show (numbvarValue dy))
-    putStrLn ("dyy = " ++ show dyy)
+    let x0 = 0 :: Double
+    putStrLn ("x0 = " ++ show x0)
+    putStrLn ("y0 = " ++ show (f x0))
+    putStrLn ("dy = " ++ show (f' x0))
+    putStrLn ("dyy = " ++ show (f'' x0))
+    putStrLn ("dyyy = " ++ show (f''' x0))

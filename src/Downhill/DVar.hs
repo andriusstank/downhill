@@ -66,9 +66,9 @@ import Prelude hiding (id, (.))
 -- In case of @d ~ BackGrad r@, @dvarGrad@ stores computational graph of derivatives, enabling reverse mode
 -- differentiantion. Choosing @d ~ Identity@ turns @DVar@ into dual number,
 -- giving rise to simple forward mode differentiation.
-data DVar r p = DVar
+data DVar dr p = DVar
   { dvarValue :: p,
-    dvarGrad :: BackGrad r (Needle p)
+    dvarGrad :: BackGrad dr (Needle p)
   }
 
 instance (AdditiveGroup b, HasGrad b) => AdditiveGroup (DVar r b) where
@@ -115,29 +115,25 @@ instance (Floating b, HasGrad b, Needle b ~ b, Scalar b ~ b) => Floating (DVar r
   atanh (DVar x dx) = DVar (atanh x) (recip (1 - sqr x) *^ dx)
 
 instance
-  ( VectorSpace v,
-    VectorSpace (DualOf v),
-    HasDual v,
+  ( HasDual v,
     Needle v ~ v,
-    Needle (Scalar v) ~ Scalar v,
-    FullVector (DualOf (Scalar v)),
-    BasicVector (DualOf v)
+    Needle (Scalar v) ~ Scalar v
   ) =>
-  VectorSpace (DVar r v)
+  VectorSpace (DVar dr v)
   where
-  type Scalar (DVar r v) = DVar r (Scalar v)
+  type Scalar (DVar dr v) = DVar dr (Scalar v)
   DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castNode node)
     where
-      node :: Expr BackFun (DualOf r) (DualOf v)
+      node :: Expr BackFun dr (DualOf v)
       node = ExprSum (term1 ++ term2)
         where
-          term1 :: [Term BackFun (DualOf r) (DualOf v)]
+          term1 :: [Term BackFun dr (DualOf v)]
           term1 = da (\v' -> identityBuilder (evalGrad v' v))
-          term2 :: [Term BackFun (DualOf r) (DualOf v)]
+          term2 :: [Term BackFun dr (DualOf v)]
           term2 = dv (\v' -> identityBuilder (a *^ v'))
 
 -- | 'DVar' specialized for reverse mode differentiation.
---type BVar a p = DVar p (BackGrad a (Needle p))
+-- type BVar a p = DVar p (BackGrad a (Needle p))
 type BVar = DVar
 
 type HasGrad p = HasDual (Needle p)
@@ -151,11 +147,11 @@ constant :: forall r a. a -> BVar r a
 constant x = DVar x (BackGrad (const [])) -- could be zeroV here, but that would require `HasDual a` constraint..
 
 -- | A variable with identity derivative.
-var :: a -> BVar (Needle a) a
+var :: a -> BVar (GradOf a) a
 var x = DVar x (realNode ExprVar)
 
 -- | Compute gradient
-backprop :: forall a v. (HasGrad v, BasicVector (DualOf a)) => BVar a v -> GradOf v -> DualOf a
+backprop :: forall da v. (HasGrad v, BasicVector da) => BVar da v -> GradOf v -> da
 backprop (DVar _y0 x) = Graph.backprop x
 
 liftFun1 ::

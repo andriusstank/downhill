@@ -2,7 +2,7 @@ module Downhill.BVar.List
 where
 
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
-import Data.VectorSpace (AdditiveGroup)
+import Data.VectorSpace (AdditiveGroup (zeroV))
 import Data.These ()
 import Data.Align ()
 
