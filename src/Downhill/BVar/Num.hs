@@ -72,8 +72,8 @@ instance Num a => Semimanifold (AsNum a) where
 
 type NumBVar a = BVar (AsNum a) (AsNum a)
 
-constant :: Num a => a -> NumBVar a
-constant = DVar.constant . AsNum
+constant :: forall a. Num a => a -> NumBVar a
+constant = DVar.constant @(AsNum a) @(AsNum a) . AsNum
 
 var :: Num a => a -> NumBVar a
 var = DVar.var . AsNum

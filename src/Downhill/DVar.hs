@@ -63,18 +63,18 @@ import Math.Manifold.Core.PseudoAffine (Semimanifold(Needle))
 -- In case of @d ~ BackGrad r@, @dvarGrad@ stores computational graph of derivatives, enabling reverse mode
 -- differentiantion. Choosing @d ~ Identity@ turns @DVar@ into dual number,
 -- giving rise to simple forward mode differentiation.
-data DVar (d :: Type -> Type) a = DVar
+data DVar (da :: Type) a = DVar
   { dvarValue :: a,
-    dvarGrad :: d a
+    dvarGrad :: da
   }
 
-instance (AdditiveGroup b, AdditiveGroup (d b)) => AdditiveGroup (DVar d b) where
+instance (AdditiveGroup b, AdditiveGroup db) => AdditiveGroup (DVar db b) where
   zeroV = DVar zeroV zeroV
   negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
   DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
   DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (Num b, VectorSpace (d b), b ~ Scalar (d b)) => Num (DVar d b) where
+instance (Num b, VectorSpace db, b ~ Scalar db) => Num (DVar db b) where
   (DVar f0 df) + (DVar g0 dg) = DVar (f0 + g0) (df ^+^ dg)
   (DVar f0 df) - (DVar g0 dg) = DVar (f0 - g0) (df ^-^ dg)
   (DVar f0 df) * (DVar g0 dg) = DVar (f0 * g0) (f0 *^ dg ^+^ g0 *^ df)
@@ -89,14 +89,14 @@ sqr x = x * x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, VectorSpace (d b), b ~ Scalar (d b)) => Fractional (DVar d b) where
+instance (Fractional b, VectorSpace db, b ~ Scalar db) => Fractional (DVar db b) where
   fromRational x = DVar (fromRational x) zeroV
   recip (DVar x dx) = DVar (recip x) (df *^ dx)
     where
       df = negate (recip (sqr x))
   DVar x dx / DVar y dy = DVar (x / y) ((recip y *^ dx) ^-^ ((x / sqr y) *^ dy))
 
-instance (Floating b, VectorSpace (d b), b ~ Scalar (d b)) => Floating (DVar d b) where
+instance (Floating b, VectorSpace db, b ~ Scalar db) => Floating (DVar db b) where
   pi = DVar pi zeroV
   exp (DVar x dx) = DVar (exp x) (exp x *^ dx)
   log (DVar x dx) = DVar (log x) (recip x *^ dx)
@@ -118,9 +118,9 @@ instance
     Scalar (GradOf v) ~ Scalar v,
     HasGrad v
   ) =>
-  VectorSpace (DVar (BackGrad a) v)
+  VectorSpace (DVar (BackGrad a v) v)
   where
-  type Scalar (DVar (BackGrad a) v) = DVar (BackGrad a) (Scalar v)
+  type Scalar (DVar (BackGrad a v) v) = DVar (BackGrad a (Scalar v)) (Scalar v)
   DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castNode node)
     where
       node :: Expr BackFun (GradOf a) (GradOf v)
@@ -132,23 +132,23 @@ instance
           term2 = dv (\v' -> identityBuilder (a *^ v'))
 
 -- | 'DVar' specialized for reverse mode differentiation.
-type BVar a p = DVar (BackGrad a) p
+type BVar a p = DVar (BackGrad a (Needle p)) p
 
 -- | A variable with derivative of zero.
-constant :: a -> BVar r a
+constant :: forall r a. a -> BVar r a
 constant x = DVar x (BackGrad (const [])) -- could be zeroV here, but that would require `HasGrad a` constraint..
 
 -- | A variable with identity derivative.
-var :: a -> BVar a a
+var :: a -> BVar (Needle a) a
 var x = DVar x (realNode ExprVar)
 
 -- | Compute gradient
-backprop :: forall a v. (FullVector (GradOf v), BasicVector (GradOf a)) => BVar a v -> GradOf v -> GradOf a
+backprop :: forall a v. (FullVector (GradOf (Needle v)), BasicVector (GradOf a)) => BVar a v -> GradOf (Needle v) -> GradOf a
 backprop (DVar _y0 x) = Graph.backprop x
 
 liftFun1 ::
   forall r a b.
-  (a -> (b, LinFun1 a b)) ->
+  (a -> (b, LinFun1 (Needle a) (Needle b))) ->
   BVar r a ->
   BVar r b
 liftFun1 dfun (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
@@ -158,7 +158,7 @@ liftFun1 dfun (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
 liftFun2 ::
   forall x r a b z.
   (BasicVector x, VecBuilder x ~ GradBuilder z) =>
-  (a -> b -> (z, LinFun2 a b z)) ->
+  (a -> b -> (z, LinFun2 (Needle a) (Needle b) (Needle z))) ->
   BVar r a ->
   BVar r b ->
   BVar r z
@@ -169,7 +169,7 @@ liftFun2 dfun (DVar a0 da) (DVar b0 db) = DVar z0 (Lift.lift2 f2 da db)
 liftFun3 ::
   forall r a b c z.
   () =>
-  (a -> b -> c -> (z, LinFun3 a b c z)) ->
+  (a -> b -> c -> (z, LinFun3 (Needle a) (Needle b) (Needle c) (Needle z))) ->
   BVar r a ->
   BVar r b ->
   BVar r c ->
@@ -179,8 +179,8 @@ liftFun3 dfun (DVar a0 da) (DVar b0 db) (DVar c0 dc) = DVar z0 (Lift.lift3 f3 da
     (z0, f3) = dfun a0 b0 c0
 
 easyLift1 ::
-  BasicVector (GradOf z) =>
-  (a -> (z, GradOf z -> GradBuilder a)) ->
+  BasicVector (GradOf (Needle z)) =>
+  (a -> (z, GradOf (Needle z) -> GradBuilder (Needle a))) ->
   BVar r a ->
   BVar r z
 easyLift1 f (DVar a da) = DVar z (Easy.easyLift1 (Easy.EasyFun1 df) da)
@@ -188,8 +188,8 @@ easyLift1 f (DVar a da) = DVar z (Easy.easyLift1 (Easy.EasyFun1 df) da)
     (z, df) = f a
 
 easyLift2 ::
-  BasicVector (GradOf z) =>
-  (a -> b -> (z, GradOf z -> (GradBuilder a, GradBuilder b))) ->
+  BasicVector (GradOf (Needle z)) =>
+  (a -> b -> (z, GradOf (Needle z) -> (GradBuilder (Needle a), GradBuilder (Needle b)))) ->
   BVar r a ->
   BVar r b ->
   BVar r z
@@ -198,8 +198,8 @@ easyLift2 f (DVar a da) (DVar b db) = DVar z (Easy.easyLift2 (Easy.EasyFun2 df) 
     (z, df) = f a b
 
 easyLift3 ::
-  BasicVector (GradOf z) =>
-  (a -> b -> c -> (z, GradOf z -> (GradBuilder a, GradBuilder b, GradBuilder c))) ->
+  BasicVector (GradOf (Needle z)) =>
+  (a -> b -> c -> (z, GradOf (Needle z) -> (GradBuilder (Needle a), GradBuilder (Needle b), GradBuilder (Needle c)))) ->
   BVar r a ->
   BVar r b ->
   BVar r c ->
