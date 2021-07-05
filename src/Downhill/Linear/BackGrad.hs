@@ -26,7 +26,7 @@ import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), Expr (
 
 -- | Not absolutly required, but it's nice to parameterize expressions based on type
 -- of the variable, not on its gradient.
-class FullVector (DualOf v) => HasDual v where
+class (Scalar (DualOf v) ~ Scalar v, FullVector (DualOf v)) => HasDual v where
   type DualOf v :: Type
 
   -- @DualOf (Scalar v)@ is normally the same as @Scalar v@. Unless we
@@ -80,6 +80,8 @@ instance
 -- @BackGrad a v@ is similar to @'Expr' 'BackFun' ('DualOf' a) ('DualOf' v)@, but it has a more
 -- flexible form. It encapsulates the type of the gradient of @v@, which can be different from @DualOf v@
 -- and can be chosen independently for each use.
+
+-- TODO: why not replace `DualOf a` with a?
 newtype BackGrad a v = BackGrad (forall x. (x -> DualBuilder v) -> [Term BackFun (DualOf a) x])
 
 -- | Creates a @BackGrad@ that is backed by a real node. Gradient of type '@DualOf@ v' will be computed for this node.

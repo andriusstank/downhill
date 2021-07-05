@@ -66,18 +66,18 @@ import Prelude hiding (id, (.))
 -- In case of @d ~ BackGrad r@, @dvarGrad@ stores computational graph of derivatives, enabling reverse mode
 -- differentiantion. Choosing @d ~ Identity@ turns @DVar@ into dual number,
 -- giving rise to simple forward mode differentiation.
-data DVar a da = DVar
-  { dvarValue :: a,
-    dvarGrad :: da
+data DVar r p = DVar
+  { dvarValue :: p,
+    dvarGrad :: BackGrad r (Needle p)
   }
 
-instance (AdditiveGroup b, AdditiveGroup db) => AdditiveGroup (DVar b db) where
+instance (AdditiveGroup b, HasGrad b) => AdditiveGroup (DVar r b) where
   zeroV = DVar zeroV zeroV
   negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
   DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
   DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (Num b, VectorSpace db, b ~ Scalar db) => Num (DVar b db) where
+instance (Num b, HasGrad b, Needle b ~ b, Scalar b ~ b) => Num (DVar r b) where
   (DVar f0 df) + (DVar g0 dg) = DVar (f0 + g0) (df ^+^ dg)
   (DVar f0 df) - (DVar g0 dg) = DVar (f0 - g0) (df ^-^ dg)
   (DVar f0 df) * (DVar g0 dg) = DVar (f0 * g0) (f0 *^ dg ^+^ g0 *^ df)
@@ -92,14 +92,14 @@ sqr x = x * x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, VectorSpace db, b ~ Scalar db) => Fractional (DVar b db) where
+instance (Fractional b, HasGrad b, Needle b ~ b, Scalar b ~ b) => Fractional (DVar r b) where
   fromRational x = DVar (fromRational x) zeroV
   recip (DVar x dx) = DVar (recip x) (df *^ dx)
     where
       df = negate (recip (sqr x))
   DVar x dx / DVar y dy = DVar (x / y) ((recip y *^ dx) ^-^ ((x / sqr y) *^ dy))
 
-instance (Floating b, VectorSpace db, b ~ Scalar db) => Floating (DVar b db) where
+instance (Floating b, HasGrad b, Needle b ~ b, Scalar b ~ b) => Floating (DVar r b) where
   pi = DVar pi zeroV
   exp (DVar x dx) = DVar (exp x) (exp x *^ dx)
   log (DVar x dx) = DVar (log x) (recip x *^ dx)
@@ -117,25 +117,28 @@ instance (Floating b, VectorSpace db, b ~ Scalar db) => Floating (DVar b db) whe
 instance
   ( VectorSpace v,
     VectorSpace (DualOf v),
+    HasDual v,
+    Needle v ~ v,
+    Needle (Scalar v) ~ Scalar v,
     FullVector (DualOf (Scalar v)),
-    Scalar (DualOf v) ~ Scalar v,
-    HasDual v
+    BasicVector (DualOf v)
   ) =>
-  VectorSpace (DVar v (BackGrad a v))
+  VectorSpace (DVar r v)
   where
-  type Scalar (DVar v (BackGrad a v)) = DVar (Scalar v) (BackGrad a (Scalar v))
+  type Scalar (DVar r v) = DVar r (Scalar v)
   DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castNode node)
     where
-      node :: Expr BackFun (DualOf a) (DualOf v)
+      node :: Expr BackFun (DualOf r) (DualOf v)
       node = ExprSum (term1 ++ term2)
         where
-          term1 :: [Term BackFun (DualOf a) (DualOf v)]
+          term1 :: [Term BackFun (DualOf r) (DualOf v)]
           term1 = da (\v' -> identityBuilder (evalGrad v' v))
-          term2 :: [Term BackFun (DualOf a) (DualOf v)]
+          term2 :: [Term BackFun (DualOf r) (DualOf v)]
           term2 = dv (\v' -> identityBuilder (a *^ v'))
 
 -- | 'DVar' specialized for reverse mode differentiation.
-type BVar a p = DVar p (BackGrad a (Needle p))
+--type BVar a p = DVar p (BackGrad a (Needle p))
+type BVar = DVar
 
 type HasGrad p = HasDual (Needle p)
 

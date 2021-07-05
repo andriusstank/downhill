@@ -27,9 +27,10 @@ library
                        Downhill.Internal.Graph.OpenGraph,
                        Downhill.Internal.Graph.Sharing,
                        Downhill.Internal.Graph.Graph,
+                       Downhill.DVar
                        Downhill.BVar.Num,
                        Downhill.BVar.Prelude
-                       Downhill.DVar
+                       Downhill.DVarH
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.12.0.0 && <4.14,
@@ -44,7 +45,8 @@ library
                        these,
                        semialign,
                        manifolds-core,
-                       tagged
+                       tagged,
+                       singletons
 
   hs-source-dirs:      src
   other-modules:       Trace
