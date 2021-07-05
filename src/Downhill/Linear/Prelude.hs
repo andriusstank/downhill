@@ -4,7 +4,6 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -16,7 +15,7 @@ module Downhill.Linear.Prelude
 where
 
 import Downhill.Linear.BackGrad (BackGrad, GradBuilder, HasGrad (GradOf), SparseGrad)
-import Downhill.Linear.Expr (BasicVector (VecBuilder), SparseVector (SparseVector, unSparseVector), maybeToMonoid)
+import Downhill.Linear.Expr (BasicVector, SparseVector (SparseVector, unSparseVector), maybeToMonoid)
 import qualified Downhill.Linear.Lift as Lift
 import qualified Downhill.Linear.Lift as Linear
 import Prelude (Maybe (Just), Monoid (mempty), fmap, (.))
@@ -57,7 +56,7 @@ toTriple x = (Lift.lift1 (Lift.LinFun1 go1) x, Lift.lift1 (Lift.LinFun1 go2) x, 
 -- @
 {-# COMPLETE T2 #-}
 
-pattern T2 :: forall r a b. (BasicVector (GradOf a), BasicVector (GradOf b)) => BackGrad r a -> BackGrad r b -> BackGrad r (a, b)
+pattern T2 :: forall r a b. (HasGrad a, HasGrad b) => BackGrad r a -> BackGrad r b -> BackGrad r (a, b)
 pattern T2 a b <-
   (toPair -> (a, b))
   where

@@ -5,38 +5,38 @@
 {-# language FlexibleContexts #-}
 
 module Main where
-import Diff
 import Data.VectorSpace (VectorSpace(..))
-import BVar.Num (AsNum(AsNum, unAsNum))
+import Downhill.BVar.Num (AsNum(AsNum, unAsNum), NumBVar, backpropNum, numbvarValue)
 import Downhill.Linear.Expr (FullVector)
+import Downhill.DVar (var)
 
 f :: Floating a => a -> a
 f x = sin (2*x)
 
-x0 :: BVarS (BVarS Double)
+x0 :: NumBVar (NumBVar Double)
 x0 = var 0
 
-f' :: forall a. (Floating a) => BVarS (AsNum a) -> BVarS (AsNum a)
-f' = f @(BVarS (AsNum a))
+f' :: forall a. (Floating a) => NumBVar a -> NumBVar a
+f' = f @(NumBVar a)
 
-checkFloating :: Floating (BVarS Double) => ()
+checkFloating :: Floating (NumBVar Double) => ()
 checkFloating = ()
 
-checkFullVector :: FullVector (BVarS Double) => ()
+checkFullVector :: FullVector (NumBVar Double) => ()
 checkFullVector = ()
 
-y0 :: BVarS (AsNum (BVarS Double))
+y0 :: NumBVar (AsNum (NumBVar Double))
 y0 = undefined
 
-dy :: BVarS Double
-dy = unAsNum (backpropS y0)
+dy :: NumBVar Double
+dy = unAsNum (backpropNum y0)
 
 dyy :: Double
-dyy = backpropS dy
+dyy = backpropNum dy
 
 main :: IO ()
 main = do
-    putStrLn ("x0 = " ++ show (bvarValue . bvarValue $ x0))
-    putStrLn ("y0 = " ++ show (bvarValue . unAsNum . bvarValue $ y0))
-    putStrLn ("dy = " ++ show (bvarValue dy))
+    putStrLn ("x0 = " ++ show (numbvarValue . numbvarValue $ x0))
+    putStrLn ("y0 = " ++ show (numbvarValue . unAsNum . numbvarValue $ y0))
+    putStrLn ("dy = " ++ show (numbvarValue dy))
     putStrLn ("dyy = " ++ show dyy)

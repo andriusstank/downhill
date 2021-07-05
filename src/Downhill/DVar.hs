@@ -55,6 +55,7 @@ import Downhill.Linear.Lift (LinFun1, LinFun3, LinFun2)
 import qualified Downhill.Linear.Lift as Easy
 import qualified Downhill.Linear.Lift as Lift
 import Prelude hiding (id, (.))
+import Math.Manifold.Core.PseudoAffine ()
 
 -- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
 -- map @r -> a@ for some @r@. Type @d@ determines both @r@ and a way of encoding derivatives.
