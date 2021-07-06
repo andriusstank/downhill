@@ -14,7 +14,7 @@ module Downhill.Linear.Prelude
   )
 where
 
-import Downhill.Linear.BackGrad (BackGrad, DualBuilder, HasDual (DualOf), SparseGrad)
+import Downhill.Linear.BackGrad (BackGrad)
 import Downhill.Linear.Expr (BasicVector (VecBuilder), SparseVector (SparseVector, unSparseVector), maybeToMonoid)
 import qualified Downhill.Linear.Lift as Lift
 import qualified Downhill.Linear.Lift as Linear

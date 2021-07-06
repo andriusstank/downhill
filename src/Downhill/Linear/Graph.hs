@@ -10,7 +10,7 @@ where
 import Downhill.Internal.Graph.Graph
     ( SomeGraph(..), Graph, evalGraph )
 import Downhill.Linear.Expr (FwdFun, BackFun, flipBackFun, BasicVector, FullVector (identityBuilder))
-import Downhill.Linear.BackGrad (HasDual(DualOf), BackGrad(..))
+import Downhill.Linear.BackGrad (BackGrad(..))
 import GHC.IO.Unsafe (unsafePerformIO)
 import Downhill.Internal.Graph.OpenGraph (recoverSharing)
 import qualified Downhill.Internal.Graph.Graph as Graph

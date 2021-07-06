@@ -51,10 +51,9 @@ import Data.VectorSpace
 import Downhill.Linear.BackGrad
   ( BackGrad (..),
     HasDual (..),
-    castNode,
     realNode,
   )
-import Downhill.Linear.Expr (BackFun, BasicVector (VecBuilder), Expr (ExprSum, ExprVar), FullVector (identityBuilder), Term)
+import Downhill.Linear.Expr (BasicVector (VecBuilder), Expr (ExprVar))
 import qualified Downhill.Linear.Graph as Graph
 import Downhill.Linear.Lift (LinFun1, LinFun2, LinFun3)
 import qualified Downhill.Linear.Lift as Easy

@@ -46,7 +46,7 @@ where
 
 import Data.Proxy (Proxy (Proxy))
 import Data.Reflection (Reifies (reflect), reify)
-import Downhill.Linear.BackGrad (BackGrad (..), DualBuilder, HasDual (DualOf), SparseGrad, castNode)
+import Downhill.Linear.BackGrad (BackGrad (..), castNode)
 import Downhill.Linear.Expr (BasicVector (..), Expr (ExprSum), SparseVector)
 import Prelude hiding (fst, snd, zip)
 
