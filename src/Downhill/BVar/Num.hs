@@ -18,7 +18,7 @@ where
 import Data.AffineSpace (AffineSpace (..))
 import Data.Semigroup (Sum (Sum, getSum))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..), zeroV)
-import Downhill.DVar (BVar, backprop, DVar (dvarValue), HasGrad, HasDual)
+import Downhill.DVar (BVar, backprop, DVar (dvarValue), HasGrad, HasDiff)
 import qualified Downhill.DVar as DVar
 import Downhill.Linear.Expr (BasicVector (..), FullVector (identityBuilder, negateBuilder, scaleBuilder))
 import Math.Manifold.Core.PseudoAffine (Semimanifold(..), BoundarylessWitness (BoundarylessWitness), SemimanifoldWitness (SemimanifoldWitness))
@@ -34,8 +34,8 @@ newtype AsNum a = AsNum {unAsNum :: a}
 instance Num a => HasGrad (AsNum a) where
   type Grad (AsNum a) = AsNum a
 
-instance Num a => HasDual (AsNum a) where
-  type DualOf (AsNum a) = AsNum a
+instance Num a => HasDiff (AsNum a) where
+  type Diff (AsNum a) = AsNum a
   evalGrad = (*)
 
 instance Num a => AdditiveGroup (AsNum a) where

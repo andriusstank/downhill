@@ -12,6 +12,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Downhill.DVar
   ( -- * DVar
@@ -19,7 +20,7 @@ module Downhill.DVar
 
     -- * BVar
     BVar,
-    HasGrad (..), HasDual(..),
+    HasGrad (..), HasDiff(..),
     var,
     constant,
     backprop,
@@ -118,11 +119,14 @@ instance
   ( 
     VectorSpace v,
     HasGrad v,
-    HasDual v,
-    DualOf v ~ Grad v,
+    HasDiff v,
     Scalar v ~ s,
     Scalar (Grad v) ~ s,
-    Grad s ~ s
+    Grad s ~ s,
+    FullVector s,
+    FullVector (Grad v),
+    Diff v ~ v,
+    VectorSpace (Grad v)
   ) =>
   VectorSpace (DVar dr v)
   where
@@ -133,7 +137,7 @@ instance
       node = ExprSum (term1 ++ term2)
         where
           term1 :: [Term BackFun dr (Grad v)]
-          term1 = da (\v' -> identityBuilder (evalGrad v' v))
+          term1 = da (\v' -> identityBuilder (evalGrad @v v' v))
           term2 :: [Term BackFun dr (Grad v)]
           term2 = dv (\v' -> identityBuilder (a *^ v'))
 
@@ -171,65 +175,60 @@ instance
     type Grad (a, b, c) = (Grad a, Grad b, Grad c)
 
 -- TODO: review, maybe it's not needed anymore
-class
-  ( VectorSpace v,
-    VectorSpace (DualOf v),
-    Scalar (DualOf v) ~ Scalar v,
-    DualOf (Scalar v) ~ Scalar v,
-    FullVector (DualOf v),
-    FullVector (Scalar v),
-    BasicVector (DualOf v)
-  ) =>
-  HasDual v
+class (Scalar (Grad p) ~ Scalar (Diff p), HasGrad p) => HasDiff p
   where
-  type DualOf v :: Type
+  type Diff p :: Type
 
   -- @DualOf (Scalar v)@ is normally the same as @Scalar v@. Unless we
   -- attempt to backpropagate on something else than the scalar.
-  evalGrad :: DualOf v -> v -> DualOf (Scalar v)
+  evalGrad :: Grad p -> Diff p -> Scalar (Grad p)
 
-type DualBuilder v = VecBuilder (DualOf v)
+instance HasGrad Float where
+  type Grad Float = Float
 
-type SparseGrad v = SparseVector (DualOf v)
-
-instance HasDual Float where
-  type DualOf Float = Float
+instance HasDiff Float where
+  type Diff Float = Float
   evalGrad = (*)
 
-instance HasDual Double where
-  type DualOf Double = Double
+instance HasGrad Double where
+  type Grad Double = Double
+
+instance HasDiff Double where
+  type Diff Double = Double
   evalGrad = (*)
 
 instance
-  ( HasDual u,
-    HasDual v,
-    da ~ Scalar (DualOf u),
-    da ~ Scalar (DualOf v),
+  ( HasDiff u,
+    HasDiff v,
+    da ~ Scalar (Diff u),
+    da ~ Scalar (Diff v),
     a ~ Scalar u,
     a ~ Scalar v,
-    AdditiveGroup (DualOf a)
+    AdditiveGroup (Diff a),
+    AdditiveGroup da
   ) =>
-  HasDual (u, v)
+  HasDiff (u, v)
   where
-  type DualOf (u, v) = (DualOf u, DualOf v)
-  evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
+  type Diff (u, v) = (Diff u, Diff v)
+  evalGrad (a, b) (x, y) = evalGrad @u a x ^+^ evalGrad @v b y
 
 instance
-  ( HasDual u,
-    HasDual v,
-    HasDual w,
-    a ~ Scalar (DualOf u),
-    a ~ Scalar (DualOf v),
-    a ~ Scalar (DualOf w),
+  ( HasDiff u,
+    HasDiff v,
+    HasDiff w,
+    a ~ Scalar (Diff u),
+    a ~ Scalar (Diff v),
+    a ~ Scalar (Diff w),
     a ~ Scalar u,
     a ~ Scalar v,
     a ~ Scalar w,
-    AdditiveGroup (DualOf a)
+    AdditiveGroup (Diff a),
+    AdditiveGroup a
   ) =>
-  HasDual (u, v, w)
+  HasDiff (u, v, w)
   where
-  type DualOf (u, v, w) = (DualOf u, DualOf v, DualOf w)
-  evalGrad (a, b, c) (x, y, z) = evalGrad a x ^+^ evalGrad b y ^+^ evalGrad c z
+  type Diff (u, v, w) = (Diff u, Diff v, Diff w)
+  evalGrad (a, b, c) (x, y, z) = evalGrad @u a x ^+^ evalGrad @v b y ^+^ evalGrad @w c z
 
 --type HasGrad p = HasDual (Needle p)
 
