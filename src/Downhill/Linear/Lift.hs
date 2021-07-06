@@ -25,7 +25,8 @@ module Downhill.Linear.Lift
     lift3,
     -- | Special cases. Not sure if they are really useful.
     lift1',
-    lift1_dense, lift1_sparse,
+    lift1_dense,
+    lift1_sparse,
 
     -- * @EasyFunN@
 
@@ -52,30 +53,30 @@ import Prelude hiding (fst, snd, zip)
 data LinFun3 a b c z where
   LinFun3 ::
     forall x a b c z.
-    (BasicVector x, VecBuilder x ~ DualBuilder z) =>
-    (x -> DualBuilder a) ->
-    (x -> DualBuilder b) ->
-    (x -> DualBuilder c) ->
+    (BasicVector x, VecBuilder x ~ VecBuilder z) =>
+    (x -> VecBuilder a) ->
+    (x -> VecBuilder b) ->
+    (x -> VecBuilder c) ->
     LinFun3 a b c z
 
 data LinFun2 a b z where
   LinFun2 ::
     forall x a b z.
-    (BasicVector x, VecBuilder x ~ DualBuilder z) =>
-    (x -> DualBuilder a) ->
-    (x -> DualBuilder b) ->
+    (BasicVector x, VecBuilder x ~ VecBuilder z) =>
+    (x -> VecBuilder a) ->
+    (x -> VecBuilder b) ->
     LinFun2 a b z
 
 data LinFun1 a z where
   LinFun1 ::
     forall x a z.
-    (BasicVector x, VecBuilder x ~ DualBuilder z) =>
-    (x -> DualBuilder a) ->
+    (BasicVector x, VecBuilder x ~ VecBuilder z) =>
+    (x -> VecBuilder a) ->
     LinFun1 a z
 
 lift3 ::
   forall r a b c z.
-  LinFun3 a b c z ->
+  LinFun3 (DualOf a) (DualOf b) (DualOf c) (DualOf z) ->
   BackGrad r a ->
   BackGrad r b ->
   BackGrad r c ->
@@ -86,7 +87,7 @@ lift3 (LinFun3 fa fb fc) (BackGrad da) (BackGrad db) (BackGrad dc) = castNode no
 
 lift2 ::
   forall r a b z.
-  LinFun2 a b z ->
+  LinFun2 (DualOf a) (DualOf b) (DualOf z) ->
   BackGrad r a ->
   BackGrad r b ->
   BackGrad r z
@@ -96,7 +97,7 @@ lift2 (LinFun2 fa fb) (BackGrad da) (BackGrad db) = castNode node
 
 lift1 ::
   forall r a z.
-  LinFun1 a z ->
+  LinFun1 (DualOf a) (DualOf z) ->
   BackGrad r a ->
   BackGrad r z
 lift1 (LinFun1 fa) (BackGrad da) = castNode node
@@ -188,14 +189,18 @@ instance (Reifies s (EasyFun3 a b c z), BasicVector (DualOf z)) => BasicVector (
       wrap (a, b, c) = BuilderTuple3 a b c
       EasyFun3 f = reflect (Proxy @s) :: EasyFun3 a b c z
 
-builder3Fun :: forall s a b c z. (Reifies s (EasyFun3 a b c z), BasicVector (DualOf z)) => Proxy s -> LinFun3 a b c z
+builder3Fun ::
+  forall s a b c z.
+  (Reifies s (EasyFun3 a b c z), BasicVector (DualOf z)) =>
+  Proxy s ->
+  LinFun3 (DualOf a) (DualOf b) (DualOf c) (DualOf z)
 builder3Fun Proxy = LinFun3 @(BuilderTuple3 s a b c z) b3get1 b3get2 b3get3
 
 fromEasy3 ::
   forall a b c z.
   BasicVector (DualOf z) =>
   EasyFun3 a b c z ->
-  LinFun3 a b c z
+  LinFun3 (DualOf a) (DualOf b) (DualOf c) (DualOf z)
 fromEasy3 f = reify f builder3Fun
 
 easyLift3 ::
@@ -221,14 +226,18 @@ instance (Reifies s (EasyFun2 a b z), BasicVector (DualOf z)) => BasicVector (Bu
       wrap (a, b) = BuilderTuple2 a b
       EasyFun2 f = reflect (Proxy @s) :: EasyFun2 a b z
 
-builder2Fun :: forall s a b z. (Reifies s (EasyFun2 a b z), BasicVector (DualOf z)) => Proxy s -> LinFun2 a b z
+builder2Fun ::
+  forall s a b z.
+  (Reifies s (EasyFun2 a b z), BasicVector (DualOf z)) =>
+  Proxy s ->
+  LinFun2 (DualOf a) (DualOf b) (DualOf z)
 builder2Fun Proxy = LinFun2 @(BuilderTuple2 s a b z) b2get1 b2get2
 
 fromEasy2 ::
   forall a b z.
   BasicVector (DualOf z) =>
   EasyFun2 a b z ->
-  LinFun2 a b z
+  LinFun2 (DualOf a) (DualOf b) (DualOf z)
 fromEasy2 f = reify f builder2Fun
 
 easyLift2 ::
@@ -250,14 +259,18 @@ instance (Reifies s (EasyFun1 a z), BasicVector (DualOf z)) => BasicVector (Buil
       wrap a = BuilderTuple1 a
       EasyFun1 f = reflect (Proxy @s) :: EasyFun1 a z
 
-builder1Fun :: forall s a z. (Reifies s (EasyFun1 a z), BasicVector (DualOf z)) => Proxy s -> LinFun1 a z
+builder1Fun ::
+  forall s a z.
+  (Reifies s (EasyFun1 a z), BasicVector (DualOf z)) =>
+  Proxy s ->
+  LinFun1 (DualOf a) (DualOf z)
 builder1Fun Proxy = LinFun1 @(BuilderTuple1 s a z) b1get1
 
 fromEasy1 ::
   forall a z.
   BasicVector (DualOf z) =>
   EasyFun1 a z ->
-  LinFun1 a z
+  LinFun1 (DualOf a) (DualOf z)
 fromEasy1 f = reify f builder1Fun
 
 easyLift1 ::

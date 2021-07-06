@@ -161,7 +161,7 @@ backprop (DVar _y0 x) = Graph.backprop x
 
 liftFun1 ::
   forall r a b.
-  (a -> (b, LinFun1 (Needle a) (Needle b))) ->
+  (a -> (b, LinFun1 (DualOf (Needle a)) (DualOf (Needle b)))) ->
   BVar r a ->
   BVar r b
 liftFun1 dfun (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
@@ -171,7 +171,7 @@ liftFun1 dfun (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
 liftFun2 ::
   forall x r a b z.
   (BasicVector x, VecBuilder x ~ GradBuilder z) =>
-  (a -> b -> (z, LinFun2 (Needle a) (Needle b) (Needle z))) ->
+  (a -> b -> (z, LinFun2 (DualOf (Needle a)) (DualOf (Needle b)) (DualOf (Needle z)))) ->
   BVar r a ->
   BVar r b ->
   BVar r z
@@ -182,7 +182,7 @@ liftFun2 dfun (DVar a0 da) (DVar b0 db) = DVar z0 (Lift.lift2 f2 da db)
 liftFun3 ::
   forall r a b c z.
   () =>
-  (a -> b -> c -> (z, LinFun3 (Needle a) (Needle b) (Needle c) (Needle z))) ->
+  (a -> b -> c -> (z, LinFun3 (DualOf (Needle a)) (DualOf (Needle b)) (DualOf (Needle c)) (DualOf (Needle z)))) ->
   BVar r a ->
   BVar r b ->
   BVar r c ->
