@@ -71,6 +71,7 @@ data DVar dr p = DVar
     dvarGrad :: BackGrad dr (Needle p)
   }
 
+
 instance (AdditiveGroup b, HasGrad b) => AdditiveGroup (DVar r b) where
   zeroV = DVar zeroV zeroV
   negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
@@ -117,7 +118,8 @@ instance (Floating b, HasGrad b, Needle b ~ b, Scalar b ~ b) => Floating (DVar r
 instance
   ( HasDual v,
     Needle v ~ v,
-    Needle (Scalar v) ~ Scalar v
+    Needle (Scalar v) ~ Scalar v,
+    HasGrad v
   ) =>
   VectorSpace (DVar dr v)
   where
@@ -136,7 +138,10 @@ instance
 -- type BVar a p = DVar p (BackGrad a (Needle p))
 type BVar = DVar
 
-type HasGrad p = HasDual (Needle p)
+-- TODO: remove constraint `DualOf (Needle p)
+class HasDual (Needle p) => HasGrad p where
+
+--type HasGrad p = HasDual (Needle p)
 
 type GradOf p = DualOf (Needle p)
 

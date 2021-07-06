@@ -18,7 +18,7 @@ where
 import Data.AffineSpace (AffineSpace (..))
 import Data.Semigroup (Sum (Sum, getSum))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..), zeroV)
-import Downhill.DVar (BVar, backprop, DVar (dvarValue))
+import Downhill.DVar (BVar, backprop, DVar (dvarValue), HasGrad)
 import qualified Downhill.DVar as DVar
 import Downhill.Linear.BackGrad (HasDual (..))
 import Downhill.Linear.Expr (BasicVector (..), FullVector (identityBuilder, negateBuilder, scaleBuilder))
@@ -31,6 +31,8 @@ newtype AsNum a = AsNum {unAsNum :: a}
   deriving (Num) via a
   deriving (Fractional) via a
   deriving (Floating) via a
+
+instance Num a => HasGrad (AsNum a)
 
 instance Num a => HasDual (AsNum a) where
   type DualOf (AsNum a) = AsNum a

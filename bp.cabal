@@ -45,7 +45,8 @@ library
                        semialign,
                        manifolds-core,
                        tagged,
-                       singletons
+                       singletons,
+                       constrained-categories
 
   hs-source-dirs:      src
   other-modules:       Trace
