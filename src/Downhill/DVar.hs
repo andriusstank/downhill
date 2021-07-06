@@ -68,11 +68,11 @@ import Prelude hiding (id, (.))
 -- giving rise to simple forward mode differentiation.
 data DVar dr p = DVar
   { dvarValue :: p,
-    dvarGrad :: BackGrad dr (Needle p)
+    dvarGrad :: BackGrad dr (DualOf (Needle p))
   }
 
 
-instance (AdditiveGroup b, HasGrad b) => AdditiveGroup (DVar r b) where
+instance (AdditiveGroup b, FullVector (DualOf (Needle b))) => AdditiveGroup (DVar r b) where
   zeroV = DVar zeroV zeroV
   negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
   DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)

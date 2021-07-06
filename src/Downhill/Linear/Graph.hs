@@ -22,10 +22,10 @@ evalSomeGraph g v = case g of
 flipSomeGraph :: SomeGraph BackFun a z -> SomeGraph FwdFun z a
 flipSomeGraph (SomeGraph g) = SomeGraph (Graph.flipGraph flipBackFun g)
 
-buildSomeGraph :: forall da v. (BasicVector da, FullVector (DualOf v)) => BackGrad da v -> SomeGraph BackFun da (DualOf v)
+buildSomeGraph :: forall da dv. (BasicVector da, FullVector dv) => BackGrad da dv -> SomeGraph BackFun da dv
 buildSomeGraph (BackGrad f) = unsafePerformIO $ do
     og <- recoverSharing (f identityBuilder)
     return (Graph.fromOpenGraph og)
 
-backprop :: forall da v. (BasicVector da, FullVector (DualOf v)) => BackGrad da v -> DualOf v -> da
+backprop :: forall da dv. (BasicVector da, FullVector dv) => BackGrad da dv -> dv -> da
 backprop = evalSomeGraph . flipSomeGraph . buildSomeGraph

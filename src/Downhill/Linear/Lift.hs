@@ -47,7 +47,7 @@ where
 import Data.Proxy (Proxy (Proxy))
 import Data.Reflection (Reifies (reflect), reify)
 import Downhill.Linear.BackGrad (BackGrad (..), DualBuilder, HasDual (DualOf), SparseGrad, castNode)
-import Downhill.Linear.Expr (BasicVector (..), Expr (ExprSum))
+import Downhill.Linear.Expr (BasicVector (..), Expr (ExprSum), SparseVector)
 import Prelude hiding (fst, snd, zip)
 
 data LinFun3 a b c z where
@@ -76,7 +76,7 @@ data LinFun1 a z where
 
 lift3 ::
   forall r a b c z.
-  LinFun3 (DualOf a) (DualOf b) (DualOf c) (DualOf z) ->
+  LinFun3 a b c z ->
   BackGrad r a ->
   BackGrad r b ->
   BackGrad r c ->
@@ -87,7 +87,7 @@ lift3 (LinFun3 fa fb fc) (BackGrad da) (BackGrad db) (BackGrad dc) = castNode no
 
 lift2 ::
   forall r a b z.
-  LinFun2 (DualOf a) (DualOf b) (DualOf z) ->
+  LinFun2 a b z ->
   BackGrad r a ->
   BackGrad r b ->
   BackGrad r z
@@ -97,7 +97,7 @@ lift2 (LinFun2 fa fb) (BackGrad da) (BackGrad db) = castNode node
 
 lift1 ::
   forall r a z.
-  LinFun1 (DualOf a) (DualOf z) ->
+  LinFun1 a z ->
   BackGrad r a ->
   BackGrad r z
 lift1 (LinFun1 fa) (BackGrad da) = castNode node
@@ -106,8 +106,8 @@ lift1 (LinFun1 fa) (BackGrad da) = castNode node
 
 lift1' ::
   forall x r a z.
-  (BasicVector x, VecBuilder x ~ DualBuilder z) =>
-  (x -> DualBuilder a) ->
+  (BasicVector x, VecBuilder x ~ VecBuilder z) =>
+  (x -> VecBuilder a) ->
   BackGrad r a ->
   BackGrad r z
 lift1' fa (BackGrad da) = castNode node
@@ -116,16 +116,16 @@ lift1' fa (BackGrad da) = castNode node
 
 lift1_dense ::
   forall r a z.
-  HasDual z =>
-  (DualOf z -> DualBuilder a) ->
+  BasicVector z =>
+  (z -> VecBuilder a) ->
   BackGrad r a ->
   BackGrad r z
 lift1_dense = lift1'
 
 lift1_sparse ::
   forall r a z.
-  HasDual z =>
-  (SparseGrad z -> DualBuilder a) ->
+  BasicVector z =>
+  (SparseVector z -> VecBuilder a) ->
   BackGrad r a ->
   BackGrad r z
 lift1_sparse = lift1'
@@ -205,8 +205,8 @@ fromEasy3 f = reify f builder3Fun
 
 easyLift3 ::
   forall r a b c z.
-  BasicVector (DualOf z) =>
-  EasyFun3 (DualOf a) (DualOf b) (DualOf c) (DualOf z) ->
+  BasicVector z =>
+  EasyFun3 a b c z ->
   BackGrad r a ->
   BackGrad r b ->
   BackGrad r c ->
@@ -242,8 +242,8 @@ fromEasy2 f = reify f builder2Fun
 
 easyLift2 ::
   forall r a b z.
-  BasicVector (DualOf z) =>
-  EasyFun2 (DualOf a) (DualOf b) (DualOf z) ->
+  BasicVector z =>
+  EasyFun2 a b z ->
   BackGrad r a ->
   BackGrad r b ->
   BackGrad r z
@@ -275,8 +275,8 @@ fromEasy1 f = reify f builder1Fun
 
 easyLift1 ::
   forall r a z.
-  BasicVector (DualOf z) =>
-  EasyFun1 (DualOf a) (DualOf z) ->
+  BasicVector z =>
+  EasyFun1 a z ->
   BackGrad r a ->
   BackGrad r z
 easyLift1 = lift1 . fromEasy1
