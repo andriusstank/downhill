@@ -56,7 +56,7 @@ import Downhill.Linear.Lift (LinFun1, LinFun2, LinFun3)
 import qualified Downhill.Linear.Lift as Easy
 import qualified Downhill.Linear.Lift as Lift
 import Prelude hiding (id, (.))
-import Downhill.Grad (HasGrad(Grad), HasDiff(Diff, evalGrad))
+import Downhill.Grad (HasGrad(Grad, Diff, evalGrad))
 
 
 -- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
@@ -118,7 +118,6 @@ instance
   ( 
     VectorSpace v,
     HasGrad v,
-    HasDiff v,
     Scalar v ~ s,
     Scalar (Grad v) ~ s,
     Grad s ~ s,
