@@ -56,7 +56,7 @@ import Downhill.Linear.Lift (LinFun1, LinFun2, LinFun3)
 import qualified Downhill.Linear.Lift as Easy
 import qualified Downhill.Linear.Lift as Lift
 import Prelude hiding (id, (.))
-import Downhill.Grad (HasGrad(Grad, Diff, evalGrad))
+import Downhill.Grad (Dual(evalGrad), HasGrad(Grad, Diff))
 
 
 -- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
@@ -124,7 +124,8 @@ instance
     FullVector s,
     FullVector (Grad v),
     Diff v ~ v,
-    VectorSpace (Grad v)
+    VectorSpace (Grad v),
+    Dual s (Grad v) v
   ) =>
   VectorSpace (DVar dr v)
   where
@@ -135,7 +136,7 @@ instance
       node = ExprSum (term1 ++ term2)
         where
           term1 :: [Term BackFun dr (Grad v)]
-          term1 = da (\v' -> identityBuilder (evalGrad @v v' v))
+          term1 = da (\v' -> identityBuilder (evalGrad @s @(Grad v) @(Diff v) v' v))
           term2 :: [Term BackFun dr (Grad v)]
           term2 = dv (\v' -> identityBuilder (a *^ v'))
 

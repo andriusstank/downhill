@@ -1,94 +1,82 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Downhill.Grad
-  ( HasGrad (..)
+  ( Dual(..), HasGrad (..)
   )
 where
 
 -- TODO: remove constraint `DualOf (Needle p)
 
 import Data.Kind (Type)
-import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace (Scalar))
+import Data.VectorSpace (AdditiveGroup ((^+^)))
 import Downhill.Linear.Expr (BasicVector)
 
-class BasicVector (Grad p) => HasGrad p where
-  type Grad p :: Type
+import qualified Data.VectorSpace as VectorSpace
+
+class AdditiveGroup s => Dual s dv v where
+  evalGrad :: dv -> v -> s
+
+class (Dual (Scalar p) (Grad p) (Diff p), BasicVector (Grad p)) => HasGrad p where
+  type Scalar p
+  type Scalar p = VectorSpace.Scalar (Diff p)
   type Diff p :: Type
-  evalGrad :: Grad p -> Diff p -> Scalar (Grad p)
+  type Grad p :: Type
+
+instance (Dual s da a, Dual s db b) => Dual s (da, db) (a, b) where
+  evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
+
+instance (Dual s da a, Dual s db b, Dual s dc c) => Dual s (da, db, dc) (a, b, c) where
+  evalGrad (a, b, c) (x, y, z) = evalGrad a x ^+^ evalGrad b y ^+^ evalGrad c z
 
 instance
   ( AdditiveGroup s,
-    Scalar (Grad a) ~ s,
-    Scalar (Grad b) ~ s,
+    Scalar a ~ s,
+    Scalar b ~ s,
     HasGrad a,
-    HasGrad b
+    HasGrad b,
+    Dual s (Grad a) (Diff a),
+    Dual s (Grad b) (Diff b),
+    VectorSpace.Scalar (Diff a) ~ s
   ) =>
   HasGrad (a, b)
   where
+  type Scalar (a, b) = Scalar a
   type Grad (a, b) = (Grad a, Grad b)
   type Diff (a, b) = (Diff a, Diff b)
-  evalGrad (a, b) (x, y) = evalGrad @a a x ^+^ evalGrad @b b y
 
 instance
   ( AdditiveGroup s,
-    Scalar (Grad a) ~ s,
-    Scalar (Grad b) ~ s,
-    Scalar (Grad c) ~ s,
+    Scalar a ~ s,
+    Scalar b ~ s,
+    Scalar c ~ s,
     HasGrad a,
     HasGrad b,
-    HasGrad c
+    HasGrad c,
+    Dual s (Grad a) (Diff a),
+    Dual s (Grad b) (Diff b),
+    Dual s (Grad c) (Diff c)
   ) =>
   HasGrad (a, b, c)
   where
+  type Scalar (a, b, c) = Scalar a
   type Grad (a, b, c) = (Grad a, Grad b, Grad c)
   type Diff (a, b, c) = (Diff a, Diff b, Diff c)
-  evalGrad (a, b, c) (x, y, z) = evalGrad @a a x ^+^ evalGrad @b b y ^+^ evalGrad @c c z
-
-class (Scalar (Grad p) ~ Scalar (Diff p), HasGrad p) => HasDiff p
+  
+instance Dual Float Float Float where
+  evalGrad = (*)
 
 instance HasGrad Float where
   type Grad Float = Float
   type Diff Float = Float
+
+instance Dual Double Double Double where
   evalGrad = (*)
-
-instance HasDiff Float
-
 instance HasGrad Double where
   type Grad Double = Double
   type Diff Double = Double
-  evalGrad = (*)
-
-instance HasDiff Double
-
-instance
-  ( HasDiff u,
-    HasDiff v,
-    da ~ Scalar (Diff u),
-    da ~ Scalar (Diff v),
-    a ~ Scalar u,
-    a ~ Scalar v,
-    AdditiveGroup (Diff a),
-    AdditiveGroup da
-  ) =>
-  HasDiff (u, v)
-
-instance
-  ( HasDiff u,
-    HasDiff v,
-    HasDiff w,
-    a ~ Scalar (Diff u),
-    a ~ Scalar (Diff v),
-    a ~ Scalar (Diff w),
-    a ~ Scalar u,
-    a ~ Scalar v,
-    a ~ Scalar w,
-    AdditiveGroup (Diff a),
-    AdditiveGroup a
-  ) =>
-  HasDiff (u, v, w)
-  where
