@@ -78,7 +78,7 @@ instance (AdditiveGroup b, HasGrad b, FullVector (Grad b)) => AdditiveGroup (DVa
   DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
   DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (Num b, HasGrad b, Needle b ~ b, Scalar b ~ b, Scalar (DualOf b) ~ b, FullVector (Grad b)) => Num (DVar r b) where
+instance (Num b, HasGrad b, Needle b ~ b, Scalar b ~ b, Scalar (Grad b) ~ b, FullVector (Grad b)) => Num (DVar r b) where
   (DVar f0 df) + (DVar g0 dg) = DVar (f0 + g0) (df ^+^ dg)
   (DVar f0 df) - (DVar g0 dg) = DVar (f0 - g0) (df ^-^ dg)
   (DVar f0 df) * (DVar g0 dg) = DVar (f0 * g0) (f0 *^ dg ^+^ g0 *^ df)
@@ -93,14 +93,14 @@ sqr x = x * x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, HasGrad b, Needle b ~ b, Scalar b ~ b, FullVector (Grad b), Scalar (DualOf b) ~ b) => Fractional (DVar r b) where
+instance (Fractional b, HasGrad b, Needle b ~ b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad b) ~ b) => Fractional (DVar r b) where
   fromRational x = DVar (fromRational x) zeroV
   recip (DVar x dx) = DVar (recip x) (df *^ dx)
     where
       df = negate (recip (sqr x))
   DVar x dx / DVar y dy = DVar (x / y) ((recip y *^ dx) ^-^ ((x / sqr y) *^ dy))
 
-instance (Floating b, HasGrad b, Needle b ~ b, Scalar b ~ b, FullVector (Grad b), Scalar (DualOf b) ~ b) => Floating (DVar r b) where
+instance (Floating b, HasGrad b, Needle b ~ b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad b) ~ b) => Floating (DVar r b) where
   pi = DVar pi zeroV
   exp (DVar x dx) = DVar (exp x) (exp x *^ dx)
   log (DVar x dx) = DVar (log x) (recip x *^ dx)
@@ -142,29 +142,31 @@ instance
 type BVar = DVar
 
 -- TODO: remove constraint `DualOf (Needle p)
-class (Grad p ~ DualOf (Needle p), BasicVector (Grad p)) => HasGrad p where
+class (HasDual (Grad p), BasicVector (Grad p)) => HasGrad p where
   type Grad p :: Type
-  type Grad p = DualOf (Needle p)
+  --type Grad p = DualOf (Needle p)
 
 instance
   ( AdditiveGroup s,
-    Scalar (Needle a) ~ s,
-    Scalar (Needle b) ~ s,
+    Scalar (Grad a) ~ s,
+    Scalar (Grad b) ~ s,
     HasGrad a,
     HasGrad b
   ) =>
-  HasGrad (a, b)
+  HasGrad (a, b) where
+    type Grad (a, b) = (Grad a, Grad b)
 
 instance
   ( AdditiveGroup s,
-    Scalar (Needle a) ~ s,
-    Scalar (Needle b) ~ s,
-    Scalar (Needle c) ~ s,
+    Scalar (Grad a) ~ s,
+    Scalar (Grad b) ~ s,
+    Scalar (Grad c) ~ s,
     HasGrad a,
     HasGrad b,
     HasGrad c
   ) =>
-  HasGrad (a, b, c)
+  HasGrad (a, b, c) where
+    type Grad (a, b, c) = (Grad a, Grad b, Grad c)
 
 --type HasGrad p = HasDual (Needle p)
 
@@ -181,7 +183,7 @@ var :: a -> BVar (Grad a) a
 var x = DVar x (realNode ExprVar)
 
 -- | Compute gradient
-backprop :: forall da v. (HasGrad v, BasicVector da, FullVector (Grad v)) => BVar da v -> GradOf v -> da
+backprop :: forall da v. (HasGrad v, BasicVector da, FullVector (Grad v)) => BVar da v -> Grad v -> da
 backprop (DVar _y0 x) = Graph.backprop x
 
 liftFun1 ::

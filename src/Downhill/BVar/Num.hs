@@ -32,7 +32,8 @@ newtype AsNum a = AsNum {unAsNum :: a}
   deriving (Fractional) via a
   deriving (Floating) via a
 
-instance Num a => HasGrad (AsNum a)
+instance Num a => HasGrad (AsNum a) where
+  type Grad (AsNum a) = AsNum a
 
 instance Num a => HasDual (AsNum a) where
   type DualOf (AsNum a) = AsNum a
