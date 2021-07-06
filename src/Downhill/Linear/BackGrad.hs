@@ -26,6 +26,8 @@ import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), Expr (
 
 -- | Not absolutly required, but it's nice to parameterize expressions based on type
 -- of the variable, not on its gradient.
+
+-- TODO: review, maybe it's not needed anymore
 class
   ( VectorSpace v,
     VectorSpace (DualOf v),

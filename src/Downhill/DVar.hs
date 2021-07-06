@@ -19,7 +19,7 @@ module Downhill.DVar
 
     -- * BVar
     BVar,
-    HasGrad,
+    HasGrad (..),
     GradOf,
     var,
     constant,
@@ -40,6 +40,9 @@ module Downhill.DVar
 where
 
 import Data.AdditiveGroup (AdditiveGroup)
+--GradBuilder,
+
+import Data.Kind (Type)
 import Data.VectorSpace
   ( AdditiveGroup (..),
     Scalar,
@@ -47,7 +50,6 @@ import Data.VectorSpace
   )
 import Downhill.Linear.BackGrad
   ( BackGrad (..),
-    --GradBuilder,
     HasDual (..),
     castNode,
     realNode,
@@ -68,11 +70,10 @@ import Prelude hiding (id, (.))
 -- giving rise to simple forward mode differentiation.
 data DVar dr p = DVar
   { dvarValue :: p,
-    dvarGrad :: BackGrad dr (DualOf (Needle p))
+    dvarGrad :: BackGrad dr (Grad p)
   }
 
-
-instance (AdditiveGroup b, FullVector (DualOf (Needle b))) => AdditiveGroup (DVar r b) where
+instance (AdditiveGroup b, HasGrad b) => AdditiveGroup (DVar r b) where
   zeroV = DVar zeroV zeroV
   negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
   DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
@@ -115,6 +116,8 @@ instance (Floating b, HasGrad b, Needle b ~ b, Scalar b ~ b) => Floating (DVar r
   acosh (DVar x dx) = DVar (acosh x) (rsqrt (sqr x - 1) *^ dx)
   atanh (DVar x dx) = DVar (atanh x) (recip (1 - sqr x) *^ dx)
 
+-- TODO: implement VectorSpace instance
+{-
 instance
   ( HasDual v,
     Needle v ~ v,
@@ -133,26 +136,49 @@ instance
           term1 = da (\v' -> identityBuilder (evalGrad v' v))
           term2 :: [Term BackFun dr (DualOf v)]
           term2 = dv (\v' -> identityBuilder (a *^ v'))
+-}
 
 -- | 'DVar' specialized for reverse mode differentiation.
 -- type BVar a p = DVar p (BackGrad a (Needle p))
 type BVar = DVar
 
 -- TODO: remove constraint `DualOf (Needle p)
-class HasDual (Needle p) => HasGrad p where
+class (Grad p ~ DualOf (Needle p), HasDual (Needle p)) => HasGrad p where
+  type Grad p :: Type
+  type Grad p = DualOf (Needle p)
+
+instance
+  ( AdditiveGroup s,
+    Scalar (Needle a) ~ s,
+    Scalar (Needle b) ~ s,
+    HasGrad a,
+    HasGrad b
+  ) =>
+  HasGrad (a, b)
+
+instance
+  ( AdditiveGroup s,
+    Scalar (Needle a) ~ s,
+    Scalar (Needle b) ~ s,
+    Scalar (Needle c) ~ s,
+    HasGrad a,
+    HasGrad b,
+    HasGrad c
+  ) =>
+  HasGrad (a, b, c)
 
 --type HasGrad p = HasDual (Needle p)
 
 type GradOf p = DualOf (Needle p)
 
-type GradBuilder v = VecBuilder (DualOf (Needle v))
+type GradBuilder v = VecBuilder (Grad v)
 
 -- | A variable with derivative of zero.
 constant :: forall r a. a -> BVar r a
 constant x = DVar x (BackGrad (const [])) -- could be zeroV here, but that would require `HasDual a` constraint..
 
 -- | A variable with identity derivative.
-var :: a -> BVar (GradOf a) a
+var :: a -> BVar (Grad a) a
 var x = DVar x (realNode ExprVar)
 
 -- | Compute gradient
@@ -161,7 +187,7 @@ backprop (DVar _y0 x) = Graph.backprop x
 
 liftFun1 ::
   forall r a b.
-  (a -> (b, LinFun1 (DualOf (Needle a)) (DualOf (Needle b)))) ->
+  (a -> (b, LinFun1 (Grad a) (Grad b))) ->
   BVar r a ->
   BVar r b
 liftFun1 dfun (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
@@ -171,7 +197,7 @@ liftFun1 dfun (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
 liftFun2 ::
   forall x r a b z.
   (BasicVector x, VecBuilder x ~ GradBuilder z) =>
-  (a -> b -> (z, LinFun2 (DualOf (Needle a)) (DualOf (Needle b)) (DualOf (Needle z)))) ->
+  (a -> b -> (z, LinFun2 (Grad a) (Grad b) (Grad z))) ->
   BVar r a ->
   BVar r b ->
   BVar r z
@@ -182,7 +208,7 @@ liftFun2 dfun (DVar a0 da) (DVar b0 db) = DVar z0 (Lift.lift2 f2 da db)
 liftFun3 ::
   forall r a b c z.
   () =>
-  (a -> b -> c -> (z, LinFun3 (DualOf (Needle a)) (DualOf (Needle b)) (DualOf (Needle c)) (DualOf (Needle z)))) ->
+  (a -> b -> c -> (z, LinFun3 (Grad a) (Grad b) (Grad c) (Grad z))) ->
   BVar r a ->
   BVar r b ->
   BVar r c ->
@@ -192,8 +218,8 @@ liftFun3 dfun (DVar a0 da) (DVar b0 db) (DVar c0 dc) = DVar z0 (Lift.lift3 f3 da
     (z0, f3) = dfun a0 b0 c0
 
 easyLift1 ::
-  BasicVector (DualOf (Needle z)) =>
-  (a -> (z, DualOf (Needle z) -> GradBuilder a)) ->
+  BasicVector (Grad z) =>
+  (a -> (z, Grad z -> GradBuilder a)) ->
   BVar r a ->
   BVar r z
 easyLift1 f (DVar a da) = DVar z (Easy.easyLift1 (Easy.EasyFun1 df) da)
@@ -201,8 +227,8 @@ easyLift1 f (DVar a da) = DVar z (Easy.easyLift1 (Easy.EasyFun1 df) da)
     (z, df) = f a
 
 easyLift2 ::
-  BasicVector (DualOf (Needle z)) =>
-  (a -> b -> (z, DualOf (Needle z) -> (GradBuilder a, GradBuilder b))) ->
+  BasicVector (Grad z) =>
+  (a -> b -> (z, Grad z -> (GradBuilder a, GradBuilder b))) ->
   BVar r a ->
   BVar r b ->
   BVar r z
@@ -211,8 +237,8 @@ easyLift2 f (DVar a da) (DVar b db) = DVar z (Easy.easyLift2 (Easy.EasyFun2 df) 
     (z, df) = f a b
 
 easyLift3 ::
-  BasicVector (DualOf (Needle z)) =>
-  (a -> b -> c -> (z, DualOf (Needle z) -> (GradBuilder a, GradBuilder b, GradBuilder c))) ->
+  BasicVector (Grad z) =>
+  (a -> b -> c -> (z, Grad z -> (GradBuilder a, GradBuilder b, GradBuilder c))) ->
   BVar r a ->
   BVar r b ->
   BVar r c ->
