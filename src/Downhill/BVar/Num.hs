@@ -37,7 +37,7 @@ newtype AsNum a = AsNum {unAsNum :: a}
 instance Num a => Dual (AsNum a) (AsNum a) (AsNum a) where
   evalGrad = (*)
 
-instance Num a => HasGrad (AsNum a) where
+instance Num a => HasGrad (AsNum a) (AsNum a) where
   type Grad (AsNum a) = AsNum a
   type Diff (AsNum a) = AsNum a
 

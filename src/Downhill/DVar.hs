@@ -70,13 +70,13 @@ data DVar dr p = DVar
     dvarGrad :: BackGrad dr (Grad p)
   }
 
-instance (AdditiveGroup b, HasGrad b, FullVector (Grad b)) => AdditiveGroup (DVar r b) where
+instance (AdditiveGroup b, HasGrad s b, FullVector (Grad b)) => AdditiveGroup (DVar r b) where
   zeroV = DVar zeroV zeroV
   negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
   DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
   DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (Num b, HasGrad b, Scalar b ~ b, Scalar (Grad b) ~ b, FullVector (Grad b)) => Num (DVar r b) where
+instance (Num b, HasGrad b b, Scalar b ~ b, Scalar (Grad b) ~ b, FullVector (Grad b)) => Num (DVar r b) where
   (DVar f0 df) + (DVar g0 dg) = DVar (f0 + g0) (df ^+^ dg)
   (DVar f0 df) - (DVar g0 dg) = DVar (f0 - g0) (df ^-^ dg)
   (DVar f0 df) * (DVar g0 dg) = DVar (f0 * g0) (f0 *^ dg ^+^ g0 *^ df)
@@ -91,14 +91,14 @@ sqr x = x * x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, HasGrad b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad b) ~ b) => Fractional (DVar r b) where
+instance (Fractional b, HasGrad b b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad b) ~ b) => Fractional (DVar r b) where
   fromRational x = DVar (fromRational x) zeroV
   recip (DVar x dx) = DVar (recip x) (df *^ dx)
     where
       df = negate (recip (sqr x))
   DVar x dx / DVar y dy = DVar (x / y) ((recip y *^ dx) ^-^ ((x / sqr y) *^ dy))
 
-instance (Floating b, HasGrad b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad b) ~ b) => Floating (DVar r b) where
+instance (Floating b, HasGrad b b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad b) ~ b) => Floating (DVar r b) where
   pi = DVar pi zeroV
   exp (DVar x dx) = DVar (exp x) (exp x *^ dx)
   log (DVar x dx) = DVar (log x) (recip x *^ dx)
@@ -113,19 +113,16 @@ instance (Floating b, HasGrad b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad
   acosh (DVar x dx) = DVar (acosh x) (rsqrt (sqr x - 1) *^ dx)
   atanh (DVar x dx) = DVar (atanh x) (recip (1 - sqr x) *^ dx)
 
--- TODO: implement VectorSpace instance
 instance
-  ( 
-    VectorSpace v,
-    HasGrad v,
-    Scalar v ~ s,
-    Scalar (Grad v) ~ s,
-    Grad s ~ s,
+  ( s ~ Scalar v,
     FullVector s,
-    FullVector (Grad v),
+    Grad s ~ s,
+    Scalar (Grad v) ~ s,
+    HasGrad s v,
     Diff v ~ v,
+    VectorSpace v,
     VectorSpace (Grad v),
-    Dual s (Grad v) v
+    FullVector (Grad v)
   ) =>
   VectorSpace (DVar dr v)
   where
@@ -136,7 +133,7 @@ instance
       node = ExprSum (term1 ++ term2)
         where
           term1 :: [Term BackFun dr (Grad v)]
-          term1 = da (\v' -> identityBuilder (evalGrad @s @(Grad v) @(Diff v) v' v))
+          term1 = da (\v' -> identityBuilder (evalGrad @(Scalar v) @(Grad v) @(Diff v) v' v))
           term2 :: [Term BackFun dr (Grad v)]
           term2 = dv (\v' -> identityBuilder (a *^ v'))
 
@@ -159,7 +156,7 @@ var :: a -> BVar (Grad a) a
 var x = DVar x (realNode ExprVar)
 
 -- | Compute gradient
-backprop :: forall da v. (HasGrad v, BasicVector da, FullVector (Grad v)) => BVar da v -> Grad v -> da
+backprop :: forall s da v. (HasGrad s v, BasicVector da, FullVector (Grad v)) => BVar da v -> Grad v -> da
 backprop (DVar _y0 x) = Graph.backprop x
 
 liftFun1 ::
