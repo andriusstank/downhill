@@ -20,7 +20,6 @@ module Downhill.DVar
     -- * BVar
     BVar,
     HasGrad (..),
-    GradOf,
     var,
     constant,
     backprop,
@@ -58,7 +57,6 @@ import qualified Downhill.Linear.Graph as Graph
 import Downhill.Linear.Lift (LinFun1, LinFun2, LinFun3)
 import qualified Downhill.Linear.Lift as Easy
 import qualified Downhill.Linear.Lift as Lift
-import Math.Manifold.Core.PseudoAffine (Semimanifold (Needle))
 import Prelude hiding (id, (.))
 
 -- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
@@ -78,7 +76,7 @@ instance (AdditiveGroup b, HasGrad b, FullVector (Grad b)) => AdditiveGroup (DVa
   DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
   DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (Num b, HasGrad b, Needle b ~ b, Scalar b ~ b, Scalar (Grad b) ~ b, FullVector (Grad b)) => Num (DVar r b) where
+instance (Num b, HasGrad b, Scalar b ~ b, Scalar (Grad b) ~ b, FullVector (Grad b)) => Num (DVar r b) where
   (DVar f0 df) + (DVar g0 dg) = DVar (f0 + g0) (df ^+^ dg)
   (DVar f0 df) - (DVar g0 dg) = DVar (f0 - g0) (df ^-^ dg)
   (DVar f0 df) * (DVar g0 dg) = DVar (f0 * g0) (f0 *^ dg ^+^ g0 *^ df)
@@ -93,14 +91,14 @@ sqr x = x * x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, HasGrad b, Needle b ~ b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad b) ~ b) => Fractional (DVar r b) where
+instance (Fractional b, HasGrad b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad b) ~ b) => Fractional (DVar r b) where
   fromRational x = DVar (fromRational x) zeroV
   recip (DVar x dx) = DVar (recip x) (df *^ dx)
     where
       df = negate (recip (sqr x))
   DVar x dx / DVar y dy = DVar (x / y) ((recip y *^ dx) ^-^ ((x / sqr y) *^ dy))
 
-instance (Floating b, HasGrad b, Needle b ~ b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad b) ~ b) => Floating (DVar r b) where
+instance (Floating b, HasGrad b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad b) ~ b) => Floating (DVar r b) where
   pi = DVar pi zeroV
   exp (DVar x dx) = DVar (exp x) (exp x *^ dx)
   log (DVar x dx) = DVar (log x) (recip x *^ dx)
@@ -169,8 +167,6 @@ instance
     type Grad (a, b, c) = (Grad a, Grad b, Grad c)
 
 --type HasGrad p = HasDual (Needle p)
-
-type GradOf p = DualOf (Needle p)
 
 type GradBuilder v = VecBuilder (Grad v)
 
