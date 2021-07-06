@@ -18,9 +18,8 @@ where
 import Data.AffineSpace (AffineSpace (..))
 import Data.Semigroup (Sum (Sum, getSum))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..), zeroV)
-import Downhill.DVar (BVar, backprop, DVar (dvarValue), HasGrad)
+import Downhill.DVar (BVar, backprop, DVar (dvarValue), HasGrad, HasDual)
 import qualified Downhill.DVar as DVar
-import Downhill.Linear.BackGrad (HasDual (..))
 import Downhill.Linear.Expr (BasicVector (..), FullVector (identityBuilder, negateBuilder, scaleBuilder))
 import Math.Manifold.Core.PseudoAffine (Semimanifold(..), BoundarylessWitness (BoundarylessWitness), SemimanifoldWitness (SemimanifoldWitness))
 import Data.Tagged (Tagged(..))

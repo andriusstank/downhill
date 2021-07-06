@@ -19,7 +19,7 @@ module Downhill.DVar
 
     -- * BVar
     BVar,
-    HasGrad (..),
+    HasGrad (..), HasDual(..),
     var,
     constant,
     backprop,
@@ -49,15 +49,15 @@ import Data.VectorSpace
   )
 import Downhill.Linear.BackGrad
   ( BackGrad (..),
-    HasDual (..),
-    realNode,
+    realNode, castNode
   )
-import Downhill.Linear.Expr (BasicVector (VecBuilder), Expr (ExprVar), FullVector)
+import Downhill.Linear.Expr (BasicVector (VecBuilder), Expr (ExprVar, ExprSum), FullVector (identityBuilder), BackFun (BackFun), Term (Term), SparseVector (SparseVector))
 import qualified Downhill.Linear.Graph as Graph
 import Downhill.Linear.Lift (LinFun1, LinFun2, LinFun3)
 import qualified Downhill.Linear.Lift as Easy
 import qualified Downhill.Linear.Lift as Lift
 import Prelude hiding (id, (.))
+
 
 -- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
 -- map @r -> a@ for some @r@. Type @d@ determines both @r@ and a way of encoding derivatives.
@@ -114,35 +114,39 @@ instance (Floating b, HasGrad b, Scalar b ~ b, FullVector (Grad b), Scalar (Grad
   atanh (DVar x dx) = DVar (atanh x) (recip (1 - sqr x) *^ dx)
 
 -- TODO: implement VectorSpace instance
-{-
 instance
-  ( HasDual v,
-    Needle v ~ v,
-    Needle (Scalar v) ~ Scalar v,
-    HasGrad v
+  ( 
+    VectorSpace v,
+    HasGrad v,
+    HasDual v,
+    DualOf v ~ Grad v,
+    Scalar v ~ s,
+    Scalar (Grad v) ~ s,
+    Grad s ~ s
   ) =>
   VectorSpace (DVar dr v)
   where
-  type Scalar (DVar dr v) = DVar dr (Scalar v)
+  type Scalar (DVar dr v) = DVar dr (Scalar (Grad v))
   DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castNode node)
     where
-      node :: Expr BackFun dr (DualOf v)
+      node :: Expr BackFun dr (Grad v)
       node = ExprSum (term1 ++ term2)
         where
-          term1 :: [Term BackFun dr (DualOf v)]
+          term1 :: [Term BackFun dr (Grad v)]
           term1 = da (\v' -> identityBuilder (evalGrad v' v))
-          term2 :: [Term BackFun dr (DualOf v)]
+          term2 :: [Term BackFun dr (Grad v)]
           term2 = dv (\v' -> identityBuilder (a *^ v'))
--}
+
 
 -- | 'DVar' specialized for reverse mode differentiation.
 -- type BVar a p = DVar p (BackGrad a (Needle p))
 type BVar = DVar
 
 -- TODO: remove constraint `DualOf (Needle p)
-class (HasDual (Grad p), BasicVector (Grad p)) => HasGrad p where
+class (BasicVector (Grad p)) => HasGrad p where
   type Grad p :: Type
   --type Grad p = DualOf (Needle p)
+
 
 instance
   ( AdditiveGroup s,
@@ -165,6 +169,67 @@ instance
   ) =>
   HasGrad (a, b, c) where
     type Grad (a, b, c) = (Grad a, Grad b, Grad c)
+
+-- TODO: review, maybe it's not needed anymore
+class
+  ( VectorSpace v,
+    VectorSpace (DualOf v),
+    Scalar (DualOf v) ~ Scalar v,
+    DualOf (Scalar v) ~ Scalar v,
+    FullVector (DualOf v),
+    FullVector (Scalar v),
+    BasicVector (DualOf v)
+  ) =>
+  HasDual v
+  where
+  type DualOf v :: Type
+
+  -- @DualOf (Scalar v)@ is normally the same as @Scalar v@. Unless we
+  -- attempt to backpropagate on something else than the scalar.
+  evalGrad :: DualOf v -> v -> DualOf (Scalar v)
+
+type DualBuilder v = VecBuilder (DualOf v)
+
+type SparseGrad v = SparseVector (DualOf v)
+
+instance HasDual Float where
+  type DualOf Float = Float
+  evalGrad = (*)
+
+instance HasDual Double where
+  type DualOf Double = Double
+  evalGrad = (*)
+
+instance
+  ( HasDual u,
+    HasDual v,
+    da ~ Scalar (DualOf u),
+    da ~ Scalar (DualOf v),
+    a ~ Scalar u,
+    a ~ Scalar v,
+    AdditiveGroup (DualOf a)
+  ) =>
+  HasDual (u, v)
+  where
+  type DualOf (u, v) = (DualOf u, DualOf v)
+  evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
+
+instance
+  ( HasDual u,
+    HasDual v,
+    HasDual w,
+    a ~ Scalar (DualOf u),
+    a ~ Scalar (DualOf v),
+    a ~ Scalar (DualOf w),
+    a ~ Scalar u,
+    a ~ Scalar v,
+    a ~ Scalar w,
+    AdditiveGroup (DualOf a)
+  ) =>
+  HasDual (u, v, w)
+  where
+  type DualOf (u, v, w) = (DualOf u, DualOf v, DualOf w)
+  evalGrad (a, b, c) (x, y, z) = evalGrad a x ^+^ evalGrad b y ^+^ evalGrad c z
 
 --type HasGrad p = HasDual (Needle p)
 

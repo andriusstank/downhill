@@ -7,9 +7,6 @@
 
 module Downhill.Linear.BackGrad
   ( BackGrad (..),
-    HasDual (..),
-    DualBuilder,
-    SparseGrad,
     realNode,
     castNode,
     inlineNode,
@@ -27,67 +24,7 @@ import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), Expr (
 -- | Not absolutly required, but it's nice to parameterize expressions based on type
 -- of the variable, not on its gradient.
 
--- TODO: review, maybe it's not needed anymore
 
-class
-  ( VectorSpace v,
-    VectorSpace (DualOf v),
-    Scalar (DualOf v) ~ Scalar v,
-    DualOf (Scalar v) ~ Scalar v,
-    FullVector (DualOf v),
-    FullVector (Scalar v),
-    BasicVector (DualOf v)
-  ) =>
-  HasDual v
-  where
-  type DualOf v :: Type
-
-  -- @DualOf (Scalar v)@ is normally the same as @Scalar v@. Unless we
-  -- attempt to backpropagate on something else than the scalar.
-  evalGrad :: DualOf v -> v -> DualOf (Scalar v)
-
-type DualBuilder v = VecBuilder (DualOf v)
-
-type SparseGrad v = SparseVector (DualOf v)
-
-instance HasDual Float where
-  type DualOf Float = Float
-  evalGrad = (*)
-
-instance HasDual Double where
-  type DualOf Double = Double
-  evalGrad = (*)
-
-instance
-  ( HasDual u,
-    HasDual v,
-    da ~ Scalar (DualOf u),
-    da ~ Scalar (DualOf v),
-    a ~ Scalar u,
-    a ~ Scalar v,
-    AdditiveGroup (DualOf a)
-  ) =>
-  HasDual (u, v)
-  where
-  type DualOf (u, v) = (DualOf u, DualOf v)
-  evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
-
-instance
-  ( HasDual u,
-    HasDual v,
-    HasDual w,
-    a ~ Scalar (DualOf u),
-    a ~ Scalar (DualOf v),
-    a ~ Scalar (DualOf w),
-    a ~ Scalar u,
-    a ~ Scalar v,
-    a ~ Scalar w,
-    AdditiveGroup (DualOf a)
-  ) =>
-  HasDual (u, v, w)
-  where
-  type DualOf (u, v, w) = (DualOf u, DualOf v, DualOf w)
-  evalGrad (a, b, c) (x, y, z) = evalGrad a x ^+^ evalGrad b y ^+^ evalGrad c z
 
 -- | @BackGrad@ is a basic block for building computational graph of linear functions.
 -- @BackGrad a v@ is similar to @'Expr' 'BackFun' ('DualOf' a) ('DualOf' v)@, but it has a more
