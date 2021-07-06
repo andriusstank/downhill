@@ -5,9 +5,10 @@
 {-# LANGUAGE ViewPatterns #-}
 module Downhill.BVar.Prelude (pattern T2, pattern T3) where
 
-import Downhill.DVar (BVar, DVar (DVar), HasGrad)
+import Downhill.DVar (BVar, DVar (DVar))
 import qualified Downhill.Linear.Prelude as Linear
 import Prelude ()
+import Downhill.Grad (HasGrad)
 
 toPair :: (HasGrad a, HasGrad b) => BVar r (a, b) -> (BVar r a, BVar r b)
 toPair (DVar (x, y) (Linear.T2 dx dy)) = (DVar x dx, DVar y dy)

@@ -7,7 +7,8 @@
 
 module Downhill.BVar.Num
   ( -- | Automatic differentiation for @Num@ hierarchy.
-    AsNum (..), NumBVar,
+    AsNum (..),
+    NumBVar,
     numbvarValue,
     var,
     constant,
@@ -17,12 +18,13 @@ where
 
 import Data.AffineSpace (AffineSpace (..))
 import Data.Semigroup (Sum (Sum, getSum))
+import Data.Tagged (Tagged (..))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..), zeroV)
-import Downhill.DVar (BVar, backprop, DVar (dvarValue), HasGrad, HasDiff)
+import Downhill.DVar (BVar, DVar (dvarValue), backprop)
 import qualified Downhill.DVar as DVar
+import Downhill.Grad (HasDiff (Diff, evalGrad), HasGrad (Grad))
 import Downhill.Linear.Expr (BasicVector (..), FullVector (identityBuilder, negateBuilder, scaleBuilder))
-import Math.Manifold.Core.PseudoAffine (Semimanifold(..), BoundarylessWitness (BoundarylessWitness), SemimanifoldWitness (SemimanifoldWitness))
-import Data.Tagged (Tagged(..))
+import Math.Manifold.Core.PseudoAffine (BoundarylessWitness (BoundarylessWitness), Semimanifold (..), SemimanifoldWitness (SemimanifoldWitness))
 
 -- | Use @Num a@ instance to provide @VectorSpace@ and its friends.
 newtype AsNum a = AsNum {unAsNum :: a}
@@ -85,4 +87,3 @@ backpropNum x = unAsNum $ backprop @(AsNum a) @(AsNum a) x (AsNum 1)
 
 numbvarValue :: NumBVar a -> a
 numbvarValue = unAsNum . dvarValue
-

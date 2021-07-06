@@ -13,13 +13,12 @@ module Downhill.Linear.BackGrad
   )
 where
 
-import Data.Kind (Type)
 import Data.VectorSpace
   ( AdditiveGroup (..),
     Scalar,
     VectorSpace (..),
   )
-import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), Expr (ExprSum), FullVector (identityBuilder, negateBuilder, scaleBuilder), SparseVector, Term (Term))
+import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), Expr (ExprSum), FullVector (identityBuilder, negateBuilder, scaleBuilder), Term (Term))
 
 -- | Not absolutly required, but it's nice to parameterize expressions based on type
 -- of the variable, not on its gradient.

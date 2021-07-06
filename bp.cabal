@@ -27,6 +27,7 @@ library
                        Downhill.Internal.Graph.OpenGraph,
                        Downhill.Internal.Graph.Sharing,
                        Downhill.Internal.Graph.Graph,
+                       Downhill.Grad,
                        Downhill.DVar
                        Downhill.BVar.Num,
                        Downhill.BVar.Prelude

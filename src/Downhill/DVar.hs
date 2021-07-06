@@ -20,7 +20,6 @@ module Downhill.DVar
 
     -- * BVar
     BVar,
-    HasGrad (..), HasDiff(..),
     var,
     constant,
     backprop,
@@ -42,7 +41,6 @@ where
 import Data.AdditiveGroup (AdditiveGroup)
 --GradBuilder,
 
-import Data.Kind (Type)
 import Data.VectorSpace
   ( AdditiveGroup (..),
     Scalar,
@@ -52,12 +50,13 @@ import Downhill.Linear.BackGrad
   ( BackGrad (..),
     realNode, castNode
   )
-import Downhill.Linear.Expr (BasicVector (VecBuilder), Expr (ExprVar, ExprSum), FullVector (identityBuilder), BackFun (BackFun), Term (Term), SparseVector (SparseVector))
+import Downhill.Linear.Expr (BasicVector (VecBuilder), Expr (ExprVar, ExprSum), FullVector (identityBuilder), BackFun, Term)
 import qualified Downhill.Linear.Graph as Graph
 import Downhill.Linear.Lift (LinFun1, LinFun2, LinFun3)
 import qualified Downhill.Linear.Lift as Easy
 import qualified Downhill.Linear.Lift as Lift
 import Prelude hiding (id, (.))
+import Downhill.Grad (HasGrad(Grad), HasDiff(Diff, evalGrad))
 
 
 -- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
@@ -146,89 +145,6 @@ instance
 -- type BVar a p = DVar p (BackGrad a (Needle p))
 type BVar = DVar
 
--- TODO: remove constraint `DualOf (Needle p)
-class (BasicVector (Grad p)) => HasGrad p where
-  type Grad p :: Type
-  --type Grad p = DualOf (Needle p)
-
-
-instance
-  ( AdditiveGroup s,
-    Scalar (Grad a) ~ s,
-    Scalar (Grad b) ~ s,
-    HasGrad a,
-    HasGrad b
-  ) =>
-  HasGrad (a, b) where
-    type Grad (a, b) = (Grad a, Grad b)
-
-instance
-  ( AdditiveGroup s,
-    Scalar (Grad a) ~ s,
-    Scalar (Grad b) ~ s,
-    Scalar (Grad c) ~ s,
-    HasGrad a,
-    HasGrad b,
-    HasGrad c
-  ) =>
-  HasGrad (a, b, c) where
-    type Grad (a, b, c) = (Grad a, Grad b, Grad c)
-
--- TODO: review, maybe it's not needed anymore
-class (Scalar (Grad p) ~ Scalar (Diff p), HasGrad p) => HasDiff p
-  where
-  type Diff p :: Type
-
-  -- @DualOf (Scalar v)@ is normally the same as @Scalar v@. Unless we
-  -- attempt to backpropagate on something else than the scalar.
-  evalGrad :: Grad p -> Diff p -> Scalar (Grad p)
-
-instance HasGrad Float where
-  type Grad Float = Float
-
-instance HasDiff Float where
-  type Diff Float = Float
-  evalGrad = (*)
-
-instance HasGrad Double where
-  type Grad Double = Double
-
-instance HasDiff Double where
-  type Diff Double = Double
-  evalGrad = (*)
-
-instance
-  ( HasDiff u,
-    HasDiff v,
-    da ~ Scalar (Diff u),
-    da ~ Scalar (Diff v),
-    a ~ Scalar u,
-    a ~ Scalar v,
-    AdditiveGroup (Diff a),
-    AdditiveGroup da
-  ) =>
-  HasDiff (u, v)
-  where
-  type Diff (u, v) = (Diff u, Diff v)
-  evalGrad (a, b) (x, y) = evalGrad @u a x ^+^ evalGrad @v b y
-
-instance
-  ( HasDiff u,
-    HasDiff v,
-    HasDiff w,
-    a ~ Scalar (Diff u),
-    a ~ Scalar (Diff v),
-    a ~ Scalar (Diff w),
-    a ~ Scalar u,
-    a ~ Scalar v,
-    a ~ Scalar w,
-    AdditiveGroup (Diff a),
-    AdditiveGroup a
-  ) =>
-  HasDiff (u, v, w)
-  where
-  type Diff (u, v, w) = (Diff u, Diff v, Diff w)
-  evalGrad (a, b, c) (x, y, z) = evalGrad @u a x ^+^ evalGrad @v b y ^+^ evalGrad @w c z
 
 --type HasGrad p = HasDual (Needle p)
 
