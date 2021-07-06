@@ -130,11 +130,11 @@ lift1_sparse ::
   BackGrad r z
 lift1_sparse = lift1'
 
-newtype EasyFun3 a b c z = EasyFun3 (DualOf z -> (DualBuilder a, DualBuilder b, DualBuilder c))
+newtype EasyFun3 a b c z = EasyFun3 (z -> (VecBuilder a, VecBuilder b, VecBuilder c))
 
-newtype EasyFun2 a b z = EasyFun2 (DualOf z -> (DualBuilder a, DualBuilder b))
+newtype EasyFun2 a b z = EasyFun2 (z -> (VecBuilder a, VecBuilder b))
 
-newtype EasyFun1 a z = EasyFun1 (DualOf z -> DualBuilder a)
+newtype EasyFun1 a z = EasyFun1 (z -> VecBuilder a)
 
 -- The trick is to invoke EasyFun in sumBuilder. Normally data flow looks like this:
 --
@@ -176,37 +176,37 @@ newtype EasyFun1 a z = EasyFun1 (DualOf z -> DualBuilder a)
 -- However, we don't leak the type of node (BuilderTupleN) and no one can observe our shenanigans.
 
 data BuilderTuple3 s a b c z = BuilderTuple3
-  { b3get1 :: DualBuilder a,
-    b3get2 :: DualBuilder b,
-    b3get3 :: DualBuilder c
+  { b3get1 :: VecBuilder a,
+    b3get2 :: VecBuilder b,
+    b3get3 :: VecBuilder c
   }
 
-instance (Reifies s (EasyFun3 a b c z), BasicVector (DualOf z)) => BasicVector (BuilderTuple3 s a b c z) where
-  type VecBuilder (BuilderTuple3 s a b c z) = DualBuilder z
+instance (Reifies s (EasyFun3 a b c z), BasicVector z) => BasicVector (BuilderTuple3 s a b c z) where
+  type VecBuilder (BuilderTuple3 s a b c z) = VecBuilder z
   sumBuilder zbs = wrap (f z)
     where
-      z = sumBuilder zbs :: DualOf z
+      z = sumBuilder zbs :: z
       wrap (a, b, c) = BuilderTuple3 a b c
       EasyFun3 f = reflect (Proxy @s) :: EasyFun3 a b c z
 
 builder3Fun ::
   forall s a b c z.
-  (Reifies s (EasyFun3 a b c z), BasicVector (DualOf z)) =>
+  (Reifies s (EasyFun3 a b c z), BasicVector z) =>
   Proxy s ->
-  LinFun3 (DualOf a) (DualOf b) (DualOf c) (DualOf z)
+  LinFun3 a b c z
 builder3Fun Proxy = LinFun3 @(BuilderTuple3 s a b c z) b3get1 b3get2 b3get3
 
 fromEasy3 ::
   forall a b c z.
-  BasicVector (DualOf z) =>
+  BasicVector z =>
   EasyFun3 a b c z ->
-  LinFun3 (DualOf a) (DualOf b) (DualOf c) (DualOf z)
+  LinFun3 a b c z
 fromEasy3 f = reify f builder3Fun
 
 easyLift3 ::
   forall r a b c z.
   BasicVector (DualOf z) =>
-  EasyFun3 a b c z ->
+  EasyFun3 (DualOf a) (DualOf b) (DualOf c) (DualOf z) ->
   BackGrad r a ->
   BackGrad r b ->
   BackGrad r c ->
@@ -214,69 +214,69 @@ easyLift3 ::
 easyLift3 = lift3 . fromEasy3
 
 data BuilderTuple2 s a b z = BuilderTuple2
-  { b2get1 :: DualBuilder a,
-    b2get2 :: DualBuilder b
+  { b2get1 :: VecBuilder a,
+    b2get2 :: VecBuilder b
   }
 
-instance (Reifies s (EasyFun2 a b z), BasicVector (DualOf z)) => BasicVector (BuilderTuple2 s a b z) where
-  type VecBuilder (BuilderTuple2 s a b z) = DualBuilder z
+instance (Reifies s (EasyFun2 a b z), BasicVector z) => BasicVector (BuilderTuple2 s a b z) where
+  type VecBuilder (BuilderTuple2 s a b z) = VecBuilder z
   sumBuilder zbs = wrap (f z)
     where
-      z = sumBuilder zbs :: DualOf z
+      z = sumBuilder zbs :: z
       wrap (a, b) = BuilderTuple2 a b
       EasyFun2 f = reflect (Proxy @s) :: EasyFun2 a b z
 
 builder2Fun ::
   forall s a b z.
-  (Reifies s (EasyFun2 a b z), BasicVector (DualOf z)) =>
+  (Reifies s (EasyFun2 a b z), BasicVector z) =>
   Proxy s ->
-  LinFun2 (DualOf a) (DualOf b) (DualOf z)
+  LinFun2 a b z
 builder2Fun Proxy = LinFun2 @(BuilderTuple2 s a b z) b2get1 b2get2
 
 fromEasy2 ::
   forall a b z.
-  BasicVector (DualOf z) =>
+  BasicVector z =>
   EasyFun2 a b z ->
-  LinFun2 (DualOf a) (DualOf b) (DualOf z)
+  LinFun2 a b z
 fromEasy2 f = reify f builder2Fun
 
 easyLift2 ::
   forall r a b z.
   BasicVector (DualOf z) =>
-  EasyFun2 a b z ->
+  EasyFun2 (DualOf a) (DualOf b) (DualOf z) ->
   BackGrad r a ->
   BackGrad r b ->
   BackGrad r z
 easyLift2 = lift2 . fromEasy2
 
-newtype BuilderTuple1 s a z = BuilderTuple1 {b1get1 :: DualBuilder a}
+newtype BuilderTuple1 s a z = BuilderTuple1 {b1get1 :: VecBuilder a}
 
-instance (Reifies s (EasyFun1 a z), BasicVector (DualOf z)) => BasicVector (BuilderTuple1 s a z) where
-  type VecBuilder (BuilderTuple1 s a z) = DualBuilder z
+instance (Reifies s (EasyFun1 a z), BasicVector z) => BasicVector (BuilderTuple1 s a z) where
+  type VecBuilder (BuilderTuple1 s a z) = VecBuilder z
   sumBuilder zbs = wrap (f z)
     where
-      z = sumBuilder zbs :: DualOf z
+      z = sumBuilder zbs :: z
       wrap a = BuilderTuple1 a
       EasyFun1 f = reflect (Proxy @s) :: EasyFun1 a z
 
 builder1Fun ::
   forall s a z.
-  (Reifies s (EasyFun1 a z), BasicVector (DualOf z)) =>
+  (Reifies s (EasyFun1 a z), BasicVector z) =>
   Proxy s ->
-  LinFun1 (DualOf a) (DualOf z)
+  LinFun1 a z
 builder1Fun Proxy = LinFun1 @(BuilderTuple1 s a z) b1get1
 
 fromEasy1 ::
   forall a z.
-  BasicVector (DualOf z) =>
+  BasicVector z =>
   EasyFun1 a z ->
-  LinFun1 (DualOf a) (DualOf z)
+  LinFun1 a z
 fromEasy1 f = reify f builder1Fun
 
 easyLift1 ::
   forall r a z.
   BasicVector (DualOf z) =>
-  EasyFun1 a z ->
+  EasyFun1 (DualOf a) (DualOf z) ->
   BackGrad r a ->
   BackGrad r z
 easyLift1 = lift1 . fromEasy1
