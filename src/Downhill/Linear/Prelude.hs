@@ -14,7 +14,7 @@ module Downhill.Linear.Prelude
   )
 where
 
-import Downhill.Linear.BackGrad (BackGrad, castBackGrad)
+import Downhill.Linear.BackGrad (BackGrad)
 import Downhill.Linear.Expr (BasicVector (VecBuilder), SparseVector (SparseVector, unSparseVector), maybeToMonoid)
 import qualified Downhill.Linear.Lift as Lift
 import Prelude (Maybe (Just), Monoid (mempty), fmap, (.))
@@ -69,7 +69,7 @@ pattern T2 :: forall r a b. (BasicVector a, BasicVector b) => BackGrad r a -> Ba
 pattern T2 a b <-
   (splitPair -> (a, b))
   where
-    T2 = Lift.lift2 (Lift.LinFun2 go1 go2)
+    T2 a b = Lift.lift2_sparse go1 go2 a b
       where
         go1 :: SparseVector (a, b) -> VecBuilder a
         go2 :: SparseVector (a, b) -> VecBuilder b

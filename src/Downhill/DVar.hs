@@ -27,9 +27,9 @@ module Downhill.DVar
     -- * Lift
 
     -- | Apply differentiable function to 'BVar'
-    liftFun1,
-    liftFun2,
-    liftFun3,
+    --liftFun1,
+    --liftFun2,
+    --liftFun3,
     {-
         -- * Easy lift
         easyLift1,
@@ -57,11 +57,8 @@ import Downhill.Linear.BackGrad
     castNode,
     realNode,
   )
-import Downhill.Linear.Expr (BackFun, BasicVector (VecBuilder), Expr (ExprSum, ExprVar), FullVector (identityBuilder), Term)
+import Downhill.Linear.Expr (BackFun, BasicVector, Expr (ExprSum, ExprVar), FullVector (identityBuilder), Term)
 import qualified Downhill.Linear.Graph as Graph
-import Downhill.Linear.Lift (LinFun1, LinFun2, LinFun3)
-import qualified Downhill.Linear.Lift as Easy
-import qualified Downhill.Linear.Lift as Lift
 import Prelude hiding (id, (.))
 
 -- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
@@ -155,10 +152,6 @@ instance
 -- type BVar a p = DVar p (BackGrad a (Needle p))
 type BVar = DVar
 
---type HasGrad p = HasDual (Needle p)
-
-type GradBuilder v = VecBuilder (Grad v)
-
 -- | A variable with derivative of zero.
 constant :: forall r a. a -> BVar r a
 constant x = DVar x (BackGrad (const [])) -- could be zeroV here, but that would require `HasDual a` constraint..
@@ -170,67 +163,3 @@ var x = DVar x (realNode ExprVar)
 -- | Compute gradient
 backprop :: forall da v. (HasGrad v, BasicVector da, FullVector (Grad v)) => BVar da v -> Grad v -> da
 backprop (DVar _y0 x) = Graph.backprop x
-
-liftFun1 ::
-  forall r a b.
-  (a -> (b, LinFun1 (Grad a) (Grad b))) ->
-  BVar r a ->
-  BVar r b
-liftFun1 dfun (DVar a0 da) = DVar z0 (Lift.lift1 fa da)
-  where
-    (z0, fa) = dfun a0
-
-liftFun2 ::
-  forall x r a b z.
-  (BasicVector x, VecBuilder x ~ GradBuilder z) =>
-  (a -> b -> (z, LinFun2 (Grad a) (Grad b) (Grad z))) ->
-  BVar r a ->
-  BVar r b ->
-  BVar r z
-liftFun2 dfun (DVar a0 da) (DVar b0 db) = DVar z0 (Lift.lift2 f2 da db)
-  where
-    (z0, f2) = dfun a0 b0
-
-liftFun3 ::
-  forall r a b c z.
-  BasicVector (Grad z) =>
-  (a -> b -> c -> (z, LinFun3 (Grad a) (Grad b) (Grad c) (Grad z))) ->
-  BVar r a ->
-  BVar r b ->
-  BVar r c ->
-  BVar r z
-liftFun3 dfun (DVar a0 da) (DVar b0 db) (DVar c0 dc) = DVar z0 (Lift.lift3 f3 da db dc)
-  where
-    (z0, f3) = dfun a0 b0 c0
-
-{-
-easyLift1 ::
-  BasicVector (Grad z) =>
-  (a -> (z, Grad z -> GradBuilder a)) ->
-  BVar r a ->
-  BVar r z
-easyLift1 f (DVar a da) = DVar z (Easy.easyLift1 (Easy.EasyFun1 df) da)
-  where
-    (z, df) = f a
-
-easyLift2 ::
-  BasicVector (Grad z) =>
-  (a -> b -> (z, Grad z -> (GradBuilder a, GradBuilder b))) ->
-  BVar r a ->
-  BVar r b ->
-  BVar r z
-easyLift2 f (DVar a da) (DVar b db) = DVar z (Easy.easyLift2 (Easy.EasyFun2 df) da db)
-  where
-    (z, df) = f a b
-
-easyLift3 ::
-  BasicVector (Grad z) =>
-  (a -> b -> c -> (z, Grad z -> (GradBuilder a, GradBuilder b, GradBuilder c))) ->
-  BVar r a ->
-  BVar r b ->
-  BVar r c ->
-  BVar r z
-easyLift3 f (DVar a da) (DVar b db) (DVar c dc) = DVar z (Easy.easyLift3 (Easy.EasyFun3 df) da db dc)
-  where
-    (z, df) = f a b c
--}
