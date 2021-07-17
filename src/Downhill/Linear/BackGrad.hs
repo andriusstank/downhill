@@ -33,10 +33,10 @@ realNode x = BackGrad (\f -> [Term (BackFun f) x])
 -- more than once, @f@ will be evaluated multiple times, too. It is intended to be used for @newtype@ wrappers.
 -- @inlineNode f x@ also shouldn't prevent
 -- compiler to inline and optimize @x@, but I should verify wether this is really the case.
-inlineNode :: forall da du dv. (VecBuilder dv -> VecBuilder du) -> BackGrad da du -> BackGrad da dv
+inlineNode :: forall r u v. (VecBuilder v -> VecBuilder u) -> BackGrad r u -> BackGrad r v
 inlineNode f (BackGrad g) = BackGrad go
   where
-    go :: forall x. (x -> VecBuilder dv) -> [Term BackFun da x]
+    go :: forall x. (x -> VecBuilder v) -> [Term BackFun r x]
     go h = g (f . h)
 
 -- | @BackGrad@ doesn't track the type of the node. Type of @BackGrad@ can be changed freely
@@ -45,12 +45,12 @@ castBackGrad :: forall r v z. (BasicVector v, VecBuilder z ~ VecBuilder v) => Ba
 castBackGrad (BackGrad g) = BackGrad g
 
 
-instance (FullVector dv) => AdditiveGroup (BackGrad da dv) where
+instance (FullVector v) => AdditiveGroup (BackGrad r v) where
   zeroV = BackGrad (const [])
   negateV (BackGrad x) = realNode (ExprSum (x negateBuilder))
   BackGrad x ^+^ BackGrad y = realNode (ExprSum (x identityBuilder <> y identityBuilder))
   BackGrad x ^-^ BackGrad y = realNode (ExprSum (x identityBuilder <> y negateBuilder))
 
-instance FullVector dv => VectorSpace (BackGrad da dv) where
-  type Scalar (BackGrad da dv) = Scalar dv
+instance FullVector v => VectorSpace (BackGrad r v) where
+  type Scalar (BackGrad r v) = Scalar v
   a *^ BackGrad v = realNode (ExprSum (v (scaleBuilder a)))

@@ -14,8 +14,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Downhill.DVar
-  ( -- * BVar
-    BVar (..),
+  ( BVar (..),
     var,
     constant,
     backprop,
@@ -33,10 +32,9 @@ import qualified Data.VectorSpace as VectorSpace
 import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar))
 import Downhill.Linear.BackGrad
   ( BackGrad (..),
-    --castNode,
     realNode,
   )
-import Downhill.Linear.Expr (BasicVector, Expr (ExprVar), FullVector)
+import Downhill.Linear.Expr (Expr (ExprVar), FullVector)
 import qualified Downhill.Linear.Graph as Graph
 import Downhill.Linear.Lift (lift2_dense)
 import Prelude hiding (id, (.))
@@ -128,6 +126,6 @@ constant x = BVar x (BackGrad (const [])) -- could be zeroV here, but that would
 var :: a -> BVar (Grad a) a
 var x = BVar x (realNode ExprVar)
 
--- | Compute gradient
-backprop :: forall a p. (HasGrad p, BasicVector a) => BVar a p -> Grad p -> a
+-- | Backpropagation.
+backprop :: forall a p. (HasGrad p, FullVector a) => BVar a p -> Grad p -> a
 backprop (BVar _y0 x) = Graph.backprop x

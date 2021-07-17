@@ -13,7 +13,7 @@ import qualified Data.AffineSpace as AffineSpace
 import Data.VectorSpace (AdditiveGroup, VectorSpace ((*^)))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.DVar (BVar, BVar (BVar), constant, var)
-import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar))
+import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar), HasGrad)
 import Downhill.Linear.BackGrad (BackGrad (BackGrad), realNode)
 import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), DenseBuilder (DenseBuilder), DenseVector (DenseVector), Expr (ExprSum), FullVector (identityBuilder), toDenseBuilder)
 import Downhill.Linear.Lift (lift1, lift1_dense)
@@ -49,6 +49,7 @@ instance HasGrad Vector where
   type Scalar Vector = Double
   type Diff Vector = Vector
   type Grad Vector = Gradient
+
 
 instance HasGrad Point where
   type Scalar Point = Double
