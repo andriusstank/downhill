@@ -17,7 +17,7 @@ module Downhill.Linear.Expr
     Term(..),
     -- * Vectors
     BasicVector(..), FullVector(..),
-    SparseVector(..),
+    SparseVector(..), DenseVector(..), DenseBuilder(..), toDenseBuilder,
     -- * Functions
     FwdFun(..), BackFun(..), flipFwdFun, flipBackFun,
     -- * Misc
@@ -74,7 +74,7 @@ instance BasicVector Double where
 -- so it's very nice to have 'VectorSpace' instance for 'Expr'.
 -- @FullVector@ class provides all the functionality that is needed to do that.
 
-class BasicVector v => FullVector v where
+class (BasicVector v, VectorSpace v) => FullVector v where
     identityBuilder :: v -> VecBuilder v
     negateBuilder :: v -> VecBuilder v
     scaleBuilder :: Scalar v -> v -> VecBuilder v
@@ -106,6 +106,29 @@ instance Monoid (VecBuilder v) => BasicVector (SparseVector v) where
     type VecBuilder (SparseVector v) = VecBuilder v
     sumBuilder = SparseVector
 
+newtype DenseSemibuilder v = DenseSemibuilder { _unDenseSemibuilder :: v }
+
+instance AdditiveGroup v => Semigroup (DenseSemibuilder v) where
+    DenseSemibuilder x <> DenseSemibuilder y = DenseSemibuilder (x ^+^ y)
+
+newtype DenseBuilder v = DenseBuilder (Maybe v)
+    deriving (Semigroup, Monoid) via (Maybe (DenseSemibuilder v))
+
+toDenseBuilder :: v -> DenseBuilder v
+toDenseBuilder = DenseBuilder . Just
+
+newtype DenseVector v = DenseVector v
+    deriving (AdditiveGroup, VectorSpace) via v
+
+instance AdditiveGroup v => BasicVector (DenseVector v) where
+    type VecBuilder (DenseVector v) = DenseBuilder v
+    sumBuilder (DenseBuilder Nothing) = DenseVector zeroV
+    sumBuilder (DenseBuilder (Just x)) = DenseVector x
+
+instance VectorSpace v => FullVector (DenseVector v) where
+    identityBuilder (DenseVector v) = DenseBuilder (Just v)
+    negateBuilder (DenseVector v) = DenseBuilder (Just (negateV v))
+    scaleBuilder a (DenseVector v) = DenseBuilder (Just (a *^ v))
 
 -- | Edge type for backward mode evaluation
 newtype BackFun u v = BackFun { unBackFun :: v -> VecBuilder u }

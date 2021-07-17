@@ -17,24 +17,27 @@ where
 import Downhill.Linear.BackGrad (BackGrad)
 import Downhill.Linear.Expr (BasicVector (VecBuilder), SparseVector (SparseVector, unSparseVector), maybeToMonoid)
 import qualified Downhill.Linear.Lift as Lift
-import qualified Downhill.Linear.Lift as Linear
 import Prelude (Maybe (Just), Monoid (mempty), fmap, (.))
 import qualified Prelude
 
-toPair :: forall r a b. (BasicVector a, BasicVector b) => BackGrad r (a, b) -> (BackGrad r a, BackGrad r b)
-toPair x = (Linear.lift1_sparse go1 x, Lift.lift1 (Lift.LinFun1 go2) x)
+splitPair :: forall r a b. (BasicVector a, BasicVector b) => BackGrad r (a, b) -> (BackGrad r a, BackGrad r b)
+splitPair x = (bg1, bg2)
   where
     go1 :: SparseVector a -> VecBuilder (a, b)
     go2 :: SparseVector b -> VecBuilder (a, b)
     go1 (SparseVector da) = Just (da, mempty)
     go2 (SparseVector db) = Just (mempty, db)
+    bg1 :: BackGrad r a
+    bg2 :: BackGrad r b
+    bg1 = Lift.lift1_sparse go1 x
+    bg2 = Lift.lift1_sparse go2 x
 
 toTriple ::
   forall r a b c.
   (BasicVector a, BasicVector b, BasicVector c) =>
   BackGrad r (a, b, c) ->
   (BackGrad r a, BackGrad r b, BackGrad r c)
-toTriple x = (Lift.lift1 (Lift.LinFun1 go1) x, Lift.lift1 (Lift.LinFun1 go2) x, Lift.lift1 (Lift.LinFun1 go3) x)
+toTriple x = (bg1, bg2, bg3)
   where
     go1 :: SparseVector a -> VecBuilder (a, b, c)
     go2 :: SparseVector b -> VecBuilder (a, b, c)
@@ -42,6 +45,12 @@ toTriple x = (Lift.lift1 (Lift.LinFun1 go1) x, Lift.lift1 (Lift.LinFun1 go2) x, 
     go1 (SparseVector da) = Just (da, mempty, mempty)
     go2 (SparseVector db) = Just (mempty, db, mempty)
     go3 (SparseVector dc) = Just (mempty, mempty, dc)
+    bg1 :: BackGrad r a
+    bg2 :: BackGrad r b
+    bg3 :: BackGrad r c
+    bg1 = Lift.lift1_sparse go1 x
+    bg2 = Lift.lift1_sparse go2 x
+    bg3 = Lift.lift1_sparse go3 x
 
 -- |
 --
@@ -58,7 +67,7 @@ toTriple x = (Lift.lift1 (Lift.LinFun1 go1) x, Lift.lift1 (Lift.LinFun1 go2) x, 
 
 pattern T2 :: forall r a b. (BasicVector a, BasicVector b) => BackGrad r a -> BackGrad r b -> BackGrad r (a, b)
 pattern T2 a b <-
-  (toPair -> (a, b))
+  (splitPair -> (a, b))
   where
     T2 = Lift.lift2 (Lift.LinFun2 go1 go2)
       where

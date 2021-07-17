@@ -8,7 +8,7 @@
 module Downhill.Linear.BackGrad
   ( BackGrad (..),
     realNode,
-    castNode,
+    castNode, castBackGrad,
     inlineNode,
   )
 where
@@ -26,13 +26,13 @@ import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), Expr (
 
 
 -- | @BackGrad@ is a basic block for building computational graph of linear functions.
--- @BackGrad a v@ is similar to @'Expr' 'BackFun' ('DualOf' a) ('DualOf' v)@, but it has a more
+-- @BackGrad a v@ is similar to @'Expr' 'BackFun' a v@, but it has a more
 -- flexible form. It encapsulates the type of the gradient of @v@, which can be different from @DualOf v@
 -- and can be chosen independently for each use.
-newtype BackGrad da dv = BackGrad (forall x. (x -> VecBuilder dv) -> [Term BackFun da x])
+newtype BackGrad a v = BackGrad (forall x. (x -> VecBuilder v) -> [Term BackFun a x])
 
 -- | Creates a @BackGrad@ that is backed by a real node. Gradient of type '@DualOf@ v' will be computed for this node.
-realNode :: Expr BackFun da dv -> BackGrad da dv
+realNode :: Expr BackFun a v -> BackGrad a v
 realNode x = BackGrad (\f -> [Term (BackFun f) x])
 
 -- | Type of a node can be changed freely, as long as its @VecBuilder@ stays the same.
@@ -41,6 +41,9 @@ castNode node = BackGrad go
   where
     go :: forall x. (x -> VecBuilder z) -> [Term BackFun dr x]
     go g = [Term (BackFun g) node]
+
+castBackGrad :: forall dr dv z. (BasicVector dv, VecBuilder z ~ VecBuilder dv) => BackGrad dr dv -> BackGrad dr z
+castBackGrad (BackGrad g) = BackGrad g
 
 -- | @inlineNode f x@ will apply function @f@ to variable @x@ without creating a node. All the gradients
 -- coming to this expression will be forwarded to the parents of @x@. However, if this expression is used

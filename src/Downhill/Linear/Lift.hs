@@ -25,7 +25,10 @@ module Downhill.Linear.Lift
     lift3,
     -- | Special cases. Not sure if they are really useful.
     lift1',
-    lift1_dense,
+    lift1'',
+    lift2'',
+    lift3'',
+    --lift1_dense,
     lift1_sparse,
 
     -- * @EasyFunN@
@@ -46,7 +49,7 @@ where
 
 import Data.Proxy (Proxy (Proxy))
 import Data.Reflection (Reifies (reflect), reify)
-import Downhill.Linear.BackGrad (BackGrad (..), castNode)
+import Downhill.Linear.BackGrad (BackGrad (..), castBackGrad, castNode, realNode)
 import Downhill.Linear.Expr (BasicVector (..), Expr (ExprSum), SparseVector)
 import Prelude hiding (fst, snd, zip)
 
@@ -110,17 +113,43 @@ lift1' ::
   (x -> VecBuilder a) ->
   BackGrad r a ->
   BackGrad r z
-lift1' fa (BackGrad da) = castNode node
-  where
-    node = ExprSum (da fa)
+lift1' fa = castBackGrad . lift1'' fa
 
-lift1_dense ::
+lift1'' ::
   forall r a z.
   BasicVector z =>
   (z -> VecBuilder a) ->
   BackGrad r a ->
   BackGrad r z
-lift1_dense = lift1'
+lift1'' fa (BackGrad da) = realNode node
+  where
+    node = ExprSum (da fa)
+
+lift2'' ::
+  forall r a b z.
+  BasicVector z =>
+  (z -> VecBuilder a) ->
+  (z -> VecBuilder b) ->
+  BackGrad r a ->
+  BackGrad r b ->
+  BackGrad r z
+lift2'' fa fb (BackGrad da) (BackGrad db) = realNode node
+  where
+    node = ExprSum (da fa ++ db fb)
+
+lift3'' ::
+  forall r a b c z.
+  BasicVector z =>
+  (z -> VecBuilder a) ->
+  (z -> VecBuilder b) ->
+  (z -> VecBuilder c) ->
+  BackGrad r a ->
+  BackGrad r b ->
+  BackGrad r c ->
+  BackGrad r z
+lift3'' fa fb fc (BackGrad da) (BackGrad db) (BackGrad dc) = realNode node
+  where
+    node = ExprSum (da fa ++ db fb ++ dc fc)
 
 lift1_sparse ::
   forall r a z.
@@ -128,7 +157,7 @@ lift1_sparse ::
   (SparseVector z -> VecBuilder a) ->
   BackGrad r a ->
   BackGrad r z
-lift1_sparse = lift1'
+lift1_sparse fa = castBackGrad . lift1'' fa
 
 newtype EasyFun3 a b c z = EasyFun3 (z -> (VecBuilder a, VecBuilder b, VecBuilder c))
 
@@ -138,16 +167,16 @@ newtype EasyFun1 a z = EasyFun1 (z -> VecBuilder a)
 
 -- The trick is to invoke EasyFun in sumBuilder. Normally data flow looks like this:
 --
---               sumBuilder           +-- df computes gradients
---                  |                 v
---                  v          /---> df[a] -> DualBuilder a
--- (DualBuilder z) ---> (z)---+----> df[b] -> DualBuilder b
---                       ^     \---> df[c] -> DualBuilder c
---                       |
---                     Node
+--              sumBuilder           +-- df computes gradients
+--                 |                 v
+--                 v          /---> df[a] -> VecBuilder a
+-- (VecBuilder z) ---> (z)---+----> df[b] -> VecBuilder b
+--                      ^     \---> df[c] -> VecBuilder c
+--                      |
+--                    Node
 --
--- Sparse gradients `DualBuilder z` are summed and converted to dense gradient `z`. Linear function df
--- takes gradient z and produces sparse gradients (DualBuilder a, ...) which are then forwaded to
+-- Sparse gradients `VecBuilder z` are summed and converted to dense gradient `z`. Linear function df
+-- takes gradient z and produces sparse gradients (VecBuilder a, ...) which are then forwaded to
 -- parents.
 --
 -- Gradient z is stored in the node, then for each outgoing edge corresponding part of function `df z`
@@ -155,16 +184,16 @@ newtype EasyFun1 a z = EasyFun1 (z -> VecBuilder a)
 
 -- EasyFun is different. We have no z!
 --
---              sumBuilder with df sneaked in
---                  |
---                  v                                                      /---> fst --> GradBulder a
--- (DualBuilder z) ----> (DualBuilder a, DualBuilder b, DualBuilder c) ---+----> snd --> GradBulder b
---                        \-----------------------------------------/      \---> thd --> GradBulder c
---                                           |
---                                          Node
+--             sumBuilder with df sneaked in
+--                 |
+--                 v                                                   /---> fst --> VecBuilder a
+-- (VecBuilder z) ----> (VecBuilder a, VecBuilder b, VecBuilder c) ---+----> snd --> VecBuilder b
+--                       \-----------------------------------------/   \---> thd --> VecBuilder c
+--                                          |
+--                                         Node
 --
 -- We use BuilderTupleN as a type of the gradient of z, pretending it is a dense vector, with a
--- builder type of `DualBuilder z`. Type parameter s stores function we are lifting `df`.
+-- builder type of `VecBuilder z`. Type parameter s stores function we are lifting `df`.
 --
 -- Function df is given sparse gradients (presumably summing them by itself) and the result is stored in the node.
 -- Then for each outgoing edge corresponding part of the result is looked up.

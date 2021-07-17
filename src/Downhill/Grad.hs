@@ -1,10 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Downhill.Grad
   ( Dual (..),
@@ -14,9 +14,8 @@ where
 
 import Data.Kind (Type)
 import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
-import Downhill.Linear.Expr (FullVector)
-
 import qualified Data.VectorSpace as VectorSpace
+import Downhill.Linear.Expr (FullVector)
 
 class
   ( AdditiveGroup s,
@@ -27,9 +26,15 @@ class
   ) =>
   Dual s dv v
   where
+  -- if evalGrad goes to HasGrad class, parameter p is ambiguous
   evalGrad :: dv -> v -> s
 
-class (Dual (Scalar p) (Grad p) (Diff p), FullVector (Grad p)) => HasGrad p where
+class
+  ( Dual (Scalar p) (Grad p) (Diff p),
+    FullVector (Grad p)
+  ) =>
+  HasGrad p
+  where
   type Scalar p :: Type
   type Diff p :: Type
   type Grad p :: Type
