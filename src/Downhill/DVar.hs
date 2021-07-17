@@ -51,12 +51,15 @@ import Downhill.Linear.BackGrad
     realNode, castNode
   )
 import Downhill.Linear.Expr (BasicVector (VecBuilder), Expr (ExprVar, ExprSum), FullVector (identityBuilder), BackFun, Term)
-import qualified Downhill.Linear.Graph as Graph
 import Downhill.Linear.Lift (LinFun1, LinFun2, LinFun3)
-import qualified Downhill.Linear.Lift as Easy
-import qualified Downhill.Linear.Lift as Lift
 import Prelude hiding (id, (.))
 import Downhill.Grad (Dual(evalGrad), HasGrad(Grad, Diff))
+import Data.AffineSpace (AffineSpace ((.-.), (.+^)))
+
+import qualified Downhill.Linear.Graph as Graph
+import qualified Downhill.Linear.Lift as Easy
+import qualified Downhill.Linear.Lift as Lift
+import qualified Data.AffineSpace as AffineSpace
 
 
 -- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
@@ -114,7 +117,7 @@ instance (Floating b, HasGrad b b, Scalar b ~ b, FullVector (Grad b), Scalar (Gr
   atanh (DVar x dx) = DVar (atanh x) (recip (1 - sqr x) *^ dx)
 
 instance
-  ( s ~ Scalar v,
+  ( {-s ~ Scalar v,
     FullVector s,
     Grad s ~ s,
     Scalar (Grad v) ~ s,
@@ -122,7 +125,12 @@ instance
     Diff v ~ v,
     VectorSpace v,
     VectorSpace (Grad v),
-    FullVector (Grad v)
+    FullVector (Grad v)-}
+    VectorSpace v,
+    HasGrad (Scalar v) v,
+    FullVector (Scalar v),
+    Grad (Scalar v) ~ Scalar v,
+    Diff v ~ v
   ) =>
   VectorSpace (DVar dr v)
   where
@@ -137,6 +145,22 @@ instance
           term2 :: [Term BackFun dr (Grad v)]
           term2 = dv (\v' -> identityBuilder (a *^ v'))
 
+instance (
+  HasGrad s (Diff p),
+  HasGrad (Scalar (Diff p)) p,
+  v ~ AffineSpace.Diff p,
+  v ~ Diff p,
+  dv ~ Grad p,
+  s ~ Scalar v,
+  Dual s dv v,
+  VectorSpace v,
+  FullVector dv,
+  Grad v ~ dv,
+  AffineSpace p
+ ) => AffineSpace (DVar dr p) where
+   type Diff (DVar dr p) = DVar dr (AffineSpace.Diff p)
+   DVar y0 dy .+^ DVar z0 dz = DVar (y0 .+^ z0) (dy ^+^ dz)
+   DVar y0 dy .-. DVar z0 dz = DVar (y0 .-. z0) (dy ^-^ dz)
 
 -- | 'DVar' specialized for reverse mode differentiation.
 -- type BVar a p = DVar p (BackGrad a (Needle p))

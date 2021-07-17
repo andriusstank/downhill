@@ -1,24 +1,33 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 
 module Downhill.Grad
-  ( Dual(..), HasGrad (..)
+  ( Dual (..),
+    HasGrad (..),
   )
 where
 
 import Data.Kind (Type)
-import Data.VectorSpace (AdditiveGroup ((^+^)))
-import Downhill.Linear.Expr (BasicVector)
+import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace (Scalar))
+import Downhill.Linear.Expr (FullVector)
 
-class AdditiveGroup s => Dual s dv v where
+class
+  ( AdditiveGroup s,
+    VectorSpace v,
+    VectorSpace dv,
+    Scalar v ~ s,
+    Scalar dv ~ s
+  ) =>
+  Dual s dv v
+  where
   evalGrad :: dv -> v -> s
 
-class (Dual s (Grad p) (Diff p), BasicVector (Grad p)) => HasGrad s p | p -> s where
+class (Dual s (Grad p) (Diff p), FullVector (Grad p)) => HasGrad s p | p -> s where
   type Diff p :: Type
   type Grad p :: Type
 
@@ -46,7 +55,7 @@ instance
   where
   type Grad (a, b, c) = (Grad a, Grad b, Grad c)
   type Diff (a, b, c) = (Diff a, Diff b, Diff c)
-  
+
 instance Dual Float Float Float where
   evalGrad = (*)
 
@@ -56,6 +65,7 @@ instance HasGrad Float Float where
 
 instance Dual Double Double Double where
   evalGrad = (*)
+
 instance HasGrad Double Double where
   type Grad Double = Double
   type Diff Double = Double

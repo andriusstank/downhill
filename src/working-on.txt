@@ -1,3 +1,8 @@
-Lists!
+Lists!?
+Vectors!
 
-Generic's?
+Records. Generics? HKT, template haskell?
+
+Bidirectional linear function - for forward and reverse mode.
+
+Fundeps -> type family for scalar type in `HasGrad`.
