@@ -30,11 +30,12 @@ module Downhill.DVar
     liftFun1,
     liftFun2,
     liftFun3,
-
-    -- * Easy lift
-    easyLift1,
-    easyLift2,
-    easyLift3,
+    {-
+        -- * Easy lift
+        easyLift1,
+        easyLift2,
+        easyLift3,
+    -}
   )
 where
 
@@ -192,7 +193,7 @@ liftFun2 dfun (DVar a0 da) (DVar b0 db) = DVar z0 (Lift.lift2 f2 da db)
 
 liftFun3 ::
   forall r a b c z.
-  () =>
+  BasicVector (Grad z) =>
   (a -> b -> c -> (z, LinFun3 (Grad a) (Grad b) (Grad c) (Grad z))) ->
   BVar r a ->
   BVar r b ->
@@ -202,6 +203,7 @@ liftFun3 dfun (DVar a0 da) (DVar b0 db) (DVar c0 dc) = DVar z0 (Lift.lift3 f3 da
   where
     (z0, f3) = dfun a0 b0 c0
 
+{-
 easyLift1 ::
   BasicVector (Grad z) =>
   (a -> (z, Grad z -> GradBuilder a)) ->
@@ -231,3 +233,4 @@ easyLift3 ::
 easyLift3 f (DVar a da) (DVar b db) (DVar c dc) = DVar z (Easy.easyLift3 (Easy.EasyFun3 df) da db dc)
   where
     (z, df) = f a b c
+-}

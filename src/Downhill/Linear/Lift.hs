@@ -30,20 +30,23 @@ module Downhill.Linear.Lift
     lift3'',
     --lift1_dense,
     lift1_sparse,
+    lift2_sparse,
+    lift3_sparse,
+    {-
 
-    -- * @EasyFunN@
-
-    -- | @EasyFunN@ doesn\'t even have a type for the gradient. @fromEasyN@ will invent an ad-hoc type and
-    -- convert it to @LinFunN@. It's a bit hacky, but arguably easier way to use @BackGrad@s.
-    EasyFun1 (..),
-    EasyFun2 (..),
-    EasyFun3 (..),
-    fromEasy1,
-    fromEasy2,
-    fromEasy3,
-    easyLift1,
-    easyLift2,
-    easyLift3,
+        -- * @EasyFunN@
+        -- | @EasyFunN@ doesn\'t even have a type for the gradient. @fromEasyN@ will invent an ad-hoc type and
+        -- convert it to @LinFunN@. It's a bit hacky, but arguably easier way to use @BackGrad@s.
+        EasyFun1 (..),
+        EasyFun2 (..),
+        EasyFun3 (..),
+        fromEasy1,
+        fromEasy2,
+        fromEasy3,
+        easyLift1,
+        easyLift2,
+        easyLift3,
+    -}
   )
 where
 
@@ -55,11 +58,9 @@ import Prelude hiding (fst, snd, zip)
 
 data LinFun3 a b c z where
   LinFun3 ::
-    forall x a b c z.
-    (BasicVector x, VecBuilder x ~ VecBuilder z) =>
-    (x -> VecBuilder a) ->
-    (x -> VecBuilder b) ->
-    (x -> VecBuilder c) ->
+    (z -> VecBuilder a) ->
+    (z -> VecBuilder b) ->
+    (z -> VecBuilder c) ->
     LinFun3 a b c z
 
 data LinFun2 a b z where
@@ -79,6 +80,7 @@ data LinFun1 a z where
 
 lift3 ::
   forall r a b c z.
+  BasicVector z =>
   LinFun3 a b c z ->
   BackGrad r a ->
   BackGrad r b ->
@@ -159,6 +161,28 @@ lift1_sparse ::
   BackGrad r z
 lift1_sparse fa = castBackGrad . lift1'' fa
 
+lift2_sparse ::
+  forall r a b z.
+  BasicVector z =>
+  (SparseVector z -> VecBuilder a) ->
+  (SparseVector z -> VecBuilder b) ->
+  BackGrad r a ->
+  BackGrad r b ->
+  BackGrad r z
+lift2_sparse fa fb a b = castBackGrad $ lift2'' fa fb a b
+
+lift3_sparse ::
+  forall r a b c z.
+  BasicVector z =>
+  (SparseVector z -> VecBuilder a) ->
+  (SparseVector z -> VecBuilder b) ->
+  (SparseVector z -> VecBuilder c) ->
+  BackGrad r a ->
+  BackGrad r b ->
+  BackGrad r c ->
+  BackGrad r z
+lift3_sparse fa fb fc a b c = castBackGrad $ lift3'' fa fb fc a b c
+
 newtype EasyFun3 a b c z = EasyFun3 (z -> (VecBuilder a, VecBuilder b, VecBuilder c))
 
 newtype EasyFun2 a b z = EasyFun2 (z -> (VecBuilder a, VecBuilder b))
@@ -203,7 +227,7 @@ newtype EasyFun1 a z = EasyFun1 (z -> VecBuilder a)
 -- advertises itself as a replacement of z, but it actually contains data of completely
 -- unrelated types a, b, ...
 -- However, we don't leak the type of node (BuilderTupleN) and no one can observe our shenanigans.
-
+{-
 data BuilderTuple3 s a b c z = BuilderTuple3
   { b3get1 :: VecBuilder a,
     b3get2 :: VecBuilder b,
@@ -309,3 +333,4 @@ easyLift1 ::
   BackGrad r a ->
   BackGrad r z
 easyLift1 = lift1 . fromEasy1
+-}
