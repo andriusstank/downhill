@@ -31,7 +31,7 @@ import Data.Semigroup (Sum (Sum, getSum))
 import Data.Maybe (fromMaybe)
 import Data.VectorSpace (VectorSpace(..), AdditiveGroup(..))
 
--- |Linear function 'e u v' applied to single argument of type 'u'.
+-- | Linear function 'e u v' applied to single argument of type 'u'.
 data Term e a v where
     Term :: e u v -> Expr e a u -> Term e a v
 
@@ -41,9 +41,13 @@ data Expr e a v where
     ExprVar :: Expr e a a
     ExprSum :: BasicVector v => [Term e a v] -> Expr e a v
 
--- |@VecBuilder v@ is a sparse representation of vector @v@. Edges of a computational graph
--- produce builders, which are then summed into vectors in nodes.
 class Monoid (VecBuilder v) => BasicVector v where
+    -- |@VecBuilder v@ is a sparse representation of vector @v@. Edges of a computational graph
+    -- produce builders, which are then summed into vectors in nodes. Monoid operation '<>'
+    -- means addition of vectors, but it doesn't need to compute the sum immediately - it
+    -- might defer computation until 'sumBuilder' is evaluated.
+    --
+    -- 'mempty' must be cheap.
     type VecBuilder v :: Type
     sumBuilder :: VecBuilder v -> v
 
@@ -70,9 +74,9 @@ instance BasicVector Double where
 
 -- | Full-featured vector.
 --
--- 'Expr' is a linear function, linear functions form a vector space,
--- so it's very nice to have 'VectorSpace' instance for 'Expr'.
--- @FullVector@ class provides all the functionality that is needed to do that.
+-- Gradients are linear functions and form a vector space.
+-- @FullVector@ class provides functionality that is needed to
+-- make 'VectorSpace' instances.
 
 class (BasicVector v, VectorSpace v) => FullVector v where
     identityBuilder :: v -> VecBuilder v
@@ -96,8 +100,13 @@ instance (s ~ Scalar a, s ~ Scalar b, s ~ Scalar c, FullVector a, FullVector b, 
     negateBuilder (x, y, z) = Just (negateBuilder x, negateBuilder y, negateBuilder z)
     scaleBuilder a (x, y, z) = Just (scaleBuilder a x, scaleBuilder a y, scaleBuilder a z)
 
--- | Sometimes we need to forward gradients through the node without summing them. 
--- The type of the node would be @VecBuilder v@, but what would be @VecBuilder (VecBuilder v)@?
+-- |  Normally graph node would compute the sum of gradients and then
+-- propagate it to ancestor nodes. That's the best strategy when
+-- some computation needs to be performed for backpropagation.
+-- Some operations, like constructing/deconstructing tuples or
+-- wrapping/unwrapping, don't need to compute the sum. Doing so only
+-- destroys sparsity. A node of type @SparseVector v@ won't sum
+-- the gradients.
 newtype SparseVector v = SparseVector { unSparseVector :: VecBuilder v }
 
 deriving via (VecBuilder v) instance Semigroup (VecBuilder v) => Semigroup (SparseVector v)
@@ -117,6 +126,8 @@ newtype DenseBuilder v = DenseBuilder (Maybe v)
 toDenseBuilder :: v -> DenseBuilder v
 toDenseBuilder = DenseBuilder . Just
 
+-- | When sparsity is not needed, we can use vector @v@ as a builder of itself.
+-- @DenseVector@ takes care of that.
 newtype DenseVector v = DenseVector v
     deriving (AdditiveGroup, VectorSpace) via v
 

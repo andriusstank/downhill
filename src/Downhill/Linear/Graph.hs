@@ -27,5 +27,5 @@ buildSomeGraph (BackGrad f) = unsafePerformIO $ do
     og <- recoverSharing (f identityBuilder)
     return (Graph.fromOpenGraph og)
 
-backprop :: forall da dv. (BasicVector da, FullVector dv) => BackGrad da dv -> dv -> da
+backprop :: forall a v. (BasicVector a, FullVector v) => BackGrad a v -> v -> a
 backprop = evalSomeGraph . flipSomeGraph . buildSomeGraph

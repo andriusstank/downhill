@@ -9,41 +9,20 @@
 {-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Downhill.DVar
-  ( -- * DVar
-    DVar (..),
-
-    -- * BVar
-    BVar,
+  ( -- * BVar
+    BVar (..),
     var,
     constant,
     backprop,
-
-    -- * Lift
-
-    -- | Apply differentiable function to 'BVar'
-    --liftFun1,
-    --liftFun2,
-    --liftFun3,
-    {-
-        -- * Easy lift
-        easyLift1,
-        easyLift2,
-        easyLift3,
-    -}
   )
 where
 
 import Data.AdditiveGroup (AdditiveGroup)
---GradBuilder,
-
---Scalar,
-
 import Data.AffineSpace (AffineSpace ((.+^), (.-.)))
 import qualified Data.AffineSpace as AffineSpace
 import Data.VectorSpace
@@ -54,38 +33,34 @@ import qualified Data.VectorSpace as VectorSpace
 import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar))
 import Downhill.Linear.BackGrad
   ( BackGrad (..),
-    castNode,
+    --castNode,
     realNode,
   )
-import Downhill.Linear.Expr (BackFun, BasicVector, Expr (ExprSum, ExprVar), FullVector (identityBuilder), Term)
+import Downhill.Linear.Expr (BasicVector, Expr (ExprVar), FullVector)
 import qualified Downhill.Linear.Graph as Graph
+import Downhill.Linear.Lift (lift2_dense)
 import Prelude hiding (id, (.))
 
--- | Variable is a value paired with derivative. Derivative @dvarGrad@ is some kind of a linear
--- map @r -> a@ for some @r@. Type @d@ determines both @r@ and a way of encoding derivatives.
---
--- In case of @d ~ BackGrad r@, @dvarGrad@ stores computational graph of derivatives, enabling reverse mode
--- differentiantion. Choosing @d ~ Identity@ turns @DVar@ into dual number,
--- giving rise to simple forward mode differentiation.
-data DVar r p = DVar
+-- | Variable is a value paired with derivative.
+data BVar r p = BVar
   { dvarValue :: p,
     dvarGrad :: BackGrad r (Grad p)
   }
 
-instance (AdditiveGroup b, HasGrad b) => AdditiveGroup (DVar r b) where
-  zeroV = DVar zeroV zeroV
-  negateV (DVar y0 dy) = DVar (negateV y0) (negateV dy)
-  DVar y0 dy ^-^ DVar z0 dz = DVar (y0 ^-^ z0) (dy ^-^ dz)
-  DVar y0 dy ^+^ DVar z0 dz = DVar (y0 ^+^ z0) (dy ^+^ dz)
+instance (AdditiveGroup b, HasGrad b) => AdditiveGroup (BVar r b) where
+  zeroV = BVar zeroV zeroV
+  negateV (BVar y0 dy) = BVar (negateV y0) (negateV dy)
+  BVar y0 dy ^-^ BVar z0 dz = BVar (y0 ^-^ z0) (dy ^-^ dz)
+  BVar y0 dy ^+^ BVar z0 dz = BVar (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (Num b, HasGrad b, Scalar b ~ b) => Num (DVar r b) where
-  (DVar f0 df) + (DVar g0 dg) = DVar (f0 + g0) (df ^+^ dg)
-  (DVar f0 df) - (DVar g0 dg) = DVar (f0 - g0) (df ^-^ dg)
-  (DVar f0 df) * (DVar g0 dg) = DVar (f0 * g0) (f0 *^ dg ^+^ g0 *^ df)
-  negate (DVar f0 df) = DVar (negate f0) (negateV df)
-  abs (DVar f0 df) = DVar (abs f0) (signum f0 *^ df) -- TODO: ineffiency: multiplication by 1
-  signum (DVar f0 _) = DVar (signum f0) zeroV
-  fromInteger x = DVar (fromInteger x) zeroV
+instance (Num b, HasGrad b, Scalar b ~ b) => Num (BVar r b) where
+  (BVar f0 df) + (BVar g0 dg) = BVar (f0 + g0) (df ^+^ dg)
+  (BVar f0 df) - (BVar g0 dg) = BVar (f0 - g0) (df ^-^ dg)
+  (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (f0 *^ dg ^+^ g0 *^ df)
+  negate (BVar f0 df) = BVar (negate f0) (negateV df)
+  abs (BVar f0 df) = BVar (abs f0) (signum f0 *^ df) -- TODO: ineffiency: multiplication by 1
+  signum (BVar f0 _) = BVar (signum f0) zeroV
+  fromInteger x = BVar (fromInteger x) zeroV
 
 sqr :: Num a => a -> a
 sqr x = x * x
@@ -93,27 +68,27 @@ sqr x = x * x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, HasGrad b, Scalar b ~ b) => Fractional (DVar r b) where
-  fromRational x = DVar (fromRational x) zeroV
-  recip (DVar x dx) = DVar (recip x) (df *^ dx)
+instance (Fractional b, HasGrad b, Scalar b ~ b) => Fractional (BVar r b) where
+  fromRational x = BVar (fromRational x) zeroV
+  recip (BVar x dx) = BVar (recip x) (df *^ dx)
     where
       df = negate (recip (sqr x))
-  DVar x dx / DVar y dy = DVar (x / y) ((recip y *^ dx) ^-^ ((x / sqr y) *^ dy))
+  BVar x dx / BVar y dy = BVar (x / y) ((recip y *^ dx) ^-^ ((x / sqr y) *^ dy))
 
-instance (Floating b, HasGrad b, Scalar b ~ b) => Floating (DVar r b) where
-  pi = DVar pi zeroV
-  exp (DVar x dx) = DVar (exp x) (exp x *^ dx)
-  log (DVar x dx) = DVar (log x) (recip x *^ dx)
-  sin (DVar x dx) = DVar (sin x) (cos x *^ dx)
-  cos (DVar x dx) = DVar (cos x) (negate (sin x) *^ dx)
-  asin (DVar x dx) = DVar (asin x) (rsqrt (1 - sqr x) *^ dx)
-  acos (DVar x dx) = DVar (acos x) (negate (rsqrt (1 - sqr x)) *^ dx)
-  atan (DVar x dx) = DVar (atan x) (recip (1 + sqr x) *^ dx)
-  sinh (DVar x dx) = DVar (sinh x) (cosh x *^ dx)
-  cosh (DVar x dx) = DVar (cosh x) (sinh x *^ dx)
-  asinh (DVar x dx) = DVar (asinh x) (rsqrt (1 + sqr x) *^ dx)
-  acosh (DVar x dx) = DVar (acosh x) (rsqrt (sqr x - 1) *^ dx)
-  atanh (DVar x dx) = DVar (atanh x) (recip (1 - sqr x) *^ dx)
+instance (Floating b, HasGrad b, Scalar b ~ b) => Floating (BVar r b) where
+  pi = BVar pi zeroV
+  exp (BVar x dx) = BVar (exp x) (exp x *^ dx)
+  log (BVar x dx) = BVar (log x) (recip x *^ dx)
+  sin (BVar x dx) = BVar (sin x) (cos x *^ dx)
+  cos (BVar x dx) = BVar (cos x) (negate (sin x) *^ dx)
+  asin (BVar x dx) = BVar (asin x) (rsqrt (1 - sqr x) *^ dx)
+  acos (BVar x dx) = BVar (acos x) (negate (rsqrt (1 - sqr x)) *^ dx)
+  atan (BVar x dx) = BVar (atan x) (recip (1 + sqr x) *^ dx)
+  sinh (BVar x dx) = BVar (sinh x) (cosh x *^ dx)
+  cosh (BVar x dx) = BVar (cosh x) (sinh x *^ dx)
+  asinh (BVar x dx) = BVar (asinh x) (rsqrt (1 + sqr x) *^ dx)
+  acosh (BVar x dx) = BVar (acosh x) (rsqrt (sqr x - 1) *^ dx)
+  atanh (BVar x dx) = BVar (atanh x) (recip (1 - sqr x) *^ dx)
 
 instance
   ( VectorSpace v,
@@ -122,18 +97,15 @@ instance
     FullVector (Scalar v),
     Grad (Scalar v) ~ Scalar v
   ) =>
-  VectorSpace (DVar dr v)
+  VectorSpace (BVar r v)
   where
-  type Scalar (DVar dr v) = DVar dr (Scalar v)
-  DVar a (BackGrad da) *^ DVar v (BackGrad dv) = DVar (a *^ v) (castNode node)
+  type Scalar (BVar r v) = BVar r (Scalar v)
+  BVar a da *^ BVar v dv = BVar (a *^ v) (lift2_dense bpA bpV da dv)
     where
-      node :: Expr BackFun dr (Grad v)
-      node = ExprSum (term1 ++ term2)
-        where
-          term1 :: [Term BackFun dr (Grad v)]
-          term1 = da (\v' -> identityBuilder (evalGrad @(Scalar v) @(Grad v) @(Diff v) v' v))
-          term2 :: [Term BackFun dr (Grad v)]
-          term2 = dv (\v' -> identityBuilder (a *^ v'))
+      bpA :: Grad v -> Scalar v
+      bpA dz = evalGrad dz v
+      bpV :: Grad v -> Grad v
+      bpV dz = a *^ dz
 
 instance
   ( AffineSpace p,
@@ -142,24 +114,20 @@ instance
     Diff p ~ AffineSpace.Diff p,
     Grad (Diff p) ~ Grad p
   ) =>
-  AffineSpace (DVar dr p)
+  AffineSpace (BVar r p)
   where
-  type Diff (DVar dr p) = DVar dr (Diff p)
-  DVar y0 dy .+^ DVar z0 dz = DVar (y0 .+^ z0) (dy ^+^ dz)
-  DVar y0 dy .-. DVar z0 dz = DVar (y0 .-. z0) (dy ^-^ dz)
-
--- | 'DVar' specialized for reverse mode differentiation.
--- type BVar a p = DVar p (BackGrad a (Needle p))
-type BVar = DVar
+  type Diff (BVar r p) = BVar r (Diff p)
+  BVar y0 dy .+^ BVar z0 dz = BVar (y0 .+^ z0) (dy ^+^ dz)
+  BVar y0 dy .-. BVar z0 dz = BVar (y0 .-. z0) (dy ^-^ dz)
 
 -- | A variable with derivative of zero.
 constant :: forall r a. a -> BVar r a
-constant x = DVar x (BackGrad (const [])) -- could be zeroV here, but that would require `HasDual a` constraint..
+constant x = BVar x (BackGrad (const [])) -- could be zeroV here, but that would require `HasDual a` constraint..
 
 -- | A variable with identity derivative.
 var :: a -> BVar (Grad a) a
-var x = DVar x (realNode ExprVar)
+var x = BVar x (realNode ExprVar)
 
 -- | Compute gradient
-backprop :: forall da v. (HasGrad v, BasicVector da, FullVector (Grad v)) => BVar da v -> Grad v -> da
-backprop (DVar _y0 x) = Graph.backprop x
+backprop :: forall a p. (HasGrad p, BasicVector a) => BVar a p -> Grad p -> a
+backprop (BVar _y0 x) = Graph.backprop x

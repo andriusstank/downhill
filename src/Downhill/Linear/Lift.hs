@@ -4,19 +4,24 @@
 {-# LANGUAGE PartialTypeSignatures #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | While 'BackGrad' is intended to be simple to construct manually, this module provides a way to do
 --   that with a bit less of boilerplate.
 module Downhill.Linear.Lift
-  ( lift1,
+  ( -- * Lifts
+    lift1,
     lift2,
     lift3,
+
+    -- * Dense lifts
     lift1_dense,
     lift2_dense,
     lift3_dense,
 
+    -- * Lifts for 'SparseVector'
     lift1_sparse,
     lift2_sparse,
     lift3_sparse,
@@ -24,11 +29,11 @@ module Downhill.Linear.Lift
 where
 
 import Downhill.Linear.BackGrad (BackGrad (..), castBackGrad, realNode)
-import Downhill.Linear.Expr (BasicVector (..), Expr (ExprSum), FullVector (identityBuilder), SparseVector)
+import Downhill.Linear.Expr (BasicVector (..), Expr (ExprSum), FullVector (identityBuilder), SparseVector (unSparseVector))
 import Prelude hiding (fst, snd, zip)
 
 lift1 ::
-  forall r a z.
+  forall z r a.
   BasicVector z =>
   (z -> VecBuilder a) ->
   BackGrad r a ->
@@ -38,7 +43,7 @@ lift1 fa (BackGrad da) = realNode node
     node = ExprSum (da fa)
 
 lift2 ::
-  forall r a b z.
+  forall z r a b.
   BasicVector z =>
   (z -> VecBuilder a) ->
   (z -> VecBuilder b) ->
@@ -50,7 +55,7 @@ lift2 fa fb (BackGrad da) (BackGrad db) = realNode node
     node = ExprSum (da fa ++ db fb)
 
 lift3 ::
-  forall r a b c z.
+  forall z r a b c.
   BasicVector z =>
   (z -> VecBuilder a) ->
   (z -> VecBuilder b) ->
@@ -66,32 +71,43 @@ lift3 fa fb fc (BackGrad da) (BackGrad db) (BackGrad dc) = realNode node
 lift1_sparse ::
   forall r a z.
   BasicVector z =>
-  (SparseVector z -> VecBuilder a) ->
+  (VecBuilder z -> VecBuilder a) ->
   BackGrad r a ->
   BackGrad r z
-lift1_sparse fa = castBackGrad . lift1 fa
+lift1_sparse fa = castBackGrad . lift1 @(SparseVector z) fa'
+  where
+    fa' = fa . unSparseVector
 
 lift2_sparse ::
   forall r a b z.
   BasicVector z =>
-  (SparseVector z -> VecBuilder a) ->
-  (SparseVector z -> VecBuilder b) ->
+  (VecBuilder z -> VecBuilder a) ->
+  (VecBuilder z -> VecBuilder b) ->
   BackGrad r a ->
   BackGrad r b ->
   BackGrad r z
-lift2_sparse fa fb a b = castBackGrad $ lift2 fa fb a b
+lift2_sparse fa fb a b = castBackGrad $ lift2 @(SparseVector z) fa' fb' a b
+  where
+    fa' = fa . unSparseVector
+    fb' = fb . unSparseVector
 
 lift3_sparse ::
   forall r a b c z.
   BasicVector z =>
-  (SparseVector z -> VecBuilder a) ->
-  (SparseVector z -> VecBuilder b) ->
-  (SparseVector z -> VecBuilder c) ->
+  (VecBuilder z -> VecBuilder a) ->
+  (VecBuilder z -> VecBuilder b) ->
+  (VecBuilder z -> VecBuilder c) ->
   BackGrad r a ->
   BackGrad r b ->
   BackGrad r c ->
   BackGrad r z
-lift3_sparse fa fb fc a b c = castBackGrad $ lift3 fa fb fc a b c
+lift3_sparse fa fb fc a b c =
+  castBackGrad $
+    lift3 @(SparseVector z) fa' fb' fc' a b c
+  where
+    fa' = fa . unSparseVector
+    fb' = fb . unSparseVector
+    fc' = fc . unSparseVector
 
 lift1_dense ::
   (BasicVector v, FullVector a) =>

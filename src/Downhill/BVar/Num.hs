@@ -21,8 +21,8 @@ import Data.AffineSpace (AffineSpace (..))
 import Data.Semigroup (Sum (Sum, getSum))
 import Data.Tagged (Tagged (..))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..), zeroV)
-import Downhill.DVar (BVar, DVar (dvarValue), backprop)
-import qualified Downhill.DVar as DVar
+import Downhill.DVar (BVar, BVar (dvarValue), backprop)
+import qualified Downhill.DVar as BVar
 import Downhill.Grad (HasGrad (Scalar, Grad, Diff), Dual (evalGrad))
 import Downhill.Linear.Expr (BasicVector (..), FullVector (identityBuilder, negateBuilder, scaleBuilder))
 import Math.Manifold.Core.PseudoAffine (BoundarylessWitness (BoundarylessWitness), Semimanifold (..), SemimanifoldWitness (SemimanifoldWitness))
@@ -79,10 +79,10 @@ instance Num a => Semimanifold (AsNum a) where
 type NumBVar a = BVar (AsNum a) (AsNum a)
 
 constant :: forall a. Num a => a -> NumBVar a
-constant = DVar.constant @(AsNum a) @(AsNum a) . AsNum
+constant = BVar.constant @(AsNum a) @(AsNum a) . AsNum
 
 var :: Num a => a -> NumBVar a
-var = DVar.var . AsNum
+var = BVar.var . AsNum
 
 backpropNum :: forall a. Num a => NumBVar a -> a
 backpropNum x = unAsNum $ backprop @(AsNum a) @(AsNum a) x (AsNum 1)

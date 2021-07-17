@@ -12,7 +12,7 @@ import Data.AffineSpace (AffineSpace ((.+^), (.-.)))
 import qualified Data.AffineSpace as AffineSpace
 import Data.VectorSpace (AdditiveGroup, VectorSpace ((*^)))
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.DVar (BVar, DVar (DVar), constant, var)
+import Downhill.DVar (BVar, BVar (BVar), constant, var)
 import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar))
 import Downhill.Linear.BackGrad (BackGrad (BackGrad), realNode)
 import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), DenseBuilder (DenseBuilder), DenseVector (DenseVector), Expr (ExprSum), FullVector (identityBuilder), toDenseBuilder)
@@ -65,7 +65,7 @@ subPoint :: BVar a Point -> BVar a Point -> BVar a Vector
 subPoint = (.-.)
 
 sqrNorm' :: BVar a Vector -> BVar a Double
-sqrNorm' (DVar (Vector x y) dv@(BackGrad da)) = DVar normValue (realNode node)
+sqrNorm' (BVar (Vector x y) dv@(BackGrad da)) = BVar normValue (realNode node)
   where
     normValue = x ** 2 + y ** 2
     go :: Double -> Gradient
@@ -73,7 +73,7 @@ sqrNorm' (DVar (Vector x y) dv@(BackGrad da)) = DVar normValue (realNode node)
     node = ExprSum (da (toDenseBuilder . go))
 
 sqrNorm'' :: forall a. BVar a Vector -> BVar a Double
-sqrNorm'' (DVar (Vector x y) dv) = DVar normValue (lift1_dense bp dv)
+sqrNorm'' (BVar (Vector x y) dv) = BVar normValue (lift1_dense bp dv)
   where
     normValue = x ** 2 + y ** 2
     bp :: Double -> Gradient
