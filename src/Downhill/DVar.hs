@@ -29,7 +29,7 @@ import Data.VectorSpace
     VectorSpace ((*^)),
   )
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar))
+import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar), HasGradAffine)
 import Downhill.Linear.BackGrad
   ( BackGrad (..),
     realNode,
@@ -41,8 +41,8 @@ import Prelude hiding (id, (.))
 
 -- | Variable is a value paired with derivative.
 data BVar r p = BVar
-  { dvarValue :: p,
-    dvarGrad :: BackGrad r (Grad p)
+  { bvarValue :: p,
+    bvarGrad :: BackGrad r (Grad p)
   }
 
 instance (AdditiveGroup b, HasGrad b) => AdditiveGroup (BVar r b) where
@@ -105,15 +105,7 @@ instance
       bpV :: Grad v -> Grad v
       bpV dz = a *^ dz
 
-instance
-  ( AffineSpace p,
-    HasGrad p,
-    HasGrad (Diff p),
-    Diff p ~ AffineSpace.Diff p,
-    Grad (Diff p) ~ Grad p
-  ) =>
-  AffineSpace (BVar r p)
-  where
+instance HasGradAffine p => AffineSpace (BVar r p) where
   type Diff (BVar r p) = BVar r (Diff p)
   BVar y0 dy .+^ BVar z0 dz = BVar (y0 .+^ z0) (dy ^+^ dz)
   BVar y0 dy .-. BVar z0 dz = BVar (y0 .-. z0) (dy ^-^ dz)

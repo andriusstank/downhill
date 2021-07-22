@@ -5,17 +5,22 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ConstraintKinds #-}
 
 module Downhill.Grad
   ( Dual (..),
-    HasGrad (..),
+    HasGrad (..), HasGradAffine
   )
 where
 
 import Data.Kind (Type)
 import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
-import qualified Data.VectorSpace as VectorSpace
 import Downhill.Linear.Expr (FullVector)
+import Data.AffineSpace (AffineSpace)
+
+import qualified Data.VectorSpace as VectorSpace
+import qualified Data.AffineSpace as AffineSpace
+
 
 class
   ( AdditiveGroup s,
@@ -38,6 +43,14 @@ class
   type Scalar p :: Type
   type Diff p :: Type
   type Grad p :: Type
+
+type HasGradAffine p =
+  ( AffineSpace p,
+    HasGrad p,
+    HasGrad (Diff p),
+    Diff p ~ AffineSpace.Diff p,
+    Grad (Diff p) ~ Grad p
+  )
 
 instance (Dual s da a, Dual s db b) => Dual s (da, db) (a, b) where
   evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
