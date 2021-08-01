@@ -47,7 +47,7 @@ class Monoid (VecBuilder v) => BasicVector v where
     -- means addition of vectors, but it doesn't need to compute the sum immediately - it
     -- might defer computation until 'sumBuilder' is evaluated.
     --
-    -- 'mempty' must be cheap.
+    -- 'mempty' must be cheap. '<>' must be O(1).
     type VecBuilder v :: Type
     sumBuilder :: VecBuilder v -> v
 

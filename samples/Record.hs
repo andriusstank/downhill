@@ -58,7 +58,15 @@ splitRecord (BVar x dx) = MyRecord (BVar (fieldA x) da) (BVar (fieldB x) db)
           da = lift1_sparse (\dx_da -> Just (MyRecord dx_da mempty)) dx
           db :: BackGrad r (Grad b)
           db = lift1_sparse (\dx_db -> Just (MyRecord mempty dx_db)) dx
-          dab = \(MyRecord dx_da dx_db) -> Just (MyRecord dx_da mempty)
+
+splitRecord2 :: forall r a b. (HasGrad a, HasGrad b) => BVar r (MyRecord a b) -> MyRecord (BVar r a) (BVar r b)
+splitRecord2 (BVar x dx) = MyRecord (BVar (fieldA x) da) (BVar (fieldB x) db)
+    where da :: BackGrad r (Grad a)
+          da = lift1_sparse (\dx_da -> Just (MyRecord dx_da mempty)) dx
+          db :: BackGrad r (Grad b)
+          db = lift1_sparse (\dx_db -> Just (MyRecord mempty dx_db)) dx
+          da' :: a1 -> Maybe (MyRecord a1 b0)
+          da' dx_da = Just (MyRecord dx_da mempty)
 
 joinRecord :: forall r a b. (HasGrad a, HasGrad b) => MyRecord (BVar r a) (BVar r b) -> BVar r (MyRecord a b)
 joinRecord (MyRecord (BVar a da) (BVar b db)) = BVar (MyRecord a b) (lift2_sparse bpA bpB da db)

@@ -29,7 +29,7 @@ import Data.VectorSpace
     VectorSpace ((*^)),
   )
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar), HasGradAffine)
+import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar), HasGradAffine, HasFullGrad)
 import Downhill.Linear.BackGrad
   ( BackGrad (..),
     realNode,
@@ -45,13 +45,13 @@ data BVar r p = BVar
     bvarGrad :: BackGrad r (Grad p)
   }
 
-instance (AdditiveGroup b, HasGrad b) => AdditiveGroup (BVar r b) where
+instance (AdditiveGroup b, HasFullGrad b) => AdditiveGroup (BVar r b) where
   zeroV = BVar zeroV zeroV
   negateV (BVar y0 dy) = BVar (negateV y0) (negateV dy)
   BVar y0 dy ^-^ BVar z0 dz = BVar (y0 ^-^ z0) (dy ^-^ dz)
   BVar y0 dy ^+^ BVar z0 dz = BVar (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (Num b, HasGrad b, Scalar b ~ b) => Num (BVar r b) where
+instance (Num b, HasFullGrad b, Scalar b ~ b) => Num (BVar r b) where
   (BVar f0 df) + (BVar g0 dg) = BVar (f0 + g0) (df ^+^ dg)
   (BVar f0 df) - (BVar g0 dg) = BVar (f0 - g0) (df ^-^ dg)
   (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (f0 *^ dg ^+^ g0 *^ df)
@@ -66,14 +66,14 @@ sqr x = x * x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, HasGrad b, Scalar b ~ b) => Fractional (BVar r b) where
+instance (Fractional b, HasFullGrad b, Scalar b ~ b) => Fractional (BVar r b) where
   fromRational x = BVar (fromRational x) zeroV
   recip (BVar x dx) = BVar (recip x) (df *^ dx)
     where
       df = negate (recip (sqr x))
   BVar x dx / BVar y dy = BVar (x / y) ((recip y *^ dx) ^-^ ((x / sqr y) *^ dy))
 
-instance (Floating b, HasGrad b, Scalar b ~ b) => Floating (BVar r b) where
+instance (Floating b, HasFullGrad b, Scalar b ~ b) => Floating (BVar r b) where
   pi = BVar pi zeroV
   exp (BVar x dx) = BVar (exp x) (exp x *^ dx)
   log (BVar x dx) = BVar (log x) (recip x *^ dx)
@@ -90,7 +90,7 @@ instance (Floating b, HasGrad b, Scalar b ~ b) => Floating (BVar r b) where
 
 instance
   ( VectorSpace v,
-    HasGrad v,
+    HasFullGrad v,
     Diff v ~ v,
     FullVector (Scalar v),
     Grad (Scalar v) ~ Scalar v
@@ -105,7 +105,7 @@ instance
       bpV :: Grad v -> Grad v
       bpV dz = a *^ dz
 
-instance HasGradAffine p => AffineSpace (BVar r p) where
+instance (HasFullGrad p, HasGradAffine p) => AffineSpace (BVar r p) where
   type Diff (BVar r p) = BVar r (Diff p)
   BVar y0 dy .+^ BVar z0 dz = BVar (y0 .+^ z0) (dy ^+^ dz)
   BVar y0 dy .-. BVar z0 dz = BVar (y0 .-. z0) (dy ^-^ dz)
@@ -119,5 +119,5 @@ var :: a -> BVar (Grad a) a
 var x = BVar x (realNode ExprVar)
 
 -- | Backpropagation.
-backprop :: forall a p. (HasGrad p, FullVector a) => BVar a p -> Grad p -> a
+backprop :: forall a p. (HasFullGrad p, FullVector a) => BVar a p -> Grad p -> a
 backprop (BVar _y0 x) = Graph.backprop x
