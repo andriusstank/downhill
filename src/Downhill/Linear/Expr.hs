@@ -54,6 +54,10 @@ class Monoid (VecBuilder v) => BasicVector v where
 maybeToMonoid :: Monoid m => Maybe m -> m
 maybeToMonoid = fromMaybe mempty
 
+instance BasicVector Integer where
+  type VecBuilder Integer = Sum Integer
+  sumBuilder = getSum
+
 instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
     type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
     sumBuilder = sumPair . maybeToMonoid
@@ -91,6 +95,10 @@ instance FullVector Double where
     identityBuilder = Sum
     negateBuilder = Sum . negate
     scaleBuilder x = Sum . (x*)
+instance FullVector Integer where
+    identityBuilder = Sum
+    negateBuilder = Sum . negate
+    scaleBuilder x = Sum  . (x*)
 instance (Scalar a ~ Scalar b, FullVector a, FullVector b) => FullVector (a, b) where
     identityBuilder (x, y) = Just (identityBuilder x, identityBuilder y)
     negateBuilder (x, y) = Just (negateBuilder x, negateBuilder y)

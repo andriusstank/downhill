@@ -34,7 +34,7 @@ import Downhill.Linear.BackGrad
   ( BackGrad (..),
     realNode,
   )
-import Downhill.Linear.Expr (Expr (ExprVar), FullVector)
+import Downhill.Linear.Expr (Expr (ExprVar), FullVector, BasicVector)
 import qualified Downhill.Linear.Graph as Graph
 import Downhill.Linear.Lift (lift2_dense)
 import Prelude hiding (id, (.))
@@ -119,5 +119,5 @@ var :: a -> BVar (Grad a) a
 var x = BVar x (realNode ExprVar)
 
 -- | Backpropagation.
-backprop :: forall a p. (HasFullGrad p, FullVector a) => BVar a p -> Grad p -> a
+backprop :: forall a p. (HasFullGrad p, BasicVector a) => BVar a p -> Grad p -> a
 backprop (BVar _y0 x) = Graph.backprop x

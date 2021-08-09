@@ -9,13 +9,13 @@
 
 module Downhill.Grad
   ( Dual (..),
-    HasGrad (..), HasFullGrad, HasGradAffine
+    HasGrad (..), GradBuilder, HasFullGrad, HasGradAffine
   )
 where
 
 import Data.Kind (Type)
 import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
-import Downhill.Linear.Expr (FullVector, BasicVector)
+import Downhill.Linear.Expr (FullVector, BasicVector (VecBuilder))
 import Data.AffineSpace (AffineSpace)
 
 import qualified Data.VectorSpace as VectorSpace
@@ -41,8 +41,10 @@ class
   HasGrad p
   where
   type Scalar p :: Type
-  type Diff p :: Type
+  type Diff p :: Type  -- TODO: rename, clashes with AffineSpace
   type Grad p :: Type
+
+type GradBuilder v = VecBuilder (Grad v)
 
 type HasFullGrad p = (HasGrad p, FullVector (Grad p))
 
@@ -53,6 +55,14 @@ type HasGradAffine p =
     Diff p ~ AffineSpace.Diff p,
     Grad (Diff p) ~ Grad p
   )
+
+instance Dual Integer Integer Integer  where
+  evalGrad = (*)
+
+instance HasGrad Integer where
+  type Scalar Integer = Integer
+  type Diff Integer = Integer
+  type Grad Integer = Integer
 
 instance (Dual s da a, Dual s db b) => Dual s (da, db) (a, b) where
   evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
