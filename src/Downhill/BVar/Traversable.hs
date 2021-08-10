@@ -25,7 +25,7 @@ import Data.Maybe (fromMaybe)
 import Data.VectorSpace (AdditiveGroup (negateV, zeroV, (^+^), (^-^)), VectorSpace ((*^)))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.DVar (BVar (BVar), backprop, var)
-import Downhill.Grad (Dual (evalGrad), HasFullGrad, HasGrad (Diff, Grad, Scalar))
+import Downhill.Grad (Dual (evalGrad), HasFullGrad, HasGrad (Tang, Grad, Scalar))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.Linear.Lift (lift1_sparse)
 
@@ -40,7 +40,7 @@ newtype TraversableVar f a = TraversableVar { unTraversableVar :: f a }
 
 instance HasGrad a => HasGrad (TraversableVar f a) where
   type Scalar (TraversableVar f a) = Scalar a
-  type Diff (TraversableVar f a) = IntmapVector (Diff a)
+  type Tang (TraversableVar f a) = IntmapVector (Tang a)
   type Grad (TraversableVar f a) = IntmapVector (Grad a)
 
 -- | @IntmapVector@ serves as a gradient of 'TraversableVar'.

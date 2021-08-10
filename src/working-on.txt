@@ -8,4 +8,4 @@ Bidirectional linear function - for forward and reverse mode.
 inspection-testing package to test if inlineNode really inlines.
 
 EasyLift should be removed. df is evaluated for each term before
-summing them - it's potentially inefficient.
+summing them - it's potentially inefficient. DONE.

@@ -35,13 +35,13 @@ class
   evalGrad :: dv -> v -> s
 
 class
-  ( Dual (Scalar p) (Grad p) (Diff p)
+  ( Dual (Scalar p) (Grad p) (Tang p)
   , BasicVector (Grad p)
   ) =>
   HasGrad p
   where
   type Scalar p :: Type
-  type Diff p :: Type  -- TODO: rename, clashes with AffineSpace
+  type Tang p :: Type
   type Grad p :: Type
 
 type GradBuilder v = VecBuilder (Grad v)
@@ -51,9 +51,9 @@ type HasFullGrad p = (HasGrad p, FullVector (Grad p))
 type HasGradAffine p =
   ( AffineSpace p,
     HasGrad p,
-    HasGrad (Diff p),
-    Diff p ~ AffineSpace.Diff p,
-    Grad (Diff p) ~ Grad p
+    HasGrad (Tang p),
+    Tang p ~ AffineSpace.Diff p,
+    Grad (Tang p) ~ Grad p
   )
 
 instance Dual Integer Integer Integer  where
@@ -61,7 +61,7 @@ instance Dual Integer Integer Integer  where
 
 instance HasGrad Integer where
   type Scalar Integer = Integer
-  type Diff Integer = Integer
+  type Tang Integer = Integer
   type Grad Integer = Integer
 
 instance (Dual s da a, Dual s db b) => Dual s (da, db) (a, b) where
@@ -79,7 +79,7 @@ instance
   where
   type Scalar (a, b) = Scalar a
   type Grad (a, b) = (Grad a, Grad b)
-  type Diff (a, b) = (Diff a, Diff b)
+  type Tang (a, b) = (Tang a, Tang b)
 
 instance
   ( HasGrad a,
@@ -92,7 +92,7 @@ instance
   where
   type Scalar (a, b, c) = Scalar a
   type Grad (a, b, c) = (Grad a, Grad b, Grad c)
-  type Diff (a, b, c) = (Diff a, Diff b, Diff c)
+  type Tang (a, b, c) = (Tang a, Tang b, Tang c)
 
 instance Dual Float Float Float where
   evalGrad = (*)
@@ -100,7 +100,7 @@ instance Dual Float Float Float where
 instance HasGrad Float where
   type Scalar Float = Float
   type Grad Float = Float
-  type Diff Float = Float
+  type Tang Float = Float
 
 instance Dual Double Double Double where
   evalGrad = (*)
@@ -108,4 +108,4 @@ instance Dual Double Double Double where
 instance HasGrad Double where
   type Scalar Double = Double
   type Grad Double = Double
-  type Diff Double = Double
+  type Tang Double = Double

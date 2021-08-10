@@ -23,7 +23,7 @@ import Data.Tagged (Tagged (..))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..), zeroV)
 import Downhill.DVar (BVar, BVar (bvarValue), backprop)
 import qualified Downhill.DVar as BVar
-import Downhill.Grad (HasGrad (Scalar, Grad, Diff), Dual (evalGrad))
+import Downhill.Grad (HasGrad (Scalar, Grad, Tang), Dual (evalGrad))
 import Downhill.Linear.Expr (BasicVector (..), FullVector (identityBuilder, negateBuilder, scaleBuilder))
 import Math.Manifold.Core.PseudoAffine (BoundarylessWitness (BoundarylessWitness), Semimanifold (..), SemimanifoldWitness (SemimanifoldWitness))
 
@@ -40,7 +40,7 @@ instance Num a => Dual (AsNum a) (AsNum a) (AsNum a) where
 instance Num a => HasGrad (AsNum a) where
   type Scalar (AsNum a) = AsNum a
   type Grad (AsNum a) = AsNum a
-  type Diff (AsNum a) = AsNum a
+  type Tang (AsNum a) = AsNum a
 
 instance Num a => AdditiveGroup (AsNum a) where
   zeroV = 0

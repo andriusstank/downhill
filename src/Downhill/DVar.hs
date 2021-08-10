@@ -29,7 +29,7 @@ import Data.VectorSpace
     VectorSpace ((*^)),
   )
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar), HasGradAffine, HasFullGrad)
+import Downhill.Grad (Dual (evalGrad), HasGrad (Tang, Grad, Scalar), HasGradAffine, HasFullGrad)
 import Downhill.Linear.BackGrad
   ( BackGrad (..),
     realNode,
@@ -91,7 +91,7 @@ instance (Floating b, HasFullGrad b, Scalar b ~ b) => Floating (BVar r b) where
 instance
   ( VectorSpace v,
     HasFullGrad v,
-    Diff v ~ v,
+    Tang v ~ v,
     FullVector (Scalar v),
     Grad (Scalar v) ~ Scalar v
   ) =>
@@ -106,7 +106,7 @@ instance
       bpV dz = a *^ dz
 
 instance (HasFullGrad p, HasGradAffine p) => AffineSpace (BVar r p) where
-  type Diff (BVar r p) = BVar r (Diff p)
+  type Diff (BVar r p) = BVar r (Tang p)
   BVar y0 dy .+^ BVar z0 dz = BVar (y0 .+^ z0) (dy ^+^ dz)
   BVar y0 dy .-. BVar z0 dz = BVar (y0 .-. z0) (dy ^-^ dz)
 
