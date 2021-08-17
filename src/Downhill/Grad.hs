@@ -29,13 +29,13 @@ class
     VectorSpace.Scalar v ~ s,
     VectorSpace.Scalar dv ~ s
   ) =>
-  Dual s dv v
+  Dual s v dv
   where
   -- if evalGrad goes to HasGrad class, parameter p is ambiguous
   evalGrad :: dv -> v -> s
 
 class
-  ( Dual (Scalar p) (Grad p) (Tang p)
+  ( Dual (Scalar p) (Tang p) (Grad p)
   , BasicVector (Grad p)
   ) =>
   HasGrad p
@@ -64,10 +64,10 @@ instance HasGrad Integer where
   type Tang Integer = Integer
   type Grad Integer = Integer
 
-instance (Dual s da a, Dual s db b) => Dual s (da, db) (a, b) where
+instance (Dual s a da, Dual s b db) => Dual s (a, b) (da, db) where
   evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
 
-instance (Dual s da a, Dual s db b, Dual s dc c) => Dual s (da, db, dc) (a, b, c) where
+instance (Dual s a da, Dual s b db, Dual s c dc) => Dual s (a, b, c) (da, db, dc) where
   evalGrad (a, b, c) (x, y, z) = evalGrad a x ^+^ evalGrad b y ^+^ evalGrad c z
 
 instance
