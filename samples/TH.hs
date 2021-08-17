@@ -1,36 +1,29 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# OPTIONS_GHC -ddump-splices #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# OPTIONS_GHC -ddump-splices #-}
+{-# OPTIONS_GHC -ddump-to-file #-}
 
 module Main where
 
-import Downhill.TH
-import Downhill.Grad (HasGrad(Tang))
-import Downhill.Linear.Expr (BasicVector(VecBuilder))
-import Language.Haskell.TH (runQ)
 import Data.Monoid (Sum)
-import Data.VectorSpace (AdditiveGroup, VectorSpace)
+import Data.VectorSpace (AdditiveGroup (zeroV), VectorSpace)
+import Downhill.Grad (HasGrad (Grad, Tang))
+import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
+import Downhill.TH
 import GHC.Generics (Generic)
+import Language.Haskell.TH (runQ)
 
 class FooClass a b
 
 data MyRecord = MyRecord
-  { myA :: Int,
-    myB :: Float
-  }
-
-data MyRecordGrad = MyRecordGrad
-  { myA :: (Float, Float),
-    myB :: Float
-  }
-  deriving Generic
-
-data MyRecordGradBuilder = MyRecordGradBuilder
-  { myA :: VecBuilder (Float, Float),
-    myB :: VecBuilder Float
+  { myA :: Float,
+    myB :: (Float, Float)
   }
 
 data MyRecordGradBuilder3 = MyRecordGradBuilder3
@@ -39,28 +32,30 @@ data MyRecordGradBuilder3 = MyRecordGradBuilder3
     myC :: Sum Float
   }
 
-
-instD =
-  [d|
-    instance Semigroup MyRecordGradBuilder where
-      MyRecordGradBuilder x1 y1 <> MyRecordGradBuilder x2 y2 = MyRecordGradBuilder (x1<>x2) (y1<>y2)
-  |]
-
 data InfixC = Int :^^^ Float
 
 --mkTang ''FooClass
-mkTang ''MyRecord
+mkDVar defaultDVarOptions ''MyRecord
+
+deriving instance Generic MyRecordGrad
+
+deriving anyclass instance AdditiveGroup MyRecordGrad
+
+deriving instance Generic MyRecordTang
+
+deriving anyclass instance AdditiveGroup MyRecordTang
+
 --mkTang ''InfixC
 
-mkRecordSemigroupInstance ''MyRecordGradBuilder
+--mkRecordSemigroupInstance ''MyRecordGradBuilder
 --mkRecordSemigroupInstance ''MyRecordGradBuilder3
-instance AdditiveGroup MyRecordGrad
-instance VectorSpace MyRecordGrad
+--instance AdditiveGroup MyRecordGrad
+--instance VectorSpace MyRecordGrad
 
 --mkBasicVectorInstance ''MyRecordGrad ''MyRecordGradBuilder
 
 main :: IO ()
 main = do
-  z <- runQ instD
-  print z
+  q <- runQ [|MyRecord 1 (2, 3)|]
+  print q
   return ()

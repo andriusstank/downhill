@@ -70,7 +70,7 @@ executable higher
 
 executable th
   main-is:             TH.hs
-  build-depends:       base, downhill, template-haskell, lens
+  build-depends:       base, downhill, template-haskell, lens, vector-space
   hs-source-dirs:      samples
   default-language:    Haskell2010
 
