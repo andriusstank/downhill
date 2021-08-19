@@ -5,85 +5,87 @@
 
 module Downhill.TH where
 
-import Control.Functor.Constrained (Category)
 import Control.Monad
-import Data.Maybe (isNothing)
-import Data.Typeable (tyConName)
 import Data.VectorSpace (AdditiveGroup (zeroV))
 import Downhill.Grad (HasGrad (Grad, Tang))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 
-data GradConstructors = GradConstructors
-  { typeName :: Name,
-    conName :: Name
-  }
-
 data DatatypeFields
   = NormalFields [Type]
   | RecordFields [(String, Type)]
 
-data GradDataType = GradDataType
-  { gdtTypeConName :: Name,
-    gdtDataConName :: Name,
-    gdtFieldCount :: Int,
-    gdtFields :: DatatypeFields
+data DownhillDataType = DownhillDataType
+  { ddtTypeConName :: Name,
+    ddtDataConName :: Name,
+    ddtFieldCount :: Int,
+    ddtFields :: DatatypeFields
+  }
+
+data DownhillVectorType = DownhillVectorType
+  { dvtVector :: DownhillDataType,
+    dvtBuilder :: DownhillDataType
   }
 
 data RecordNamer = RecordNamer
-  { tyConNamer :: String -> String,
+  { typeConNamer :: String -> String,
     dataConNamer :: String -> String,
     fieldNamer :: String -> String
   }
 
+data VectorNamer = VectorNamer
+  { vnVector :: RecordNamer,
+    vnBuilder :: RecordNamer
+  }
+
 data DVarOptions = DVarOptions
-  { tangNamer :: RecordNamer,
-    gradNamer :: RecordNamer,
-    builderNamer :: RecordNamer
+  { optTangNamer :: RecordNamer,
+    optGradNamer :: RecordNamer,
+    optBuilerNamer :: RecordNamer
   }
 
 defaultTangRecordNamer :: RecordNamer
 defaultTangRecordNamer =
   RecordNamer
-    { tyConNamer = (++ "Tang"),
-      dataConNamer = (++ "Tang"),
+    { typeConNamer = (++ "TangT"),
+      dataConNamer = (++ "TangD"),
       fieldNamer = id
     }
 
 defaultGradRecordNamer :: RecordNamer
 defaultGradRecordNamer =
   RecordNamer
-    { tyConNamer = (++ "Grad"),
-      dataConNamer = (++ "Grad"),
+    { typeConNamer = (++ "GradT"),
+      dataConNamer = (++ "GradD"),
       fieldNamer = id
     }
 
 defaultBuilderRecordNamer :: RecordNamer
 defaultBuilderRecordNamer =
   RecordNamer
-    { tyConNamer = (++ "Builder"),
-      dataConNamer = (++ "Builder"),
+    { typeConNamer = (++ "BuilderT"),
+      dataConNamer = (++ "BuilderD"),
       fieldNamer = id
     }
 
 defaultDVarOptions :: DVarOptions
 defaultDVarOptions =
   DVarOptions
-    { tangNamer = defaultTangRecordNamer,
-      gradNamer = defaultGradRecordNamer,
-      builderNamer = defaultBuilderRecordNamer
+    { optTangNamer = defaultTangRecordNamer,
+      optGradNamer = defaultGradRecordNamer,
+      optBuilerNamer = defaultBuilderRecordNamer
     }
 
-mkConstructor_ :: RecordNamer -> Name -> GradDataType -> Q Con
-mkConstructor_ RecordNamer {dataConNamer, fieldNamer} tyfun record = do
-  case gdtFields record of
+mkConstructor :: RecordNamer -> Name -> DownhillDataType -> Con
+mkConstructor RecordNamer {dataConNamer, fieldNamer} tyfun record = do
+  case ddtFields record of
     NormalFields types -> do
-      let newConstrName = mkNameS (dataConNamer (nameBase (gdtDataConName record)))
-      return (NormalC newConstrName (map mkType types))
+      let newConstrName = mkNameS (dataConNamer (nameBase (ddtDataConName record)))
+      NormalC newConstrName (map mkType types)
     RecordFields types -> do
-      let newConstrName = mkNameS (dataConNamer (nameBase (gdtDataConName record)))
-      return (RecC newConstrName (map mkRecType types))
+      let newConstrName = mkNameS (dataConNamer (nameBase (ddtDataConName record)))
+      RecC newConstrName (map mkRecType types)
   where
     mkRecType :: (String, Type) -> VarBangType
     mkRecType (name, type_) =
@@ -98,28 +100,51 @@ mkConstructor_ RecordNamer {dataConNamer, fieldNamer} tyfun record = do
         AppT (ConT tyfun) type_
       )
 
-parseGradConstructor :: Name -> Con -> Q GradDataType
+mkConstructor' :: Name -> DownhillDataType -> Con
+mkConstructor' tyfun record =
+  case ddtFields record of
+    NormalFields types ->
+      NormalC newConstrName (map mkType types)
+    RecordFields types ->
+      RecC newConstrName (map mkRecType types)
+  where
+    newConstrName :: Name
+    newConstrName = ddtDataConName record
+    mkRecType :: (String, Type) -> VarBangType
+    mkRecType (name, type_) =
+      ( mkNameS name,
+        Bang NoSourceUnpackedness NoSourceStrictness,
+        AppT (ConT tyfun) type_
+      )
+
+    mkType :: Type -> BangType
+    mkType type_ =
+      ( Bang NoSourceUnpackedness NoSourceStrictness,
+        AppT (ConT tyfun) type_
+      )
+
+parseGradConstructor :: Name -> Con -> Q DownhillDataType
 parseGradConstructor tyName c = case c of
   NormalC name types ->
     return $
-      GradDataType
-        { gdtTypeConName = tyName,
-          gdtDataConName = name,
-          gdtFieldCount = length types,
-          gdtFields = NormalFields (map snd types)
+      DownhillDataType
+        { ddtTypeConName = tyName,
+          ddtDataConName = name,
+          ddtFieldCount = length types,
+          ddtFields = NormalFields (map snd types)
         }
   RecC name types ->
     return $
-      GradDataType
-        { gdtTypeConName = tyName,
-          gdtDataConName = name,
-          gdtFieldCount = length types,
-          gdtFields = RecordFields [(nameBase fname, ty) | (fname, _, ty) <- types]
+      DownhillDataType
+        { ddtTypeConName = tyName,
+          ddtDataConName = name,
+          ddtFieldCount = length types,
+          ddtFields = RecordFields [(nameBase fname, ty) | (fname, _, ty) <- types]
         }
   _ -> fail ("Unsupported constructor type: " ++ show c)
 
-parseGradDataType :: Name -> Q GradDataType
-parseGradDataType recordName = do
+parseDownhillDataType :: Name -> Q DownhillDataType
+parseDownhillDataType recordName = do
   record <- reify recordName
   recordT <- case record of
     TyConI recordT' -> return recordT'
@@ -138,34 +163,36 @@ parseGradDataType recordName = do
     _ -> fail (show recordName <> " has multiple data constructors")
   parseGradConstructor name constr
 
-mkSemigroupInstance :: GradDataType -> Q [Dec]
+mkSemigroupInstance :: DownhillDataType -> Q [Dec]
 mkSemigroupInstance record = do
-  let n = gdtFieldCount record
+  let n = ddtFieldCount record
   xs <- replicateM n (newName "x")
   ys <- replicateM n (newName "y")
   let xys = zipWith go xs ys
       go x y = InfixE (Just (VarE x)) (VarE '(<>)) (Just (VarE y))
-  let recordType = return (ConT (gdtTypeConName record))
-      leftPat = return (ConP (gdtDataConName record) (map VarP xs))
-      rightPat = return (ConP (gdtDataConName record) (map VarP ys))
-      rhs = return (foldl AppE (ConE (gdtDataConName record)) xys)
+  let recordType = return (ConT (ddtTypeConName record))
+      leftPat = return (ConP (ddtDataConName record) (map VarP xs))
+      rightPat = return (ConP (ddtDataConName record) (map VarP ys))
+      rhs = return (foldl AppE (ConE (ddtDataConName record)) xys)
   [d|
     instance Semigroup $recordType where
       $leftPat <> $rightPat = $rhs
     |]
 
-mkBasicVectorInstance_ :: Q Type -> Q Type -> GradDataType -> GradDataType -> DecsQ
-mkBasicVectorInstance_ vectorType builderType vectorRecord builderRecord = do
-  let n = gdtFieldCount vectorRecord
-  xs <- replicateM n (newName "x")
-  let constrName = gdtDataConName builderRecord
-  let pat = return (ConP constrName (map VarP xs))
+mkBasicVectorInstance :: DownhillVectorType -> DecsQ
+mkBasicVectorInstance (DownhillVectorType vectorRecord builderRecord) = do
+  let n = ddtFieldCount vectorRecord
+      vectorType = return (ConT (ddtTypeConName vectorRecord))
+      builderType = return (ConT (ddtTypeConName builderRecord))
+  builders <- replicateM n (newName "x")
+  let constrName = ddtDataConName builderRecord
+  let pat = return (ConP constrName (map VarP builders))
       rhs =
         return
           ( foldl
               AppE
-              (ConE (gdtDataConName vectorRecord))
-              (map (AppE (VarE 'sumBuilder) . VarE) xs)
+              (ConE (ddtDataConName vectorRecord))
+              [AppE (VarE 'sumBuilder) (VarE x) | x <- builders]
           )
   [d|
     instance BasicVector $vectorType where
@@ -174,59 +201,52 @@ mkBasicVectorInstance_ vectorType builderType vectorRecord builderRecord = do
       sumBuilder (Just $pat) = $rhs
     |]
 
-mkBasicVectorInstance :: Name -> Name -> GradDataType -> GradDataType -> DecsQ
-mkBasicVectorInstance vectorName builderName =
-  mkBasicVectorInstance_ (return $ ConT vectorName) (return $ ConT builderName)
-
-mkRecord :: RecordNamer -> Name -> GradDataType -> Q (Name, [Dec])
-mkRecord namer tyfun record = do
-  newConstr <- mkConstructor_ namer tyfun record
-  let newRecordName = mkNameS (dataConNamer namer (nameBase (gdtTypeConName record)))
+mkRecord :: Name -> DownhillDataType -> Q [Dec]
+mkRecord tyfun record = do
+  let newConstr = mkConstructor' tyfun record
+  let newRecordName = ddtTypeConName record
   let dataType = DataD [] newRecordName [] Nothing [newConstr] []
-  return (newRecordName, [dataType])
+  return [dataType]
 
 composeNamers :: RecordNamer -> RecordNamer -> RecordNamer
 composeNamers (RecordNamer f1 g1 h1) (RecordNamer f2 g2 h2) =
   RecordNamer (f1 . f2) (g1 . g2) (h1 . h2)
 
-renameRecord :: RecordNamer -> GradConstructors -> GradConstructors
-renameRecord namer cs =
-  GradConstructors
-    { typeName = mkNameS (tyConNamer namer (nameBase (typeName cs))),
-      conName = mkNameS (dataConNamer namer (nameBase (conName cs)))
-    }
-
-renameGradProductType :: RecordNamer -> GradDataType -> GradDataType
-renameGradProductType namer record =
-  GradDataType
-    { gdtTypeConName = mkNameS (tyConNamer namer (nameBase (gdtTypeConName record))),
-      gdtDataConName = mkNameS (dataConNamer namer (nameBase (gdtDataConName record))),
-      gdtFieldCount = gdtFieldCount record,
-      gdtFields = renameFields (gdtFields record)
+renameDownhillDataType :: RecordNamer -> DownhillDataType -> DownhillDataType
+renameDownhillDataType namer record =
+  DownhillDataType
+    { ddtTypeConName = mkNameS (typeConNamer namer (nameBase (ddtTypeConName record))),
+      ddtDataConName = mkNameS (dataConNamer namer (nameBase (ddtDataConName record))),
+      ddtFieldCount = ddtFieldCount record,
+      ddtFields = renameFields (ddtFields record)
     }
   where
     renameFields = \case
       NormalFields fs -> NormalFields fs
       RecordFields fs -> RecordFields [(fieldNamer namer name, ty) | (name, ty) <- fs]
 
+renameVector :: DVarOptions -> RecordNamer -> DownhillDataType -> DownhillVectorType
+renameVector options namer record = DownhillVectorType vectorRecord builderNames
+  where
+    vectorRecord = renameDownhillDataType namer record
+    builderNames = renameDownhillDataType (optBuilerNamer options) vectorRecord
+
 mkDVar :: DVarOptions -> Name -> Q [Dec]
 mkDVar options recordName = do
-  record <- parseGradDataType recordName
-  (tangName, tangDec) <- mkRecord (tangNamer options) ''Tang record
-  (gradName, gradDec) <- mkRecord (gradNamer options) ''Grad record
-  let tangVectorRecord = renameGradProductType (tangNamer options) record
-      gradVectorRecord = renameGradProductType (gradNamer options) record
+  record <- parseDownhillDataType recordName
 
-  let tangBuilderNamer = composeNamers (builderNamer options) (tangNamer options)
-  let gradBuilderNamer = composeNamers (builderNamer options) (gradNamer options)
-  (tangBuilderName, tangBuilderDec) <- mkRecord tangBuilderNamer ''VecBuilder record
-  (gradBuilderName, gradBuilderDec) <- mkRecord gradBuilderNamer ''VecBuilder record
-  let tangBuilderNames = renameGradProductType tangBuilderNamer record
-      gradBuilderNames = renameGradProductType gradBuilderNamer record
-  tangSemigroup <- mkSemigroupInstance tangBuilderNames
-  gradSemigroup <- mkSemigroupInstance gradBuilderNames
-  tangInst <- mkBasicVectorInstance tangName tangBuilderName tangVectorRecord tangBuilderNames
-  gradInst <- mkBasicVectorInstance gradName gradBuilderName gradVectorRecord gradBuilderNames
+  let tangVector = renameVector options (optTangNamer options) record
+      gradVector = renameVector options (optGradNamer options) record
+
+  tangDec <- mkRecord ''Tang (dvtVector tangVector)
+  tangBuilderDec <- mkRecord ''VecBuilder (dvtBuilder tangVector)
+  gradDec <- mkRecord ''Grad (dvtVector gradVector)
+  gradBuilderDec <- mkRecord ''VecBuilder (dvtBuilder gradVector)
+  tangSemigroup <- mkSemigroupInstance (dvtBuilder tangVector)
+  gradSemigroup <- mkSemigroupInstance (dvtBuilder gradVector)
+  tangInst <- mkBasicVectorInstance tangVector
+  gradInst <- mkBasicVectorInstance gradVector
+
   let decs =
         [ tangDec,
           gradDec,

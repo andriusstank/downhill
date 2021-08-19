@@ -37,13 +37,10 @@ data InfixC = Int :^^^ Float
 --mkTang ''FooClass
 mkDVar defaultDVarOptions ''MyRecord
 
-deriving instance Generic MyRecordGrad
-
-deriving anyclass instance AdditiveGroup MyRecordGrad
-
-deriving instance Generic MyRecordTang
-
-deriving anyclass instance AdditiveGroup MyRecordTang
+deriving instance Generic MyRecordGradT
+deriving anyclass instance AdditiveGroup MyRecordGradT
+deriving instance Generic MyRecordTangT
+deriving anyclass instance AdditiveGroup MyRecordTangT
 
 --mkTang ''InfixC
 
