@@ -1,17 +1,24 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE FlexibleInstances #-}
 
-module Downhill.TH where
+module Downhill.TH
+  ( mkDVar,
+    RecordNamer,
+    DVarOptions,
+    defaultDVarOptions,
+  )
+where
 
 import Control.Monad
+import Data.AdditiveGroup ((^+^))
 import Data.Functor.Identity (Identity (Identity, runIdentity))
 import Data.VectorSpace (AdditiveGroup (zeroV))
 import Downhill.Grad (HasGrad (Grad, Tang))
@@ -31,8 +38,11 @@ data DownhillDataType f = DownhillDataType
   }
 
 deriving instance Show a => Show (DownhillVectorType a)
+
 deriving instance Show a => Show (DownhillTypes a)
+
 deriving instance Show (DatatypeFields DownhillTypes)
+
 deriving instance Show (DownhillDataType DownhillTypes)
 
 mapDdt :: (forall a. f a -> g a) -> DownhillDataType f -> DownhillDataType g
@@ -55,11 +65,6 @@ data RecordNamer = RecordNamer
   { typeConNamer :: String -> String,
     dataConNamer :: String -> String,
     fieldNamer :: String -> String
-  }
-
-data VectorNamer = VectorNamer
-  { vnVector :: RecordNamer,
-    vnBuilder :: RecordNamer
   }
 
 data DVarOptions = DVarOptions
@@ -100,8 +105,8 @@ defaultDVarOptions =
       optBuilerNamer = defaultBuilderRecordNamer
     }
 
-mkConstructor :: Name -> DownhillDataType Identity -> Con
-mkConstructor tyfun record =
+mkConstructor :: DownhillDataType Identity -> Con
+mkConstructor record =
   case ddtFields record of
     NormalFields types ->
       NormalC newConstrName (map mkType types)
@@ -114,12 +119,12 @@ mkConstructor tyfun record =
     mkRecType (Identity (name, type_)) =
       ( mkNameS name,
         Bang NoSourceUnpackedness NoSourceStrictness,
-        AppT (ConT tyfun) type_
+        type_
       )
     mkType :: Identity Type -> BangType
     mkType (Identity type_) =
       ( Bang NoSourceUnpackedness NoSourceStrictness,
-        AppT (ConT tyfun) type_
+        type_
       )
 
 data DownhillTypes a = DownhillTypes
@@ -184,6 +189,22 @@ mkSemigroupInstance record = do
       $leftPat <> $rightPat = $rhs
     |]
 
+mkAdditiveGroupInstance :: DownhillDataType Identity -> Q [Dec]
+mkAdditiveGroupInstance record = do
+  let n = ddtFieldCount record
+  xs <- replicateM n (newName "x")
+  ys <- replicateM n (newName "y")
+  let xys = zipWith go xs ys
+      go x y = InfixE (Just (VarE x)) (VarE '(^+^)) (Just (VarE y))
+  let recordType = return (ConT (runIdentity (ddtTypeConName record)))
+      leftPat = return (ConP (runIdentity (ddtDataConName record)) (map VarP xs))
+      rightPat = return (ConP (runIdentity (ddtDataConName record)) (map VarP ys))
+      rhs = return (foldl AppE (ConE (runIdentity (ddtDataConName record))) xys)
+  [d|
+    instance AdditiveGroup $recordType where
+      $leftPat ^+^ $rightPat = $rhs
+    |]
+
 mkBasicVectorInstance :: DownhillDataType DownhillVectorType -> Q [Dec]
 mkBasicVectorInstance record = do
   let n = ddtFieldCount record
@@ -208,30 +229,13 @@ mkBasicVectorInstance record = do
       sumBuilder Nothing = zeroV
       sumBuilder (Just $pat) = $rhs
     |]
-mkRecord :: Name -> DownhillDataType Identity -> Q [Dec]
-mkRecord tyfun record = do
-  let newConstr = mkConstructor tyfun record
+
+mkRecord :: DownhillDataType Identity -> Q [Dec]
+mkRecord record = do
+  let newConstr = mkConstructor record
   let newRecordName = runIdentity (ddtTypeConName record)
   let dataType = DataD [] newRecordName [] Nothing [newConstr] []
   return [dataType]
-
-composeNamers :: RecordNamer -> RecordNamer -> RecordNamer
-composeNamers (RecordNamer f1 g1 h1) (RecordNamer f2 g2 h2) =
-  RecordNamer (f1 . f2) (g1 . g2) (h1 . h2)
-
-renameDownhillDataType :: RecordNamer -> DownhillDataType Identity -> DownhillDataType Identity
-renameDownhillDataType namer record =
-  DownhillDataType
-    { ddtTypeConName = Identity (mkNameS (typeConNamer namer (nameBase (runIdentity (ddtTypeConName record))))),
-      ddtDataConName = Identity (mkNameS (dataConNamer namer (nameBase (runIdentity (ddtDataConName record))))),
-      ddtFieldCount = ddtFieldCount record,
-      ddtFields = renameFields (ddtFields record)
-    }
-  where
-    renameFields :: DatatypeFields Identity -> DatatypeFields Identity
-    renameFields = \case
-      NormalFields fs -> NormalFields fs
-      RecordFields fs -> RecordFields [Identity (fieldNamer namer name, ty) | Identity (name, ty) <- fs]
 
 renameTypeS :: (String -> String) -> Name -> Name
 renameTypeS f = mkNameS . f . nameBase
@@ -293,29 +297,24 @@ renameDownhillDataType' options record =
           dtGrad = mkVectorFields (fieldNamer (optGradNamer options) name, AppT (ConT ''Grad) t)
         }
 
-renameVector :: DVarOptions -> RecordNamer -> DownhillDataType Identity -> DownhillVectorType (DownhillDataType Identity)
-renameVector options namer record = DownhillVectorType vectorRecord builderNames
-  where
-    vectorRecord = renameDownhillDataType namer record
-    builderNames = renameDownhillDataType (optBuilerNamer options) vectorRecord
-
 mkDVar :: DVarOptions -> Name -> Q [Dec]
 mkDVar options recordName = do
   record <- parseDownhillDataType recordName
 
-  let tangVector = renameVector options (optTangNamer options) record
-      gradVector = renameVector options (optGradNamer options) record
-      downhillTypes :: DownhillDataType DownhillTypes
+  let downhillTypes :: DownhillDataType DownhillTypes
       downhillTypes = renameDownhillDataType' options record
+      tangVector = mapDdt dtTang downhillTypes
+      gradVector = mapDdt dtGrad downhillTypes
 
-  tangDec <- mkRecord ''Tang (dvtVector tangVector)
-  tangBuilderDec <- mkRecord ''VecBuilder (dvtBuilder tangVector)
-  gradDec <- mkRecord ''Grad (dvtVector gradVector)
-  gradBuilderDec <- mkRecord ''VecBuilder (dvtBuilder gradVector)
-  tangSemigroup <- mkSemigroupInstance (dvtBuilder tangVector)
-  gradSemigroup <- mkSemigroupInstance (dvtBuilder gradVector)
+  tangDec <- mkRecord (mapDdt (Identity . dvtVector) tangVector)
+  gradDec <- mkRecord (mapDdt (Identity . dvtVector) gradVector)
+  tangBuilderDec <- mkRecord (mapDdt (Identity . dvtBuilder) tangVector)
+  gradBuilderDec <- mkRecord (mapDdt (Identity . dvtBuilder) gradVector)
+  tangSemigroup <- mkSemigroupInstance (mapDdt (Identity . dvtBuilder) tangVector)
+  gradSemigroup <- mkSemigroupInstance (mapDdt (Identity . dvtBuilder) gradVector)
   tangInst <- mkBasicVectorInstance (mapDdt dtTang downhillTypes)
   gradInst <- mkBasicVectorInstance (mapDdt dtGrad downhillTypes)
+  --additiveTang <- mkAdditiveGroupInstance (dvtVector tangVector)
 
   let decs =
         [ tangDec,
