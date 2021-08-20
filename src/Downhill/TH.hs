@@ -20,11 +20,12 @@ where
 import Control.Monad
 import Data.AdditiveGroup ((^+^))
 import Data.Functor.Identity (Identity (Identity, runIdentity))
-import Data.VectorSpace (AdditiveGroup (zeroV))
+import Data.VectorSpace (AdditiveGroup (zeroV, negateV))
 import Downhill.Grad (HasGrad (Grad, Tang))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
+import Data.AdditiveGroup ((^-^))
 
 data DatatypeFields f
   = NormalFields [f Type]
@@ -194,15 +195,28 @@ mkAdditiveGroupInstance record = do
   let n = ddtFieldCount record
   xs <- replicateM n (newName "x")
   ys <- replicateM n (newName "y")
-  let xys = zipWith go xs ys
-      go x y = InfixE (Just (VarE x)) (VarE '(^+^)) (Just (VarE y))
-  let recordType = return (ConT (runIdentity (ddtTypeConName record)))
+  let 
+      zipExp :: Name -> Name -> Name -> Exp
+      zipExp f x y = InfixE (Just (VarE x)) (VarE f) (Just (VarE y))
+      recordType = return (ConT (runIdentity (ddtTypeConName record)))
       leftPat = return (ConP (runIdentity (ddtDataConName record)) (map VarP xs))
       rightPat = return (ConP (runIdentity (ddtDataConName record)) (map VarP ys))
-      rhs = return (foldl AppE (ConE (runIdentity (ddtDataConName record))) xys)
+      zipRecord :: Name -> Q Exp
+      zipRecord f = construct (zipWith (zipExp f) xs ys)
+      rhsNegateV :: Q Exp
+      rhsNegateV = construct (mapFields 'negateV xs)
+      mapFields :: Name -> [Name] -> [Exp]
+      mapFields f xs' = AppE (VarE f) . VarE <$> xs'
+      rhsZeroV :: Q Exp
+      rhsZeroV = construct (replicate n (VarE 'zeroV))
+      construct :: [Exp] -> Q Exp
+      construct x = return (foldl AppE (ConE (runIdentity (ddtDataConName record))) x)
   [d|
     instance AdditiveGroup $recordType where
-      $leftPat ^+^ $rightPat = $rhs
+      zeroV = $rhsZeroV
+      negateV $leftPat = $rhsNegateV
+      $leftPat ^+^ $rightPat = $(zipRecord '(^+^))
+      $leftPat ^-^ $rightPat = $(zipRecord '(^-^))
     |]
 
 mkBasicVectorInstance :: DownhillDataType DownhillVectorType -> Q [Dec]
@@ -314,7 +328,7 @@ mkDVar options recordName = do
   gradSemigroup <- mkSemigroupInstance (mapDdt (Identity . dvtBuilder) gradVector)
   tangInst <- mkBasicVectorInstance (mapDdt dtTang downhillTypes)
   gradInst <- mkBasicVectorInstance (mapDdt dtGrad downhillTypes)
-  --additiveTang <- mkAdditiveGroupInstance (dvtVector tangVector)
+  additiveTang <- mkAdditiveGroupInstance (mapDdt (Identity . dvtVector) tangVector)
 
   let decs =
         [ tangDec,
@@ -324,6 +338,7 @@ mkDVar options recordName = do
           tangSemigroup,
           gradSemigroup,
           tangInst,
-          gradInst
+          gradInst,
+          additiveTang
         ]
   return (concat decs)
