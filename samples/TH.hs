@@ -6,8 +6,9 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# OPTIONS_GHC -ddump-splices #-}
-{-# OPTIONS_GHC -ddump-to-file #-}
+-- {-# OPTIONS_GHC -ddump-splices #-}
+--{-# OPTIONS_GHC -ddump-to-file #-}
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Main where
 
@@ -17,7 +18,8 @@ import Downhill.Grad (HasGrad (Grad, Tang))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.TH
 import GHC.Generics (Generic)
-import Language.Haskell.TH (runQ)
+import Language.Haskell.TH (runQ, Q, stringE, Exp)
+import Control.Lens.Tuple (_16')
 
 class FooClass a b
 
@@ -53,6 +55,4 @@ deriving anyclass instance AdditiveGroup MyRecordTangT
 
 main :: IO ()
 main = do
-  q <- runQ [|MyRecord 1 (2, 3)|]
-  print q
   return ()
