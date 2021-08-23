@@ -36,6 +36,7 @@ class
 
 class
   ( Dual (Scalar p) (Tang p) (Grad p)
+  , BasicVector (Tang p)
   , BasicVector (Grad p)
   ) =>
   HasGrad p

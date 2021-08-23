@@ -1,31 +1,44 @@
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- {-# OPTIONS_GHC -ddump-splices #-}
 --{-# OPTIONS_GHC -ddump-to-file #-}
 {-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Main where
 
+import Control.Lens.Tuple (_16')
+import Data.AdditiveGroup (AdditiveGroup (..))
+import Data.Kind (Constraint, Type)
 import Data.Monoid (Sum)
-import Data.VectorSpace (AdditiveGroup (zeroV), VectorSpace)
-import Downhill.Grad (HasGrad (Grad, Tang))
+import Data.VectorSpace (VectorSpace ())
+import Downhill.Grad (HasGrad (Grad, Scalar, Tang))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.TH
 import GHC.Generics (Generic)
-import Language.Haskell.TH (runQ, Q, stringE, Exp)
-import Control.Lens.Tuple (_16')
+import Language.Haskell.TH (Dec, Exp, Q, runQ, stringE, Pat (ConP))
+import qualified Language.Haskell.TH as TH
 
 class FooClass a b
 
 data MyRecord = MyRecord
   { myA :: Float,
     myB :: (Float, Float)
+  }
+
+data MyRecord1 a = MyRecord1
+  { myA :: a,
+    myB :: (a, a)
   }
 
 data MyRecordGradBuilder3 = MyRecordGradBuilder3
@@ -36,13 +49,30 @@ data MyRecordGradBuilder3 = MyRecordGradBuilder3
 
 data InfixC = Int :^^^ Float
 
---mkTang ''FooClass
-mkDVar defaultDVarOptions ''MyRecord
+type NoC = () :: Constraint
 
-deriving instance Generic MyRecordGradT
-deriving anyclass instance AdditiveGroup MyRecordGradT
-deriving instance Generic MyRecordTangT
-deriving anyclass instance AdditiveGroup MyRecordTangT
+--mkTang ''FooClass
+--mkDVar defaultDVarOptions ''MyRecord
+--type Ctx a = Semigroup (VecBuilder (Tang a))
+type Ctx a = (BasicVector (Tang a), BasicVector (Grad a))
+
+--mkDVar defaultDVarOptions ''MyRecord1
+--mkDVarC defaultDVarOptions ''HasGrad ''MyRecord1
+
+class ScalarB a ~ () => A a
+
+class A a => B a where
+  type ScalarB a :: Type
+
+instance A MyRecord
+
+instance B MyRecord where
+  type ScalarB MyRecord = ()
+
+--deriving instance Generic MyRecordGradT
+--deriving anyclass instance AdditiveGroup MyRecordGradT
+--deriving instance Generic MyRecordTangT
+--deriving anyclass instance AdditiveGroup MyRecordTangT
 
 --mkTang ''InfixC
 
@@ -52,7 +82,29 @@ deriving anyclass instance AdditiveGroup MyRecordTangT
 --instance VectorSpace MyRecordGrad
 
 --mkBasicVectorInstance ''MyRecordGrad ''MyRecordGradBuilder
+iq = 
+  [d|
+    instance HasGrad a => HasGrad (MyRecord1 a) where
+      type Scalar (MyRecord1 a) = Scalar a
+    |]
+
+--mkDVar defaultDVarOptions ''MyRecord
+
+{-
+mkDVarC
+  defaultDVarOptions
+  [d|
+    instance HasGrad a => HasGrad (MyRecord1 a) where
+      type Scalar (MyRecord1 a) = Scalar a
+    |]
+-}
+
+test = [d| instance AdditiveGroup (MyRecord Int) where
+             zeroV = undefined
+          |]
 
 main :: IO ()
 main = do
+  x <- runQ test
+  print x
   return ()
