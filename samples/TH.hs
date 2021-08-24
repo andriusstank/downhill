@@ -28,6 +28,7 @@ import Downhill.TH
 import GHC.Generics (Generic)
 import Language.Haskell.TH (Dec, Exp, Q, runQ, stringE, Pat (ConP))
 import qualified Language.Haskell.TH as TH
+import qualified Data.VectorSpace as VectorSpace
 
 class FooClass a b
 
@@ -99,8 +100,8 @@ mkDVarC
     |]
 -}
 
-test = [d| instance AdditiveGroup (MyRecord Int) where
-             zeroV = undefined
+test = [d| instance s ~ VectorSpace.Scalar (MyRecord1 a) => VectorSpace (MyRecord1 s) where
+             x *^ y = undefined
           |]
 
 main :: IO ()

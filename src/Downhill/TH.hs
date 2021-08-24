@@ -21,8 +21,9 @@ where
 import Control.Monad
 import Data.AdditiveGroup ((^+^), (^-^))
 import Data.Functor.Identity (Identity (Identity, runIdentity))
-import Data.VectorSpace (AdditiveGroup (negateV, zeroV))
-import Downhill.Grad (HasGrad (Grad, Tang), Dual(evalGrad))
+import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace((*^)))
+import qualified Data.VectorSpace as VectorSpace
+import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, Scalar, Tang))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Language.Haskell.TH
   ( Bang (Bang),
@@ -32,7 +33,7 @@ import Language.Haskell.TH
     Exp (AppE, ConE, InfixE, VarE),
     Info (TyConI),
     Name,
-    Pat (ConP, VarP),
+    Pat (ConP, VarP, InfixP),
     Q,
     SourceStrictness (NoSourceStrictness),
     SourceUnpackedness (NoSourceUnpackedness),
@@ -48,10 +49,10 @@ import Language.Haskell.TH.Syntax
     Clause (Clause),
     Dec (FunD, TySynInstD, ValD),
     TySynEqn (TySynEqn),
+    Type (EqualityT),
     VarBangType,
     mkNameS,
   )
-import Downhill.Grad (HasGrad(Scalar))
 
 data DatatypeFields f
   = NormalFields [f Type]
@@ -224,9 +225,11 @@ mkSemigroupInstance mayCxt record instVars = do
       ihead = foldl AppT recordType instVars
   case mayCxt of
     cxt -> do
-      let dec = FunD '(<>)
+      let dec =
+            FunD
+              '(<>)
               [ Clause
-                  [ leftPat, rightPat ]
+                  [leftPat, rightPat]
                   (NormalB rhs)
                   []
               ]
@@ -256,39 +259,82 @@ mkAdditiveGroupInstance record cxt instVars = do
       construct x = foldl AppE (ConE (runIdentity (ddtDataConName record))) x
       ihead' = AppT (ConT ''AdditiveGroup) recordType
   let zeroVDec = ValD (VarP 'zeroV) (NormalB rhsZeroV) []
-      negateDec = FunD 'negateV
+      negateDec =
+        FunD
+          'negateV
           [ Clause
-              [ leftPat ]
+              [leftPat]
               (NormalB rhsNegateV)
               []
           ]
-      plusDec = FunD '(^+^)
+      plusDec =
+        FunD
+          '(^+^)
           [ Clause
-              [ leftPat, rightPat ]
+              [leftPat, rightPat]
               (NormalB (zipRecord '(^+^)))
               []
           ]
-      minusDec = FunD '(^-^)
+      minusDec =
+        FunD
+          '(^-^)
           [ Clause
-              [ leftPat, rightPat ]
+              [leftPat, rightPat]
               (NormalB (zipRecord '(^-^)))
               []
           ]
-  return [InstanceD Nothing cxt ihead' [
-    zeroVDec,
-    negateDec,
-    plusDec,
-    minusDec
-    ]]
-  {-
-  [d|
-    instance AdditiveGroup $recordType where
-      zeroV = $rhsZeroV
-      negateV $leftPat = $rhsNegateV
-      $leftPat ^+^ $rightPat = $(zipRecord '(^+^))
-      $leftPat ^-^ $rightPat = $(zipRecord '(^-^))
-    |]
-  -}
+  return
+    [ InstanceD
+        Nothing
+        cxt
+        ihead'
+        [ zeroVDec,
+          negateDec,
+          plusDec,
+          minusDec
+        ]
+    ]
+
+
+mkVectorSpaceInstance :: DownhillDataType Identity -> Type -> Cxt -> [Type] -> Q [Dec]
+mkVectorSpaceInstance record scalarType cxt instVars = do
+  let n = ddtFieldCount record
+  xs <- replicateM n (newName "x")
+  lhsName <- newName "s"
+  let rightPat = ConP (runIdentity (ddtDataConName record)) (map VarP xs)
+      recordType0 = ConT (runIdentity (ddtTypeConName record))
+      recordType = foldl AppT recordType0 instVars
+      rhsMulVField :: Name -> Exp
+      rhsMulVField y = InfixE (Just (VarE lhsName)) (VarE ('(*^))) (Just (VarE y))
+      rhsMulV :: Exp
+      rhsMulV = construct (map rhsMulVField xs)
+      construct :: [Exp] -> Exp
+      construct x = foldl AppE (ConE (runIdentity (ddtDataConName record))) x
+      ihead' = AppT (ConT ''VectorSpace) recordType
+  let 
+      vmulDec =
+        FunD
+          '(*^)
+          [ Clause
+              [VarP lhsName, rightPat]
+              (NormalB rhsMulV)
+              []
+          ]
+      scalarTypeDec = TySynInstD
+        ( TySynEqn
+            Nothing
+            (AppT (ConT ''VectorSpace.Scalar) recordType)
+            scalarType
+        )
+  return
+    [ InstanceD
+        Nothing
+        cxt
+        ihead'
+        [ scalarTypeDec
+        , vmulDec
+        ]
+    ]
 
 mkBasicVectorInstance :: DownhillDataType DownhillVectorType -> Cxt -> [Type] -> Q [Dec]
 mkBasicVectorInstance record cxt instVars = do
@@ -305,9 +351,9 @@ mkBasicVectorInstance record cxt instVars = do
       rhs :: Exp
       rhs =
         foldl
-              AppE
-              (ConE dataConName)
-              [AppE (VarE 'sumBuilder) (VarE x) | x <- builders]
+          AppE
+          (ConE dataConName)
+          [AppE (VarE 'sumBuilder) (VarE x) | x <- builders]
       ihead' = AppT (ConT ''BasicVector) vectorType
   let vecbuilderDec =
         TySynInstD
@@ -326,10 +372,18 @@ mkBasicVectorInstance record cxt instVars = do
 
 mkDualInstance :: DownhillDataType DownhillTypes -> Type -> Cxt -> [Type] -> Q [Dec]
 mkDualInstance record scalarType cxt instVars = do
+  scalarTypeName <- newName "s"
   let vecType = foldl AppT (ConT . dvtVector . dtTang $ ddtTypeConName record) instVars
       gradType = foldl AppT (ConT . dvtVector . dtGrad $ ddtTypeConName record) instVars
-      ihead' = AppT (AppT (AppT (ConT ''Dual) scalarType) vecType) gradType
-  return [InstanceD Nothing cxt ihead' []]
+      ihead' = AppT (AppT (AppT (ConT ''Dual) (VarT scalarTypeName)) vecType) gradType
+      scalarConstraintAdditive = AppT (ConT ''AdditiveGroup) (VarT scalarTypeName)
+      scalarConstraintTang = AppT (AppT EqualityT (VarT scalarTypeName)) (AppT (ConT ''VectorSpace.Scalar) vecType)
+      scalarConstraintGrad = AppT (AppT EqualityT (VarT scalarTypeName)) (AppT (ConT ''VectorSpace.Scalar) gradType)
+      allConstraints =
+        cxt
+          ++ [scalarConstraintAdditive, scalarConstraintTang, scalarConstraintGrad]
+  return [InstanceD Nothing allConstraints ihead' []]
+
 {-  [d|
   instance BasicVector $vectorType where
     type VecBuilder $vectorType = Maybe $builderType
@@ -408,8 +462,7 @@ renameDownhillDataType' options record =
 
 mkDVar'' :: DVarOptions -> Cxt -> DownhillDataType DownhillTypes -> Type -> [Type] -> Q [Dec]
 mkDVar'' options cxt downhillTypes scalarType instVars = do
-  let
-      tangVector = mapDdt dtTang downhillTypes
+  let tangVector = mapDdt dtTang downhillTypes
       gradVector = mapDdt dtGrad downhillTypes
 
   tangDec <- mkRecord (mapDdt (Identity . dvtVector) tangVector)
@@ -422,6 +475,8 @@ mkDVar'' options cxt downhillTypes scalarType instVars = do
   gradInst <- mkBasicVectorInstance (mapDdt dtGrad downhillTypes) cxt instVars
   additiveTang <- mkAdditiveGroupInstance (mapDdt (Identity . dvtVector) tangVector) cxt instVars
   additiveGrad <- mkAdditiveGroupInstance (mapDdt (Identity . dvtVector) gradVector) cxt instVars
+  vspaceTang <- mkVectorSpaceInstance (mapDdt (Identity . dvtVector) tangVector) scalarType cxt instVars
+  vspaceGrad <- mkVectorSpaceInstance (mapDdt (Identity . dvtVector) gradVector) scalarType cxt instVars
   dualInstance <- mkDualInstance downhillTypes scalarType cxt instVars
 
   let decs =
@@ -433,9 +488,11 @@ mkDVar'' options cxt downhillTypes scalarType instVars = do
           gradSemigroup,
           additiveTang,
           additiveGrad,
+          vspaceTang,
+          vspaceGrad,
           tangInst,
           gradInst,
-          dualInstance 
+          dualInstance
         ]
   return (concat decs)
 
@@ -501,7 +558,7 @@ mkDVarC1 options = \case
                     (AppT (ConT ''Grad) recordType)
                     (foldl AppT (ConT gradName) instVars)
                 )
-          
+
             hasgradInstance = InstanceD Nothing cxt type_ (decs ++ [tangTypeDec, gradTypeDec])
         return $ dvar ++ [hasgradInstance]
       --fail "not implemented A"
