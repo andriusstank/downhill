@@ -22,7 +22,7 @@ import Data.AdditiveGroup (AdditiveGroup (..))
 import Data.Kind (Constraint, Type)
 import Data.Monoid (Sum)
 import Data.VectorSpace (VectorSpace ())
-import Downhill.Grad (HasGrad (Grad, Scalar, Tang))
+import Downhill.Grad (HasGrad (Grad, Scalar, Tang), Dual(..))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.TH
 import GHC.Generics (Generic)
@@ -91,14 +91,12 @@ iq =
 
 --mkDVar defaultDVarOptions ''MyRecord
 
-{-
 mkDVarC
   defaultDVarOptions
   [d|
     instance HasGrad a => HasGrad (MyRecord1 a) where
       type Scalar (MyRecord1 a) = Scalar a
     |]
--}
 
 test = [d| instance s ~ VectorSpace.Scalar (MyRecord1 a) => VectorSpace (MyRecord1 s) where
              x *^ y = undefined

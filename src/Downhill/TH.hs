@@ -311,7 +311,7 @@ mkVectorSpaceInstance record scalarType cxt instVars = do
       construct :: [Exp] -> Exp
       construct x = foldl AppE (ConE (runIdentity (ddtDataConName record))) x
       ihead' = AppT (ConT ''VectorSpace) recordType
-  let 
+  let
       vmulDec =
         FunD
           '(*^)
@@ -377,12 +377,35 @@ mkDualInstance record scalarType cxt instVars = do
       gradType = foldl AppT (ConT . dvtVector . dtGrad $ ddtTypeConName record) instVars
       ihead' = AppT (AppT (AppT (ConT ''Dual) (VarT scalarTypeName)) vecType) gradType
       scalarConstraintAdditive = AppT (ConT ''AdditiveGroup) (VarT scalarTypeName)
-      scalarConstraintTang = AppT (AppT EqualityT (VarT scalarTypeName)) (AppT (ConT ''VectorSpace.Scalar) vecType)
-      scalarConstraintGrad = AppT (AppT EqualityT (VarT scalarTypeName)) (AppT (ConT ''VectorSpace.Scalar) gradType)
+      scalarConstraint = AppT (AppT EqualityT (VarT scalarTypeName)) scalarType
       allConstraints =
         cxt
-          ++ [scalarConstraintAdditive, scalarConstraintTang, scalarConstraintGrad]
-  return [InstanceD Nothing allConstraints ihead' []]
+          ++ [scalarConstraintAdditive, scalarConstraint]
+  let n = ddtFieldCount record
+  xs <- replicateM n (newName "x")
+  ys <- replicateM n (newName "y")
+  let zipExp :: Name -> Name -> Name -> Exp
+      zipExp f x y = VarE f `AppE` VarE x `AppE` VarE y
+      leftPat = ConP (dvtVector . dtGrad $ ddtDataConName record) (map VarP xs)
+      rightPat = ConP (dvtVector . dtTang $ ddtDataConName record) (map VarP ys)
+      zipRecord :: Name -> [Exp]
+      zipRecord f = zipWith (zipExp f) xs ys
+      zipExpInfix :: Name -> Exp -> Exp -> Exp
+      zipExpInfix f x y = InfixE (Just x) (VarE f) (Just y)
+      sumExpr :: [Exp] -> Exp
+      sumExpr = \case
+        [] -> VarE 'zeroV
+        exps -> foldl1 (zipExpInfix '(^+^)) exps
+      devalGradDec =
+        FunD
+          'evalGrad
+          [ Clause
+              [leftPat, rightPat]
+              (NormalB (sumExpr (zipRecord 'evalGrad)))
+              []
+          ]
+
+  return [InstanceD Nothing allConstraints ihead' [devalGradDec]]
 
 {-  [d|
   instance BasicVector $vectorType where
