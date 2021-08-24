@@ -33,7 +33,7 @@ import Language.Haskell.TH
     Exp (AppE, ConE, InfixE, VarE),
     Info (TyConI),
     Name,
-    Pat (ConP, VarP, InfixP),
+    Pat (ConP, VarP),
     Q,
     SourceStrictness (NoSourceStrictness),
     SourceUnpackedness (NoSourceUnpackedness),
@@ -216,11 +216,6 @@ mkSemigroupInstance mayCxt record instVars = do
       leftPat = ConP (runIdentity (ddtDataConName record)) (map VarP xs)
       rightPat = ConP (runIdentity (ddtDataConName record)) (map VarP ys)
       rhs = foldl AppE (ConE (runIdentity (ddtDataConName record))) xys
-      typevarName :: TyVarBndr -> Name
-      typevarName (PlainTV name) = name
-      typevarName (KindedTV name _) = name
-      typevars :: [Type]
-      typevars = VarT . typevarName <$> ddtTypeVars record
       ihead :: Type
       ihead = foldl AppT recordType instVars
   case mayCxt of
@@ -305,7 +300,7 @@ mkVectorSpaceInstance record scalarType cxt instVars = do
       recordType0 = ConT (runIdentity (ddtTypeConName record))
       recordType = foldl AppT recordType0 instVars
       rhsMulVField :: Name -> Exp
-      rhsMulVField y = InfixE (Just (VarE lhsName)) (VarE ('(*^))) (Just (VarE y))
+      rhsMulVField y = InfixE (Just (VarE lhsName)) (VarE '(*^)) (Just (VarE y))
       rhsMulV :: Exp
       rhsMulV = construct (map rhsMulVField xs)
       construct :: [Exp] -> Exp
@@ -407,14 +402,6 @@ mkDualInstance record scalarType cxt instVars = do
 
   return [InstanceD Nothing allConstraints ihead' [devalGradDec]]
 
-{-  [d|
-  instance BasicVector $vectorType where
-    type VecBuilder $vectorType = Maybe $builderType
-    sumBuilder Nothing = zeroV
-    sumBuilder (Just $pat) = $rhs
-  |]
-  -}
-
 mkRecord :: DownhillDataType Identity -> Q [Dec]
 mkRecord record = do
   let newConstr = mkConstructor record
@@ -483,8 +470,8 @@ renameDownhillDataType' options record =
           dtGrad = mkVectorFields (fieldNamer (optGradNamer options) name, AppT (ConT ''Grad) t)
         }
 
-mkDVar'' :: DVarOptions -> Cxt -> DownhillDataType DownhillTypes -> Type -> [Type] -> Q [Dec]
-mkDVar'' options cxt downhillTypes scalarType instVars = do
+mkDVar'' :: Cxt -> DownhillDataType DownhillTypes -> Type -> [Type] -> Q [Dec]
+mkDVar'' cxt downhillTypes scalarType instVars = do
   let tangVector = mapDdt dtTang downhillTypes
       gradVector = mapDdt dtGrad downhillTypes
 
@@ -536,7 +523,7 @@ parseRecordType :: Type -> [Type] -> Q (Name, [Type])
 parseRecordType type_ vars = case type_ of
   AppT inner typeVar -> parseRecordType inner (typeVar : vars)
   ConT recordName -> return (recordName, vars)
-  _ -> fail $ "Expected (T a1 ... an) in constraint"
+  _ -> fail "Expected (T a1 ... an) in constraint"
 
 mkDVarC1 :: DVarOptions -> Dec -> Q [Dec]
 mkDVarC1 options = \case
@@ -563,7 +550,7 @@ mkDVarC1 options = \case
             _ -> fail "HasGrad instance must contain `Scalar ... = ...` declaration"
           _ -> fail "`HasGrad` has multiple declarations"
 
-        dvar <- mkDVar'' options cxt downhillTypes scalarType instVars
+        dvar <- mkDVar'' cxt downhillTypes scalarType instVars
 
         let tangName = dvtVector . dtTang $ ddtTypeConName downhillTypes
             gradName = dvtVector . dtGrad $ ddtTypeConName downhillTypes
@@ -584,7 +571,6 @@ mkDVarC1 options = \case
 
             hasgradInstance = InstanceD Nothing cxt type_ (decs ++ [tangTypeDec, gradTypeDec])
         return $ dvar ++ [hasgradInstance]
-      --fail "not implemented A"
       _ -> fail "Instance head is not a constraint"
   _ -> fail "Expected instance declaration"
 
