@@ -62,6 +62,18 @@ data DatatypeFields f
   = NormalFields [f Type]
   | RecordFields [f (String, Type)]
 
+data DownhillVectorType a = DownhillVectorType
+  { dvtVector :: a,
+    dvtBuilder :: a
+  }
+
+data DownhillTypes a = DownhillTypes
+  { dtPoint :: a,
+    dtTang :: DownhillVectorType a,
+    dtGrad :: DownhillVectorType a,
+    dtMetric :: a
+  }
+
 data DownhillDataType f = DownhillDataType
   { ddtTypeConName :: f Name,
     ddtDataConName :: f Name,
@@ -89,11 +101,6 @@ mapDdt f x =
         NormalFields fields -> NormalFields (f <$> fields)
         RecordFields fields -> RecordFields (f <$> fields)
     }
-
-data DownhillVectorType a = DownhillVectorType
-  { dvtVector :: a,
-    dvtBuilder :: a
-  }
 
 data RecordNamer = RecordNamer
   { typeConNamer :: String -> String,
@@ -171,13 +178,6 @@ mkConstructor record =
         type_
       )
 
-data DownhillTypes a = DownhillTypes
-  { dtPoint :: a,
-    dtTang :: DownhillVectorType a,
-    dtGrad :: DownhillVectorType a,
-    dtMetric :: a
-  }
-
 parseGradConstructor :: Name -> Con -> [TyVarBndr] -> Q (DownhillDataType Identity)
 parseGradConstructor tyName c typevars = case c of
   NormalC name types ->
@@ -220,31 +220,36 @@ parseDownhillDataType recordName = do
     _ -> fail (show recordName <> " has multiple data constructors")
   parseGradConstructor name constr typevars
 
-mkSemigroupInstance :: Cxt -> DownhillDataType Identity -> [Type] -> Q [Dec]
-mkSemigroupInstance mayCxt record instVars = do
+elementwiseOp :: DownhillDataType Identity -> Name -> Q Dec
+elementwiseOp record func = do
   let n = ddtFieldCount record
   xs <- replicateM n (newName "x")
   ys <- replicateM n (newName "y")
-  let xys = zipWith go xs ys
-      go x y = InfixE (Just (VarE x)) (VarE '(<>)) (Just (VarE y))
-  let recordType = ConT (runIdentity (ddtTypeConName record))
+  let fieldOp :: Name -> Name -> Exp
+      fieldOp x y = InfixE (Just (VarE x)) (VarE func) (Just (VarE y))
+      resultFields :: [Exp]
+      resultFields = zipWith fieldOp xs ys
       leftPat = ConP (runIdentity (ddtDataConName record)) (map VarP xs)
       rightPat = ConP (runIdentity (ddtDataConName record)) (map VarP ys)
-      rhs = foldl AppE (ConE (runIdentity (ddtDataConName record))) xys
-      ihead :: Type
-      ihead = foldl AppT recordType instVars
-  case mayCxt of
-    cxt -> do
-      let dec =
-            FunD
-              '(<>)
-              [ Clause
-                  [leftPat, rightPat]
-                  (NormalB rhs)
-                  []
-              ]
-          ihead' = AppT (ConT ''Semigroup) ihead
-      return [InstanceD Nothing cxt ihead' [dec]]
+      con :: Exp
+      con = ConE (runIdentity (ddtDataConName record))
+      rhs = foldl AppE con resultFields
+  let dec =
+        FunD
+          func
+          [ Clause
+              [leftPat, rightPat]
+              (NormalB rhs)
+              []
+          ]
+  return dec
+
+mkSemigroupInstance :: Cxt -> DownhillDataType Identity -> [Type] -> Q [Dec]
+mkSemigroupInstance cxt record instVars = do
+  let recordType = ConT (runIdentity (ddtTypeConName record))
+      ihead' = AppT (ConT ''Semigroup) (foldl AppT recordType instVars)
+  dec <- elementwiseOp record '(<>)
+  return [InstanceD Nothing cxt ihead' [dec]]
 
 mkAdditiveGroupInstance :: DownhillDataType Identity -> Cxt -> [Type] -> Q [Dec]
 mkAdditiveGroupInstance record cxt instVars = do
