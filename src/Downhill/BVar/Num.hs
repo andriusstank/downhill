@@ -1,10 +1,10 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Downhill.BVar.Num
   ( -- | Automatic differentiation for @Num@ hierarchy.
@@ -21,9 +21,13 @@ import Data.AffineSpace (AffineSpace (..))
 import Data.Semigroup (Sum (Sum, getSum))
 import Data.Tagged (Tagged (..))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..), zeroV)
-import Downhill.DVar (BVar, BVar (bvarValue), backprop)
+import Downhill.DVar (BVar (bvarValue), backprop)
 import qualified Downhill.DVar as BVar
-import Downhill.Grad (HasGrad (Scalar, Grad, Tang), Dual (evalGrad))
+import Downhill.Grad
+  ( Dual (evalGrad),
+    HasGrad (Grad, Metric, Scalar, Tang),
+    MetricTensor (MTCovector, MTVector, evalMetric),
+  )
 import Downhill.Linear.Expr (BasicVector (..), FullVector (identityBuilder, negateBuilder, scaleBuilder))
 import Math.Manifold.Core.PseudoAffine (BoundarylessWitness (BoundarylessWitness), Semimanifold (..), SemimanifoldWitness (SemimanifoldWitness))
 
@@ -41,6 +45,12 @@ instance Num a => HasGrad (AsNum a) where
   type Scalar (AsNum a) = AsNum a
   type Grad (AsNum a) = AsNum a
   type Tang (AsNum a) = AsNum a
+  type Metric (AsNum a) = AsNum a
+
+instance Num a => MetricTensor (AsNum a) (AsNum a) where
+  type MTVector (AsNum a) = AsNum a
+  type MTCovector (AsNum a) = AsNum a
+  evalMetric (AsNum m) (AsNum x) = AsNum (m * x)
 
 instance Num a => AdditiveGroup (AsNum a) where
   zeroV = 0

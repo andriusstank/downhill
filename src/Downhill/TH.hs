@@ -21,9 +21,13 @@ where
 import Control.Monad
 import Data.AdditiveGroup ((^+^), (^-^))
 import Data.Functor.Identity (Identity (Identity, runIdentity))
-import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace((*^)))
+import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace ((*^)))
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, Scalar, Tang))
+import Downhill.Grad
+  ( Dual (evalGrad),
+    HasGrad (Grad, Metric, Scalar, Tang),
+    MetricTensor (MTCovector, MTVector, evalMetric, sqrNorm),
+  )
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Language.Haskell.TH
   ( Bang (Bang),
@@ -100,6 +104,7 @@ data RecordNamer = RecordNamer
 data DVarOptions = DVarOptions
   { optTangNamer :: RecordNamer,
     optGradNamer :: RecordNamer,
+    optMetricNamer :: RecordNamer,
     optBuilerNamer :: RecordNamer
   }
 
@@ -119,6 +124,14 @@ defaultGradRecordNamer =
       fieldNamer = id
     }
 
+defaultMetricRecordNamer :: RecordNamer
+defaultMetricRecordNamer =
+  RecordNamer
+    { typeConNamer = (++ "MetricT"),
+      dataConNamer = (++ "MetricD"),
+      fieldNamer = id
+    }
+
 defaultBuilderRecordNamer :: RecordNamer
 defaultBuilderRecordNamer =
   RecordNamer
@@ -132,6 +145,7 @@ defaultDVarOptions =
   DVarOptions
     { optTangNamer = defaultTangRecordNamer,
       optGradNamer = defaultGradRecordNamer,
+      optMetricNamer = defaultMetricRecordNamer,
       optBuilerNamer = defaultBuilderRecordNamer
     }
 
@@ -160,7 +174,8 @@ mkConstructor record =
 data DownhillTypes a = DownhillTypes
   { dtPoint :: a,
     dtTang :: DownhillVectorType a,
-    dtGrad :: DownhillVectorType a
+    dtGrad :: DownhillVectorType a,
+    dtMetric :: a
   }
 
 parseGradConstructor :: Name -> Con -> [TyVarBndr] -> Q (DownhillDataType Identity)
@@ -290,7 +305,6 @@ mkAdditiveGroupInstance record cxt instVars = do
         ]
     ]
 
-
 mkVectorSpaceInstance :: DownhillDataType Identity -> Type -> Cxt -> [Type] -> Q [Dec]
 mkVectorSpaceInstance record scalarType cxt instVars = do
   let n = ddtFieldCount record
@@ -306,8 +320,7 @@ mkVectorSpaceInstance record scalarType cxt instVars = do
       construct :: [Exp] -> Exp
       construct x = foldl AppE (ConE (runIdentity (ddtDataConName record))) x
       ihead' = AppT (ConT ''VectorSpace) recordType
-  let
-      vmulDec =
+  let vmulDec =
         FunD
           '(*^)
           [ Clause
@@ -315,19 +328,20 @@ mkVectorSpaceInstance record scalarType cxt instVars = do
               (NormalB rhsMulV)
               []
           ]
-      scalarTypeDec = TySynInstD
-        ( TySynEqn
-            Nothing
-            (AppT (ConT ''VectorSpace.Scalar) recordType)
-            scalarType
-        )
+      scalarTypeDec =
+        TySynInstD
+          ( TySynEqn
+              Nothing
+              (AppT (ConT ''VectorSpace.Scalar) recordType)
+              scalarType
+          )
   return
     [ InstanceD
         Nothing
         cxt
         ihead'
-        [ scalarTypeDec
-        , vmulDec
+        [ scalarTypeDec,
+          vmulDec
         ]
     ]
 
@@ -339,10 +353,10 @@ mkBasicVectorInstance record cxt instVars = do
       builderType0 = ConT (dvtBuilder (ddtTypeConName record))
       builderType = foldl AppT builderType0 instVars
   builders <- replicateM n (newName "x")
-  let typeConName = dvtBuilder (ddtDataConName record)
+  let builderConName = dvtBuilder (ddtDataConName record)
       dataConName = dvtVector (ddtDataConName record)
   let pat :: Pat
-      pat = ConP typeConName (map VarP builders)
+      pat = ConP builderConName (map VarP builders)
       rhs :: Exp
       rhs =
         foldl
@@ -402,6 +416,57 @@ mkDualInstance record scalarType cxt instVars = do
 
   return [InstanceD Nothing allConstraints ihead' [devalGradDec]]
 
+mkMetricInstance :: DownhillDataType DownhillTypes -> Type -> Cxt -> [Type] -> Q [Dec]
+mkMetricInstance record scalarType cxt instVars = do
+  let n = ddtFieldCount record
+  scalarTypeName <- newName "s"
+  xs <- replicateM n (newName "x")
+  let vectorType = foldl AppT (ConT . dvtVector . dtTang $ ddtTypeConName record) instVars
+      gradType = foldl AppT (ConT . dvtVector . dtGrad $ ddtTypeConName record) instVars
+      metricType = foldl AppT (ConT . dtMetric $ ddtTypeConName record) instVars
+  --ihead' = AppT (AppT (AppT (ConT ''MetricTensor) (VarT scalarTypeName)) vectorType) gradType
+  let vectorConName = dvtVector (dtTang (ddtDataConName record))
+      gradConName = dvtVector (dtGrad (ddtDataConName record))
+  let vectorPat :: Pat
+      vectorPat = ConP vectorConName (map VarP xs)
+      {-
+      rhs :: Exp
+      rhs =
+        foldl
+          AppE
+          (ConE dataConName)
+          [AppE (VarE 'sumBuilder) (VarE x) | x <- builders]
+      -}
+      scalarConstraint = AppT (AppT EqualityT (VarT scalarTypeName)) scalarType
+      ihead' = ConT ''MetricTensor `AppT` VarT scalarTypeName `AppT` metricType
+  let vectypeDec =
+        TySynInstD
+          ( TySynEqn
+              Nothing
+              (AppT (ConT ''MTVector) metricType)
+              vectorType
+          )
+      covectypeDec =
+        TySynInstD
+          ( TySynEqn
+              Nothing
+              (AppT (ConT ''MTCovector) metricType)
+              gradType
+          )
+  {-sumBuilderDec =
+    FunD
+      'sumBuilder
+      [ Clause [ConP 'Nothing []] (NormalB (VarE 'zeroV)) [],
+        Clause [ConP 'Just [pat]] (NormalB rhs) []
+      ]-}
+  return
+    [ InstanceD
+        Nothing
+        (cxt ++ [scalarConstraint])
+        ihead'
+        [vectypeDec, covectypeDec]
+    ]
+
 mkRecord :: DownhillDataType Identity -> Q [Dec]
 mkRecord record = do
   let newConstr = mkConstructor record
@@ -432,7 +497,8 @@ renameDownhillDataType' options record =
       DownhillTypes
         { dtPoint = x,
           dtTang = renameVector' (renameName optTangNamer x),
-          dtGrad = renameVector' (renameName optGradNamer x)
+          dtGrad = renameVector' (renameName optGradNamer x),
+          dtMetric = renameName optMetricNamer x
         }
       where
         renameVector' :: Name -> DownhillVectorType Name
@@ -453,7 +519,8 @@ renameDownhillDataType' options record =
       DownhillTypes
         { dtPoint = t,
           dtTang = mkVectorTypes (AppT (ConT ''Tang) t),
-          dtGrad = mkVectorTypes (AppT (ConT ''Grad) t)
+          dtGrad = mkVectorTypes (AppT (ConT ''Grad) t),
+          dtMetric = AppT (ConT ''Metric) t
         }
 
     mkVectorFields :: (String, Type) -> DownhillVectorType (String, Type)
@@ -467,16 +534,19 @@ renameDownhillDataType' options record =
       DownhillTypes
         { dtPoint = (name, t),
           dtTang = mkVectorFields (fieldNamer (optTangNamer options) name, AppT (ConT ''Tang) t),
-          dtGrad = mkVectorFields (fieldNamer (optGradNamer options) name, AppT (ConT ''Grad) t)
+          dtGrad = mkVectorFields (fieldNamer (optGradNamer options) name, AppT (ConT ''Grad) t),
+          dtMetric = (fieldNamer (optMetricNamer options) name, AppT (ConT ''Metric) t)
         }
 
 mkDVar'' :: Cxt -> DownhillDataType DownhillTypes -> Type -> [Type] -> Q [Dec]
 mkDVar'' cxt downhillTypes scalarType instVars = do
   let tangVector = mapDdt dtTang downhillTypes
       gradVector = mapDdt dtGrad downhillTypes
+      metric = mapDdt (Identity . dtMetric) downhillTypes
 
   tangDec <- mkRecord (mapDdt (Identity . dvtVector) tangVector)
   gradDec <- mkRecord (mapDdt (Identity . dvtVector) gradVector)
+  metricDec <- mkRecord metric
   tangBuilderDec <- mkRecord (mapDdt (Identity . dvtBuilder) tangVector)
   gradBuilderDec <- mkRecord (mapDdt (Identity . dvtBuilder) gradVector)
   tangSemigroup <- mkSemigroupInstance cxt (mapDdt (Identity . dvtBuilder) tangVector) instVars
@@ -488,6 +558,7 @@ mkDVar'' cxt downhillTypes scalarType instVars = do
   vspaceTang <- mkVectorSpaceInstance (mapDdt (Identity . dvtVector) tangVector) scalarType cxt instVars
   vspaceGrad <- mkVectorSpaceInstance (mapDdt (Identity . dvtVector) gradVector) scalarType cxt instVars
   dualInstance <- mkDualInstance downhillTypes scalarType cxt instVars
+  metricInstance <- mkMetricInstance downhillTypes scalarType cxt instVars
 
   let decs =
         [ tangDec,
@@ -502,7 +573,9 @@ mkDVar'' cxt downhillTypes scalarType instVars = do
           vspaceGrad,
           tangInst,
           gradInst,
-          dualInstance
+          dualInstance,
+          metricDec,
+          metricInstance
         ]
   return (concat decs)
 
@@ -554,6 +627,7 @@ mkDVarC1 options = \case
 
         let tangName = dvtVector . dtTang $ ddtTypeConName downhillTypes
             gradName = dvtVector . dtGrad $ ddtTypeConName downhillTypes
+            metricName = dtMetric $ ddtTypeConName downhillTypes
             tangTypeDec =
               TySynInstD
                 ( TySynEqn
@@ -568,8 +642,25 @@ mkDVarC1 options = \case
                     (AppT (ConT ''Grad) recordType)
                     (foldl AppT (ConT gradName) instVars)
                 )
+            metricTypeDec =
+              TySynInstD
+                ( TySynEqn
+                    Nothing
+                    (AppT (ConT ''Metric) recordType)
+                    (foldl AppT (ConT metricName) instVars)
+                )
 
-            hasgradInstance = InstanceD Nothing cxt type_ (decs ++ [tangTypeDec, gradTypeDec])
+            hasgradInstance =
+              InstanceD
+                Nothing
+                cxt
+                type_
+                ( decs
+                    ++ [ tangTypeDec,
+                         gradTypeDec,
+                         metricTypeDec
+                       ]
+                )
         return $ dvar ++ [hasgradInstance]
       _ -> fail "Instance head is not a constraint"
   _ -> fail "Expected instance declaration"

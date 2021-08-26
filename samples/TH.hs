@@ -22,7 +22,7 @@ import Data.AdditiveGroup (AdditiveGroup (..))
 import Data.Kind (Constraint, Type)
 import Data.Monoid (Sum)
 import Data.VectorSpace (VectorSpace ())
-import Downhill.Grad (HasGrad (Grad, Scalar, Tang), Dual(..))
+import Downhill.Grad (HasGrad (Grad, Scalar, Tang, Metric), Dual(..), MetricTensor(..))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.TH
 import GHC.Generics (Generic)
