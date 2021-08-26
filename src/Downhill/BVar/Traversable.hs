@@ -31,8 +31,8 @@ import Downhill.Grad
     HasFullGrad,
     HasGrad (Grad, Metric, Scalar, Tang),
     MetricTensor
-      ( MTCovector,
-        MTVector,
+      ( MtCovector,
+        MtVector,
         evalMetric
       ),
   )
@@ -52,14 +52,14 @@ newtype TraversableMetric f a = TraversableMetric (Metric a)
 
 instance
   ( MetricTensor s (Metric a),
-    MTVector (Metric a) ~ Tang a,
-    MTCovector (Metric a) ~ Grad a,
+    MtVector (Metric a) ~ Tang a,
+    MtCovector (Metric a) ~ Grad a,
     Dual s (Tang a) (Grad a)
   ) =>
   MetricTensor s (TraversableMetric f a)
   where
-  type MTVector (TraversableMetric f a) = IntmapVector (Tang a)
-  type MTCovector (TraversableMetric f a) = IntmapVector (Grad a)
+  type MtVector (TraversableMetric f a) = IntmapVector (Tang a)
+  type MtCovector (TraversableMetric f a) = IntmapVector (Grad a)
   evalMetric (TraversableMetric m) (IntmapVector da) = IntmapVector (IntMap.map (evalMetric m) da)
 
 instance HasGrad a => HasGrad (TraversableVar f a) where

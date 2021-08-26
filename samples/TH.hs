@@ -83,7 +83,7 @@ instance B MyRecord where
 --instance VectorSpace MyRecordGrad
 
 --mkBasicVectorInstance ''MyRecordGrad ''MyRecordGradBuilder
-iq = 
+iq =
   [d|
     instance HasGrad a => HasGrad (MyRecord1 a) where
       type Scalar (MyRecord1 a) = Scalar a

@@ -26,7 +26,7 @@ import qualified Data.VectorSpace as VectorSpace
 import Downhill.Grad
   ( Dual (evalGrad),
     HasGrad (Grad, Metric, Scalar, Tang),
-    MetricTensor (MTCovector, MTVector, evalMetric, sqrNorm),
+    MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm),
   )
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Language.Haskell.TH
@@ -381,6 +381,14 @@ mkBasicVectorInstance record cxt instVars = do
         vectorType = foldl AppT (ConT (dvtVector (ddtTypeConName record))) instVars
         builderType = foldl AppT (ConT (dvtBuilder (ddtTypeConName record))) instVars
 
+sumVExpr :: [Exp] -> Exp
+sumVExpr = \case
+  [] -> VarE 'zeroV
+  exps -> foldl1 (zipExpInfix '(^+^)) exps
+  where
+    zipExpInfix :: Name -> Exp -> Exp -> Exp
+    zipExpInfix f x y = InfixE (Just x) (VarE f) (Just y)
+
 mkDualInstance :: DownhillDataType DownhillTypes -> Type -> Cxt -> [Type] -> Q [Dec]
 mkDualInstance record scalarType cxt instVars = do
   scalarTypeName <- newName "s"
@@ -389,6 +397,7 @@ mkDualInstance record scalarType cxt instVars = do
     n = ddtFieldCount record
 
     -- instance (cxt, AdditiveGroup s, s ~ scalarType) => AdditiveGroup (Record a1 … an) where
+    --   …
     mkClassDec :: Type -> Q [Dec]
     mkClassDec scalarVar = do
       evalGradDec <- mkEvalGradDec
@@ -421,7 +430,7 @@ mkDualInstance record scalarType cxt instVars = do
                 where
                   evalGradExp :: Name -> Name -> Exp
                   evalGradExp x y = VarE 'evalGrad `AppE` VarE x `AppE` VarE y
-              rhs = sumExpr terms
+              rhs = sumVExpr terms
           return $
             FunD
               'evalGrad
@@ -430,65 +439,104 @@ mkDualInstance record scalarType cxt instVars = do
                   (NormalB rhs)
                   []
               ]
-          where
-            sumExpr :: [Exp] -> Exp
-            sumExpr = \case
-              [] -> VarE 'zeroV
-              exps -> foldl1 (zipExpInfix '(^+^)) exps
-              where
-                zipExpInfix :: Name -> Exp -> Exp -> Exp
-                zipExpInfix f x y = InfixE (Just x) (VarE f) (Just y)
 
 mkMetricInstance :: DownhillDataType DownhillTypes -> Type -> Cxt -> [Type] -> Q [Dec]
 mkMetricInstance record scalarType cxt instVars = do
-  let n = ddtFieldCount record
   scalarTypeName <- newName "s"
-  xs <- replicateM n (newName "x")
-  let vectorType = foldl AppT (ConT . dvtVector . dtTang $ ddtTypeConName record) instVars
-      gradType = foldl AppT (ConT . dvtVector . dtGrad $ ddtTypeConName record) instVars
-      metricType = foldl AppT (ConT . dtMetric $ ddtTypeConName record) instVars
-  --ihead' = AppT (AppT (AppT (ConT ''MetricTensor) (VarT scalarTypeName)) vectorType) gradType
-  let vectorConName = dvtVector (dtTang (ddtDataConName record))
-      gradConName = dvtVector (dtGrad (ddtDataConName record))
-  let vectorPat :: Pat
-      vectorPat = ConP vectorConName (map VarP xs)
-      {-
-      rhs :: Exp
-      rhs =
-        foldl
-          AppE
-          (ConE dataConName)
-          [AppE (VarE 'sumBuilder) (VarE x) | x <- builders]
-      -}
-      scalarConstraint = AppT (AppT EqualityT (VarT scalarTypeName)) scalarType
-      ihead' = ConT ''MetricTensor `AppT` VarT scalarTypeName `AppT` metricType
-  let vectypeDec =
-        TySynInstD
-          ( TySynEqn
-              Nothing
-              (AppT (ConT ''MTVector) metricType)
-              vectorType
-          )
-      covectypeDec =
-        TySynInstD
-          ( TySynEqn
-              Nothing
-              (AppT (ConT ''MTCovector) metricType)
-              gradType
-          )
-  {-sumBuilderDec =
-    FunD
-      'sumBuilder
-      [ Clause [ConP 'Nothing []] (NormalB (VarE 'zeroV)) [],
-        Clause [ConP 'Just [pat]] (NormalB rhs) []
-      ]-}
-  return
-    [ InstanceD
-        Nothing
-        (cxt ++ [scalarConstraint])
-        ihead'
-        [vectypeDec, covectypeDec]
-    ]
+  mkClassDec (VarT scalarTypeName)
+  where
+    -- instance (ctx, s ~ scalarType) => MetricTensor s (RecordMetric a1 … an) where
+    --   …
+    mkClassDec :: Type -> Q [Dec]
+    mkClassDec scalarVar = do
+      let newConstraints =
+            [ -- s ~ scalarType
+              AppT (AppT EqualityT scalarVar) scalarType
+            ]
+          -- MetricTensor s (RecordMetric a1 … an)
+          ihead = ConT ''MetricTensor `AppT` scalarVar `AppT` metricType
+      evalMetricDec <- mkEvalMetric
+      sqrNormDec <- mkSqrNorm
+      return
+        [ InstanceD
+            Nothing
+            (cxt ++ newConstraints)
+            ihead
+            [vectypeDec, covectorTypeDec, evalMetricDec, sqrNormDec]
+        ]
+      where
+        vectorType :: Type
+        vectorType = foldl AppT (ConT . dvtVector . dtTang $ ddtTypeConName record) instVars
+        covectorType :: Type
+        covectorType = foldl AppT (ConT . dvtVector . dtGrad $ ddtTypeConName record) instVars
+        metricType :: Type
+        metricType = foldl AppT (ConT . dtMetric $ ddtTypeConName record) instVars
+        -- type MtVector (RecordMetric a1 … an) = RecordTang a1 … an
+        vectypeDec =
+          TySynInstD
+            ( TySynEqn
+                Nothing
+                (AppT (ConT ''MtVector) metricType)
+                vectorType
+            )
+        -- type MtCovector (RecordMetric a1 … an) = RecordGrad a1 … an
+        covectorTypeDec =
+          TySynInstD
+            ( TySynEqn
+                Nothing
+                (AppT (ConT ''MtCovector) metricType)
+                covectorType
+            )
+
+        mkEvalMetric :: Q Dec
+        mkEvalMetric = do
+          let n = ddtFieldCount record
+          xs <- replicateM n (newName "m")
+          ys <- replicateM n (newName "dv")
+          let leftPat, rightPat :: Pat
+              leftPat = ConP (dtMetric (ddtDataConName record)) (map VarP xs)
+              rightPat = ConP (dvtVector . dtGrad $ ddtDataConName record) (map VarP ys)
+              terms :: [Exp]
+              terms = zipWith evalGradExp xs ys
+                where
+                  evalGradExp :: Name -> Name -> Exp
+                  evalGradExp x y = VarE 'evalMetric `AppE` VarE x `AppE` VarE y
+              rhs =
+                foldl
+                  AppE
+                  (ConE (dvtVector . dtTang $ ddtDataConName record))
+                  terms
+          return $
+            FunD
+              'evalMetric
+              [ Clause
+                  [leftPat, rightPat]
+                  (NormalB rhs)
+                  []
+              ]
+
+        mkSqrNorm :: Q Dec
+        mkSqrNorm = do
+          let n = ddtFieldCount record
+          xs <- replicateM n (newName "m")
+          ys <- replicateM n (newName "dv")
+          let leftPat, rightPat :: Pat
+              leftPat = ConP (dtMetric (ddtDataConName record)) (map VarP xs)
+              rightPat = ConP (dvtVector . dtGrad $ ddtDataConName record) (map VarP ys)
+              terms :: [Exp]
+              terms = zipWith evalSqrtNorm xs ys
+                where
+                  evalSqrtNorm :: Name -> Name -> Exp
+                  evalSqrtNorm x y = VarE 'sqrNorm `AppE` VarE x `AppE` VarE y
+              rhs = sumVExpr terms
+          return $
+            FunD
+              'sqrNorm
+              [ Clause
+                  [leftPat, rightPat]
+                  (NormalB rhs)
+                  []
+              ]
 
 mkRecord :: DownhillDataType Identity -> Q [Dec]
 mkRecord record = do

@@ -33,22 +33,22 @@ class
   -- if evalGrad goes to HasGrad class, parameter p is ambiguous
   evalGrad :: dv -> v -> s
 
-class Dual s (MTVector m) (MTCovector m) => MetricTensor s m where
-  type MTVector m :: Type
-  type MTCovector m :: Type
-  evalMetric :: m -> MTCovector m -> MTVector m
+class Dual s (MtVector m) (MtCovector m) => MetricTensor s m where
+  type MtVector m :: Type
+  type MtCovector m :: Type
+  evalMetric :: m -> MtCovector m -> MtVector m
   -- | @innerProduct x m y == evalGrad x (evalMetric m y)@
   -- | @innerProduct x m y == innerProduct y m x@
-  innerProduct :: MTCovector m -> m -> MTCovector m -> s
+  innerProduct :: MtCovector m -> m -> MtCovector m -> s
   innerProduct x m y = evalGrad x (evalMetric m y)
-  sqrNorm :: m -> MTCovector m -> s
+  sqrNorm :: m -> MtCovector m -> s
   sqrNorm m x = innerProduct x m x
 
 class
   ( Dual (Scalar p) (Tang p) (Grad p)
   , MetricTensor (Scalar p) (Metric p)
-  , MTVector (Metric p) ~ Tang p
-  , MTCovector (Metric p) ~ Grad p
+  , MtVector (Metric p) ~ Tang p
+  , MtCovector (Metric p) ~ Grad p
   , BasicVector (Tang p)
   , BasicVector (Grad p)
   ) =>
@@ -75,8 +75,8 @@ instance Dual Integer Integer Integer  where
   evalGrad = (*)
 
 instance MetricTensor Integer Integer where
-  type (MTVector Integer) = Integer
-  type (MTCovector Integer) = Integer
+  type (MtVector Integer) = Integer
+  type (MtCovector Integer) = Integer
   evalMetric m x = m*x
   
 instance HasGrad Integer where
@@ -92,8 +92,8 @@ instance (Dual s a da, Dual s b db, Dual s c dc) => Dual s (a, b, c) (da, db, dc
   evalGrad (a, b, c) (x, y, z) = evalGrad a x ^+^ evalGrad b y ^+^ evalGrad c z
 
 instance (MetricTensor s ma, MetricTensor s mb) => MetricTensor s (ma, mb) where
-  type MTVector (ma, mb) = (MTVector ma, MTVector mb)
-  type MTCovector (ma, mb) = (MTCovector ma, MTCovector mb)
+  type MtVector (ma, mb) = (MtVector ma, MtVector mb)
+  type MtCovector (ma, mb) = (MtCovector ma, MtCovector mb)
   evalMetric (ma, mb) (a, b) = (evalMetric ma a, evalMetric mb b)
   sqrNorm (ma, mb) (a, b) = sqrNorm ma a ^+^ sqrNorm mb b
 
@@ -110,8 +110,8 @@ instance
   type Metric (a, b) = (Metric a, Metric b)
 
 instance (MetricTensor s ma, MetricTensor s mb, MetricTensor s mc) => MetricTensor s (ma, mb, mc) where
-  type MTVector (ma, mb, mc) = (MTVector ma, MTVector mb, MTVector mc)
-  type MTCovector (ma, mb, mc) = (MTCovector ma, MTCovector mb, MTCovector mc)
+  type MtVector (ma, mb, mc) = (MtVector ma, MtVector mb, MtVector mc)
+  type MtCovector (ma, mb, mc) = (MtCovector ma, MtCovector mb, MtCovector mc)
   evalMetric (ma, mb, mc) (a, b, c) = (evalMetric ma a, evalMetric mb b, evalMetric mc c)
   sqrNorm (ma, mb, mc) (a, b, c) = sqrNorm ma a ^+^ sqrNorm mb b ^+^ sqrNorm mc c
 
@@ -133,8 +133,8 @@ instance Dual Float Float Float where
   evalGrad = (*)
 
 instance MetricTensor Float Float where
-  type MTVector Float = Float
-  type MTCovector Float = Float
+  type MtVector Float = Float
+  type MtCovector Float = Float
   evalMetric m dv = m*dv
 
 instance HasGrad Float where
@@ -147,8 +147,8 @@ instance Dual Double Double Double where
   evalGrad = (*)
 
 instance MetricTensor Double Double where
-  type MTVector Double = Double
-  type MTCovector Double = Double
+  type MtVector Double = Double
+  type MtCovector Double = Double
   evalMetric m dv = m*dv
 
 instance HasGrad Double where
