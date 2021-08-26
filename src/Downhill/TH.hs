@@ -223,18 +223,19 @@ parseDownhillDataType recordName = do
 elementwiseOp :: DownhillDataType Identity -> Name -> Q Dec
 elementwiseOp record func = do
   let n = ddtFieldCount record
+      dataConName :: Name
+      dataConName = runIdentity (ddtDataConName record)
   xs <- replicateM n (newName "x")
   ys <- replicateM n (newName "y")
   let fieldOp :: Name -> Name -> Exp
       fieldOp x y = InfixE (Just (VarE x)) (VarE func) (Just (VarE y))
       resultFields :: [Exp]
       resultFields = zipWith fieldOp xs ys
-      leftPat = ConP (runIdentity (ddtDataConName record)) (map VarP xs)
-      rightPat = ConP (runIdentity (ddtDataConName record)) (map VarP ys)
-      con :: Exp
-      con = ConE (runIdentity (ddtDataConName record))
-      rhs = foldl AppE con resultFields
-  let dec =
+      leftPat = ConP dataConName (map VarP xs)
+      rightPat = ConP dataConName (map VarP ys)
+      rhs :: Exp
+      rhs = foldl AppE (ConE dataConName) resultFields
+      dec =
         FunD
           func
           [ Clause
@@ -244,87 +245,86 @@ elementwiseOp record func = do
           ]
   return dec
 
-mkSemigroupInstance :: Cxt -> DownhillDataType Identity -> [Type] -> Q [Dec]
-mkSemigroupInstance cxt record instVars = do
-  let recordType = ConT (runIdentity (ddtTypeConName record))
-      ihead' = AppT (ConT ''Semigroup) (foldl AppT recordType instVars)
-  dec <- elementwiseOp record '(<>)
-  return [InstanceD Nothing cxt ihead' [dec]]
-
-mkAdditiveGroupInstance :: DownhillDataType Identity -> Cxt -> [Type] -> Q [Dec]
-mkAdditiveGroupInstance record cxt instVars = do
+elementwiseValue :: DownhillDataType Identity -> Name -> Q Dec
+elementwiseValue record func = do
   let n = ddtFieldCount record
+      dataConName :: Name
+      dataConName = runIdentity (ddtDataConName record)
+      rhs :: Exp
+      rhs = foldl AppE (ConE dataConName) (replicate n (VarE 'zeroV))
+      dec = ValD (VarP func) (NormalB rhs) []
+  return dec
+
+data RecordFunc a = RecordFunc
+  { rfIn :: a,
+    rfOut :: a
+  }
+
+elementwiseFunc :: DownhillDataType RecordFunc -> Name -> Q Dec
+elementwiseFunc record func = do
+  let n = ddtFieldCount record
+      dataConName :: Name
+      dataConName = rfIn (ddtDataConName record)
+      rhsConName = rfOut (ddtDataConName record)
   xs <- replicateM n (newName "x")
-  ys <- replicateM n (newName "y")
-  let zipExp :: Name -> Name -> Name -> Exp
-      zipExp f x y = InfixE (Just (VarE x)) (VarE f) (Just (VarE y))
-      recordType0 = ConT (runIdentity (ddtTypeConName record))
-      recordType = foldl AppT recordType0 instVars
-      leftPat = ConP (runIdentity (ddtDataConName record)) (map VarP xs)
-      rightPat = ConP (runIdentity (ddtDataConName record)) (map VarP ys)
-      zipRecord :: Name -> Exp
-      zipRecord f = construct (zipWith (zipExp f) xs ys)
-      rhsNegateV :: Exp
-      rhsNegateV = construct (mapFields 'negateV xs)
-      mapFields :: Name -> [Name] -> [Exp]
-      mapFields f xs' = AppE (VarE f) . VarE <$> xs'
-      rhsZeroV :: Exp
-      rhsZeroV = construct (replicate n (VarE 'zeroV))
-      construct :: [Exp] -> Exp
-      construct x = foldl AppE (ConE (runIdentity (ddtDataConName record))) x
-      ihead' = AppT (ConT ''AdditiveGroup) recordType
-  let zeroVDec = ValD (VarP 'zeroV) (NormalB rhsZeroV) []
-      negateDec =
+  let fieldOp :: Name -> Exp
+      fieldOp = AppE (VarE func) . VarE
+      resultFields :: [Exp]
+      resultFields = map fieldOp xs
+      leftPat = ConP dataConName (map VarP xs)
+      rhs :: Exp
+      rhs = foldl AppE (ConE rhsConName) resultFields
+      dec =
         FunD
-          'negateV
+          func
           [ Clause
               [leftPat]
-              (NormalB rhsNegateV)
+              (NormalB rhs)
               []
           ]
-      plusDec =
-        FunD
-          '(^+^)
-          [ Clause
-              [leftPat, rightPat]
-              (NormalB (zipRecord '(^+^)))
-              []
-          ]
-      minusDec =
-        FunD
-          '(^-^)
-          [ Clause
-              [leftPat, rightPat]
-              (NormalB (zipRecord '(^-^)))
-              []
-          ]
-  return
-    [ InstanceD
-        Nothing
-        cxt
-        ihead'
+  return dec
+
+elementwiseFunc' :: DownhillDataType Identity -> Name -> Q Dec
+elementwiseFunc' r = elementwiseFunc (mapDdt (\(Identity x) -> RecordFunc x x) r)
+
+mkClassInstance :: Name -> Cxt -> DownhillDataType Identity -> [Type] -> [Dec] -> Q [Dec]
+mkClassInstance className cxt record instVars decs = do
+  let recordType = ConT (runIdentity (ddtTypeConName record))
+      ihead = AppT (ConT className) (foldl AppT recordType instVars)
+  return [InstanceD Nothing cxt ihead decs]
+
+mkSemigroupInstance :: Cxt -> DownhillDataType Identity -> [Type] -> Q [Dec]
+mkSemigroupInstance cxt record instVars = do
+  dec <- elementwiseOp record '(<>)
+  mkClassInstance ''Semigroup cxt record instVars [dec]
+
+mkAdditiveGroupInstance :: Cxt -> DownhillDataType Identity -> [Type] -> Q [Dec]
+mkAdditiveGroupInstance cxt record instVars = do
+  zeroVDec <- elementwiseValue record 'zeroV
+  negateDec <- elementwiseFunc' record 'negateV
+  plusDec <- elementwiseOp record '(^+^)
+  minusDec <- elementwiseOp record '(^-^)
+  let decs =
         [ zeroVDec,
           negateDec,
           plusDec,
           minusDec
         ]
-    ]
+  mkClassInstance ''AdditiveGroup cxt record instVars decs
 
 mkVectorSpaceInstance :: DownhillDataType Identity -> Type -> Cxt -> [Type] -> Q [Dec]
 mkVectorSpaceInstance record scalarType cxt instVars = do
   let n = ddtFieldCount record
+      dataConName :: Name
+      dataConName = runIdentity (ddtDataConName record)
   xs <- replicateM n (newName "x")
   lhsName <- newName "s"
   let rightPat = ConP (runIdentity (ddtDataConName record)) (map VarP xs)
-      recordType0 = ConT (runIdentity (ddtTypeConName record))
-      recordType = foldl AppT recordType0 instVars
-      rhsMulVField :: Name -> Exp
-      rhsMulVField y = InfixE (Just (VarE lhsName)) (VarE '(*^)) (Just (VarE y))
+      recordType = foldl AppT (ConT (runIdentity (ddtTypeConName record))) instVars
+      mulField :: Name -> Exp
+      mulField y = InfixE (Just (VarE lhsName)) (VarE '(*^)) (Just (VarE y))
       rhsMulV :: Exp
-      rhsMulV = construct (map rhsMulVField xs)
-      construct :: [Exp] -> Exp
-      construct x = foldl AppE (ConE (runIdentity (ddtDataConName record))) x
-      ihead' = AppT (ConT ''VectorSpace) recordType
+      rhsMulV = foldl AppE (ConE dataConName) (map mulField xs)
   let vmulDec =
         FunD
           '(*^)
@@ -340,86 +340,104 @@ mkVectorSpaceInstance record scalarType cxt instVars = do
               (AppT (ConT ''VectorSpace.Scalar) recordType)
               scalarType
           )
-  return
-    [ InstanceD
-        Nothing
-        cxt
-        ihead'
-        [ scalarTypeDec,
-          vmulDec
-        ]
-    ]
+      decs = [scalarTypeDec, vmulDec]
+  mkClassInstance ''VectorSpace cxt record instVars decs
 
 mkBasicVectorInstance :: DownhillDataType DownhillVectorType -> Cxt -> [Type] -> Q [Dec]
 mkBasicVectorInstance record cxt instVars = do
-  let n = ddtFieldCount record
-      vectorType0 = ConT (dvtVector (ddtTypeConName record))
-      vectorType = foldl AppT vectorType0 instVars
-      builderType0 = ConT (dvtBuilder (ddtTypeConName record))
-      builderType = foldl AppT builderType0 instVars
-  builders <- replicateM n (newName "x")
-  let builderConName = dvtBuilder (ddtDataConName record)
-      dataConName = dvtVector (ddtDataConName record)
-  let pat :: Pat
-      pat = ConP builderConName (map VarP builders)
-      rhs :: Exp
-      rhs =
-        foldl
-          AppE
-          (ConE dataConName)
-          [AppE (VarE 'sumBuilder) (VarE x) | x <- builders]
-      ihead' = AppT (ConT ''BasicVector) vectorType
-  let vecbuilderDec =
-        TySynInstD
-          ( TySynEqn
-              Nothing
-              (AppT (ConT ''VecBuilder) vectorType)
-              (AppT (ConT ''Maybe) builderType)
-          )
-      sumBuilderDec =
+  sumBuilderDec <- mkSumBuilder
+  mkClassInstance ''BasicVector cxt vectorRecord instVars [vecbuilderDec, sumBuilderDec]
+  where
+    n = ddtFieldCount record
+    vectorRecord :: DownhillDataType Identity
+    vectorRecord = mapDdt (Identity . dvtVector) record
+
+    mkSumBuilder :: Q Dec
+    mkSumBuilder = do
+      builders <- replicateM n (newName "x")
+      let pat :: Pat
+          pat = ConP (dvtBuilder (ddtDataConName record)) (map VarP builders)
+          rhs :: Exp
+          rhs =
+            foldl
+              AppE
+              (ConE (dvtVector (ddtDataConName record)))
+              [AppE (VarE 'sumBuilder) (VarE x) | x <- builders]
+      return $
         FunD
           'sumBuilder
           [ Clause [ConP 'Nothing []] (NormalB (VarE 'zeroV)) [],
             Clause [ConP 'Just [pat]] (NormalB rhs) []
           ]
-  return [InstanceD Nothing cxt ihead' [vecbuilderDec, sumBuilderDec]]
+
+    vecbuilderDec =
+      TySynInstD
+        ( TySynEqn
+            Nothing
+            (AppT (ConT ''VecBuilder) vectorType)
+            (AppT (ConT ''Maybe) builderType)
+        )
+      where
+        vectorType = foldl AppT (ConT (dvtVector (ddtTypeConName record))) instVars
+        builderType = foldl AppT (ConT (dvtBuilder (ddtTypeConName record))) instVars
 
 mkDualInstance :: DownhillDataType DownhillTypes -> Type -> Cxt -> [Type] -> Q [Dec]
 mkDualInstance record scalarType cxt instVars = do
   scalarTypeName <- newName "s"
-  let vecType = foldl AppT (ConT . dvtVector . dtTang $ ddtTypeConName record) instVars
-      gradType = foldl AppT (ConT . dvtVector . dtGrad $ ddtTypeConName record) instVars
-      ihead' = AppT (AppT (AppT (ConT ''Dual) (VarT scalarTypeName)) vecType) gradType
-      scalarConstraintAdditive = AppT (ConT ''AdditiveGroup) (VarT scalarTypeName)
-      scalarConstraint = AppT (AppT EqualityT (VarT scalarTypeName)) scalarType
-      allConstraints =
-        cxt
-          ++ [scalarConstraintAdditive, scalarConstraint]
-  let n = ddtFieldCount record
-  xs <- replicateM n (newName "x")
-  ys <- replicateM n (newName "y")
-  let zipExp :: Name -> Name -> Name -> Exp
-      zipExp f x y = VarE f `AppE` VarE x `AppE` VarE y
-      leftPat = ConP (dvtVector . dtGrad $ ddtDataConName record) (map VarP xs)
-      rightPat = ConP (dvtVector . dtTang $ ddtDataConName record) (map VarP ys)
-      zipRecord :: Name -> [Exp]
-      zipRecord f = zipWith (zipExp f) xs ys
-      zipExpInfix :: Name -> Exp -> Exp -> Exp
-      zipExpInfix f x y = InfixE (Just x) (VarE f) (Just y)
-      sumExpr :: [Exp] -> Exp
-      sumExpr = \case
-        [] -> VarE 'zeroV
-        exps -> foldl1 (zipExpInfix '(^+^)) exps
-      devalGradDec =
-        FunD
-          'evalGrad
-          [ Clause
-              [leftPat, rightPat]
-              (NormalB (sumExpr (zipRecord 'evalGrad)))
-              []
+  mkClassDec (VarT scalarTypeName)
+  where
+    n = ddtFieldCount record
+
+    -- instance (cxt, AdditiveGroup s, s ~ scalarType) => AdditiveGroup (Record a1 … an) where
+    mkClassDec :: Type -> Q [Dec]
+    mkClassDec scalarVar = do
+      evalGradDec <- mkEvalGradDec
+      return [InstanceD Nothing (cxt ++ newConstraints) ihead [evalGradDec]]
+      where
+        -- Dual s (RecordTang a1 … an) (RecordGrad a1 … an)
+        ihead :: Type
+        ihead = ConT ''Dual `AppT` scalarVar `AppT` vecType `AppT` gradType
+          where
+            vecType = foldl AppT (ConT . dvtVector . dtTang $ ddtTypeConName record) instVars
+            gradType = foldl AppT (ConT . dvtVector . dtGrad $ ddtTypeConName record) instVars
+        newConstraints :: Cxt
+        newConstraints =
+          [ -- AdditiveGroup s
+            AppT (ConT ''AdditiveGroup) scalarVar,
+            -- s ~ scalarType
+            AppT (AppT EqualityT scalarVar) scalarType
           ]
 
-  return [InstanceD Nothing allConstraints ihead' [devalGradDec]]
+        -- evalGrad (RecordGrad x1 … xn) (RecordTang y1 … yn) = evalGrad x1 y1 ^+^ … ^+^ evalGrad xn yn
+        mkEvalGradDec :: Q Dec
+        mkEvalGradDec = do
+          xs <- replicateM n (newName "x")
+          ys <- replicateM n (newName "y")
+          let leftPat = ConP (dvtVector . dtGrad $ ddtDataConName record) (map VarP xs)
+              rightPat = ConP (dvtVector . dtTang $ ddtDataConName record) (map VarP ys)
+              -- terms = [evalGrad x1 y1, …, evalGrad xn yn]
+              terms :: [Exp]
+              terms = zipWith evalGradExp xs ys
+                where
+                  evalGradExp :: Name -> Name -> Exp
+                  evalGradExp x y = VarE 'evalGrad `AppE` VarE x `AppE` VarE y
+              rhs = sumExpr terms
+          return $
+            FunD
+              'evalGrad
+              [ Clause
+                  [leftPat, rightPat]
+                  (NormalB rhs)
+                  []
+              ]
+          where
+            sumExpr :: [Exp] -> Exp
+            sumExpr = \case
+              [] -> VarE 'zeroV
+              exps -> foldl1 (zipExpInfix '(^+^)) exps
+              where
+                zipExpInfix :: Name -> Exp -> Exp -> Exp
+                zipExpInfix f x y = InfixE (Just x) (VarE f) (Just y)
 
 mkMetricInstance :: DownhillDataType DownhillTypes -> Type -> Cxt -> [Type] -> Q [Dec]
 mkMetricInstance record scalarType cxt instVars = do
@@ -558,8 +576,8 @@ mkDVar'' cxt downhillTypes scalarType instVars = do
   gradSemigroup <- mkSemigroupInstance cxt (mapDdt (Identity . dvtBuilder) gradVector) instVars
   tangInst <- mkBasicVectorInstance (mapDdt dtTang downhillTypes) cxt instVars
   gradInst <- mkBasicVectorInstance (mapDdt dtGrad downhillTypes) cxt instVars
-  additiveTang <- mkAdditiveGroupInstance (mapDdt (Identity . dvtVector) tangVector) cxt instVars
-  additiveGrad <- mkAdditiveGroupInstance (mapDdt (Identity . dvtVector) gradVector) cxt instVars
+  additiveTang <- mkAdditiveGroupInstance cxt (mapDdt (Identity . dvtVector) tangVector) instVars
+  additiveGrad <- mkAdditiveGroupInstance cxt (mapDdt (Identity . dvtVector) gradVector) instVars
   vspaceTang <- mkVectorSpaceInstance (mapDdt (Identity . dvtVector) tangVector) scalarType cxt instVars
   vspaceGrad <- mkVectorSpaceInstance (mapDdt (Identity . dvtVector) gradVector) scalarType cxt instVars
   dualInstance <- mkDualInstance downhillTypes scalarType cxt instVars

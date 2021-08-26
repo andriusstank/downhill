@@ -138,7 +138,7 @@ instance MetricTensor Float Float where
   evalMetric m dv = m*dv
 
 instance HasGrad Float where
-  type Scalar Float = Float
+  type Scalar Float = Float -- TODO: rename, clashes with VectorSpace
   type Grad Float = Float
   type Tang Float = Float
   type Metric Float = Float
