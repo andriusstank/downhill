@@ -19,7 +19,7 @@ import Data.Foldable (traverse_)
 import Data.VectorSpace (AdditiveGroup (negateV, (^+^)), VectorSpace ((*^)))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.DVar (BVar (BVar, bvarValue), backprop, constant, var)
-import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar), HasGradAffine)
+import Downhill.Grad (Dual (evalGrad), HasGrad (Tang, Grad, MScalar, Metric), GradBuilder, MetricTensor(..), HasGradAffine)
 import Downhill.Linear.BackGrad (BackGrad (BackGrad), realNode)
 import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), DenseBuilder (DenseBuilder), DenseVector (DenseVector), Expr (ExprSum), FullVector (identityBuilder), toDenseBuilder)
 import Downhill.Linear.Lift (lift1, lift1_dense)
@@ -30,6 +30,7 @@ data Point = Point Double Double
 
 data Vector = Vector Double Double
   deriving (Generic, Show)
+  deriving (BasicVector, FullVector) via (DenseVector Vector)
 
 data Gradient = Gradient Double Double
   deriving (Generic, Show)
@@ -48,18 +49,20 @@ instance AffineSpace Point where
   Point x y .+^ Vector dx dy = Point (x .+^ dx) (y .+^ dy)
   Point x1 y1 .-. Point x2 y2 = Vector (x1 .-. x2) (y1 .-. y2)
 
-instance Dual Double Gradient Vector where
+instance Dual Double Vector Gradient where
   evalGrad (Gradient dx dy) (Vector x y) = dx * x + dy * y
 
 instance HasGrad Vector where
-  type Scalar Vector = Double
-  type Diff Vector = Vector
+  type MScalar Vector = Double
+  type Tang Vector = Vector
   type Grad Vector = Gradient
+  type Metric Vector = L2 Vector Gradient
 
 instance HasGrad Point where
-  type Scalar Point = Double
-  type Diff Point = Vector
+  type MScalar Point = Double
+  type Tang Point = Vector
   type Grad Point = Gradient
+  type Metric Point = L2 Vector Gradient
 
 constPoint :: Point -> BVar r Point
 constPoint = constant
@@ -67,18 +70,15 @@ constPoint = constant
 varPoint :: Point -> BVar Gradient Point
 varPoint = var
 
-sqrNorm :: BVar r Vector -> BVar r Double
-sqrNorm (BVar (Vector x y) dv) = BVar normValue (lift1_dense bp dv)
+sqrNormBp :: BVar r Vector -> BVar r Double
+sqrNormBp (BVar (Vector x y) dv) = BVar normValue (lift1_dense bp dv)
   where
     normValue = x ** 2 + y ** 2
     bp :: Double -> Gradient -- same as `Grad Double -> Grad Vector`
     bp a = (2 * a) *^ Gradient x y
 
 distance :: BVar r Point -> BVar r Point -> BVar r Double
-distance x y = sqrt $ sqrNorm (x .-. y)
-
-class MetricTensor g dv v where
-  evalMetric :: g -> dv -> v
+distance x y = sqrt $ sqrNormBp (x .-. y)
 
 class HilbertSpace dv v where
   riesz :: dv -> v
@@ -90,17 +90,19 @@ instance HilbertSpace Gradient Vector where
 
 --coriesz (Vector x y) = Gradient x y
 
-data L2 = L2
+data L2 v dv = L2
 
-instance (HilbertSpace dv v, Dual s dv v) => MetricTensor L2 dv v where
+instance (HilbertSpace dv v, Dual s v dv) => MetricTensor s (L2 v dv) where
+  type MtVector (L2 v dv) = v
+  type MtCovector (L2 v dv) = dv
   evalMetric L2 = riesz
 
-type HilbertManifold p = (HasGrad p, Scalar p ~ Double, MetricTensor L2 (Grad p) (Diff p))
+type HilbertManifold p = (HasGrad p, MScalar p ~ Double)
 
-updateStep :: forall g p. (HasGradAffine p, MetricTensor g (Grad p) (Diff p)) => g -> Scalar p -> Grad p -> p -> p
+updateStep :: forall g p. (HasGradAffine p, g ~ Metric p) => g -> MScalar p -> Grad p -> p -> p
 updateStep metric lr grad x = x .+^ step
   where
-    dir :: Diff p
+    dir :: Tang p
     dir = evalMetric metric grad
     step = lr *^ dir
 
@@ -117,20 +119,20 @@ totalDistance (Triangle p1 p2 p3) x = d1 + d2 + d3
 data Iterate p z = Iterate
   { itSolution :: p,
     itDistance :: z,
-    itGradNorm :: Scalar p
+    itGradNorm :: MScalar p
   }
 
-deriving instance (Show p, Show z, Show (Scalar p)) => Show (Iterate p z)
+deriving instance (Show p, Show z, Show (MScalar p)) => Show (Iterate p z)
 
 affineStep ::
   forall g p z.
-  ( HasGradAffine p,
-    HasGrad z,
-    MetricTensor g (Grad p) (Diff p)
+  ( HasGradAffine p, g ~ Metric p
+  , FullVector (Grad z) -- TODO: Move FullVector constraint to HasGrad? Or not?
+  ,  HasGrad z
   ) =>
   (p -> BVar (Grad p) z) ->
-  Grad z ->
-  Scalar p ->
+  GradBuilder z ->
+  MScalar p ->
   g ->
   p ->
   Iterate p z
@@ -143,26 +145,26 @@ affineStep objectiveFunc one stepSize metric = nextIter
         dist = objectiveFunc x
         grad :: Grad p
         grad = backprop dist one
-        step :: Diff p
+        step :: Tang p
         step = evalMetric metric grad
 
 affineIterate ::
-  forall g p z.
-  ( HasGradAffine p,
-    MetricTensor g (Grad p) (Diff p),
+  forall p z.
+  ( HasGradAffine p
+  , FullVector (Grad z),
     HasGrad z
   ) =>
   (p -> BVar (Grad p) z) ->
-  Grad z ->
-  Scalar p ->
-  g ->
+  GradBuilder z ->
+  MScalar p ->
+  Metric p ->
   p ->
   [Iterate p z]
 affineIterate objectiveFunc one stepSize metric x0 = iterate (step . itSolution) (step x0)
   where
     step = affineStep objectiveFunc one stepSize metric
 
-solveFermatPoint :: Triangle -> L2 -> Point -> [Iterate Point Double]
+solveFermatPoint :: Triangle -> L2 Vector Gradient -> Point -> [Iterate Point Double]
 solveFermatPoint triangle = affineIterate distF 1 0.1
   where
     distF :: Point -> BVar Gradient Double

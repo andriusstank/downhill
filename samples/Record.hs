@@ -11,7 +11,7 @@ module Main where
 
 import Data.VectorSpace (AdditiveGroup ((^+^), zeroV), VectorSpace)
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.Grad (Dual (evalGrad), HasGrad (Diff, Grad, Scalar))
+import Downhill.Grad (Dual (evalGrad), HasGrad (Tang, Grad, MScalar, Metric), MetricTensor (MtVector, MtCovector, evalMetric, sqrNorm))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), DenseBuilder (DenseBuilder), maybeToMonoid, FullVector (identityBuilder, negateBuilder, scaleBuilder))
 import GHC.Generics (Generic)
 import Downhill.DVar (BVar(BVar))
@@ -45,10 +45,17 @@ instance (FullVector a, FullVector b, VectorSpace.Scalar a ~ VectorSpace.Scalar 
     negateBuilder (MyRecord a b) = Just (MyRecord (negateBuilder a) (negateBuilder b))
     scaleBuilder x (MyRecord a b) = Just (MyRecord (scaleBuilder x a) (scaleBuilder x b))
 
-instance (HasGrad a, HasGrad b, Scalar a ~ Scalar b) => HasGrad (MyRecord a b) where
-  type Scalar (MyRecord a b) = Scalar a
-  type Diff (MyRecord a b) = MyRecord (Diff a) (Diff b)
+instance (MetricTensor s a, MetricTensor s b) => MetricTensor s (MyRecord a b) where
+  type MtVector (MyRecord a b) = MyRecord (MtVector a) (MtVector b)
+  type MtCovector (MyRecord a b) = MyRecord (MtCovector a) (MtCovector b)
+  evalMetric (MyRecord m1 m2) (MyRecord x1 x2) = MyRecord (evalMetric m1 x1) (evalMetric m2 x2)
+  sqrNorm (MyRecord m1 m2) (MyRecord x1 x2) = sqrNorm m1 x1 ^+^ sqrNorm m2 x2
+
+instance (HasGrad a, HasGrad b, MScalar a ~ MScalar b) => HasGrad (MyRecord a b) where
+  type MScalar (MyRecord a b) = MScalar a
+  type Tang (MyRecord a b) = MyRecord (Tang a) (Tang b)
   type Grad (MyRecord a b) = MyRecord (Grad a) (Grad b)
+  type Metric (MyRecord a b) = MyRecord (Metric a) (Metric b)
 
 
 {-# ANN splitRecord "HLint: Avoid lambda using `infix`" #-}
@@ -65,8 +72,6 @@ splitRecord2 (BVar x dx) = MyRecord (BVar (fieldA x) da) (BVar (fieldB x) db)
           da = lift1_sparse (\dx_da -> Just (MyRecord dx_da mempty)) dx
           db :: BackGrad r (Grad b)
           db = lift1_sparse (\dx_db -> Just (MyRecord mempty dx_db)) dx
-          da' :: a1 -> Maybe (MyRecord a1 b0)
-          da' dx_da = Just (MyRecord dx_da mempty)
 
 joinRecord :: forall r a b. (HasGrad a, HasGrad b) => MyRecord (BVar r a) (BVar r b) -> BVar r (MyRecord a b)
 joinRecord (MyRecord (BVar a da) (BVar b db)) = BVar (MyRecord a b) (lift2_sparse bpA bpB da db)

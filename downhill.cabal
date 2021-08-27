@@ -68,6 +68,18 @@ executable higher
   hs-source-dirs:      samples
   default-language:    Haskell2010
 
+executable affine
+  main-is:             Affine.hs
+  build-depends:       base, downhill, vector-space
+  hs-source-dirs:      samples
+  default-language:    Haskell2010
+
+executable record
+  main-is:             Record.hs
+  build-depends:       base, downhill, vector-space
+  hs-source-dirs:      samples
+  default-language:    Haskell2010
+
 executable th
   main-is:             TH.hs
   build-depends:       base, downhill, template-haskell, lens, vector-space

@@ -29,7 +29,8 @@ import Downhill.DVar (BVar (BVar), backprop, var)
 import Downhill.Grad
   ( Dual (evalGrad),
     HasFullGrad,
-    HasGrad (Grad, Metric, Scalar, Tang),
+    HasGrad (Grad, Metric, MScalar, Tang),
+    GradBuilder,
     MetricTensor
       ( MtCovector,
         MtVector,
@@ -63,7 +64,7 @@ instance
   evalMetric (TraversableMetric m) (IntmapVector da) = IntmapVector (IntMap.map (evalMetric m) da)
 
 instance HasGrad a => HasGrad (TraversableVar f a) where
-  type Scalar (TraversableVar f a) = Scalar a
+  type MScalar (TraversableVar f a) = MScalar a
   type Tang (TraversableVar f a) = IntmapVector (Tang a)
   type Grad (TraversableVar f a) = IntmapVector (Grad a)
   type Metric (TraversableVar f a) = TraversableMetric f a
@@ -136,7 +137,7 @@ backpropTraversable ::
     HasFullGrad a,
     HasFullGrad p
   ) =>
-  Grad p ->
+  GradBuilder p ->
   (a -> Grad a -> b) ->
   (forall r. f (BVar r a) -> BVar r p) ->
   f a ->

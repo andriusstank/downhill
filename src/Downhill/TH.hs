@@ -21,11 +21,10 @@ where
 import Control.Monad
 import Data.AdditiveGroup ((^+^), (^-^))
 import Data.Functor.Identity (Identity (Identity, runIdentity))
-import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace ((*^)))
-import qualified Data.VectorSpace as VectorSpace
+import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace ((*^), Scalar))
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, Metric, Scalar, Tang),
+    HasGrad (Grad, Metric, MScalar, Tang),
     MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm),
   )
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
@@ -337,7 +336,7 @@ mkVectorSpaceInstance record scalarType cxt instVars = do
         TySynInstD
           ( TySynEqn
               Nothing
-              (AppT (ConT ''VectorSpace.Scalar) recordType)
+              (AppT (ConT ''Scalar) recordType)
               scalarType
           )
       decs = [scalarTypeDec, vmulDec]
@@ -688,7 +687,7 @@ mkDVarC1 options = \case
           [] -> fail "`HasGrad` instance has no declarations"
           [dec1] -> case dec1 of
             TySynInstD (TySynEqn _ (AppT (ConT scalarName) _) scalarType) -> do
-              when (scalarName /= ''Scalar) $ do
+              when (scalarName /= ''MScalar) $ do
                 fail ("Expected `Scalar` equation, got " ++ show scalarName)
               return scalarType
             _ -> fail "HasGrad instance must contain `Scalar ... = ...` declaration"

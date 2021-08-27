@@ -21,8 +21,8 @@ import Control.Lens.Tuple (_16')
 import Data.AdditiveGroup (AdditiveGroup (..))
 import Data.Kind (Constraint, Type)
 import Data.Monoid (Sum)
-import Data.VectorSpace (VectorSpace ())
-import Downhill.Grad (HasGrad (Grad, Scalar, Tang, Metric), Dual(..), MetricTensor(..))
+import Data.VectorSpace (VectorSpace (Scalar, (*^)))
+import Downhill.Grad (HasGrad (Grad, MScalar, Tang, Metric), Dual(..), MetricTensor(..))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.TH
 import GHC.Generics (Generic)
@@ -86,7 +86,7 @@ instance B MyRecord where
 iq =
   [d|
     instance HasGrad a => HasGrad (MyRecord1 a) where
-      type Scalar (MyRecord1 a) = Scalar a
+      type MScalar (MyRecord1 a) = MScalar a
     |]
 
 --mkDVar defaultDVarOptions ''MyRecord
@@ -95,7 +95,7 @@ mkDVarC
   defaultDVarOptions
   [d|
     instance HasGrad a => HasGrad (MyRecord1 a) where
-      type Scalar (MyRecord1 a) = Scalar a
+      type MScalar (MyRecord1 a) = MScalar a
     |]
 
 test = [d| instance s ~ VectorSpace.Scalar (MyRecord1 a) => VectorSpace (MyRecord1 s) where

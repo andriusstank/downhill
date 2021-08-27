@@ -33,6 +33,7 @@ class
   -- if evalGrad goes to HasGrad class, parameter p is ambiguous
   evalGrad :: dv -> v -> s
 
+-- TODO: add (VectorSpace m) constraint
 class Dual s (MtVector m) (MtCovector m) => MetricTensor s m where
   type MtVector m :: Type
   type MtCovector m :: Type
@@ -45,8 +46,8 @@ class Dual s (MtVector m) (MtCovector m) => MetricTensor s m where
   sqrNorm m x = innerProduct x m x
 
 class
-  ( Dual (Scalar p) (Tang p) (Grad p)
-  , MetricTensor (Scalar p) (Metric p)
+  ( Dual (MScalar p) (Tang p) (Grad p)
+  , MetricTensor (MScalar p) (Metric p)
   , MtVector (Metric p) ~ Tang p
   , MtCovector (Metric p) ~ Grad p
   , BasicVector (Tang p)
@@ -54,7 +55,7 @@ class
   ) =>
   HasGrad p
   where
-  type Scalar p :: Type
+  type MScalar p :: Type
   type Tang p :: Type
   type Grad p :: Type
   type Metric p :: Type
@@ -80,7 +81,7 @@ instance MetricTensor Integer Integer where
   evalMetric m x = m*x
   
 instance HasGrad Integer where
-  type Scalar Integer = Integer
+  type MScalar Integer = Integer
   type Tang Integer = Integer
   type Grad Integer = Integer
   type Metric Integer = Integer
@@ -100,11 +101,11 @@ instance (MetricTensor s ma, MetricTensor s mb) => MetricTensor s (ma, mb) where
 instance
   ( HasGrad a,
     HasGrad b,
-    Scalar b ~ Scalar a
+    MScalar b ~ MScalar a
   ) =>
   HasGrad (a, b)
   where
-  type Scalar (a, b) = Scalar a
+  type MScalar (a, b) = MScalar a
   type Grad (a, b) = (Grad a, Grad b)
   type Tang (a, b) = (Tang a, Tang b)
   type Metric (a, b) = (Metric a, Metric b)
@@ -119,12 +120,12 @@ instance
   ( HasGrad a,
     HasGrad b,
     HasGrad c,
-    Scalar b ~ Scalar a,
-    Scalar c ~ Scalar a
+    MScalar b ~ MScalar a,
+    MScalar c ~ MScalar a
   ) =>
   HasGrad (a, b, c)
   where
-  type Scalar (a, b, c) = Scalar a
+  type MScalar (a, b, c) = MScalar a
   type Grad (a, b, c) = (Grad a, Grad b, Grad c)
   type Tang (a, b, c) = (Tang a, Tang b, Tang c)
   type Metric (a, b, c) = (Metric a, Metric b, Metric c)
@@ -138,7 +139,7 @@ instance MetricTensor Float Float where
   evalMetric m dv = m*dv
 
 instance HasGrad Float where
-  type Scalar Float = Float -- TODO: rename, clashes with VectorSpace
+  type MScalar Float = Float
   type Grad Float = Float
   type Tang Float = Float
   type Metric Float = Float
@@ -152,7 +153,7 @@ instance MetricTensor Double Double where
   evalMetric m dv = m*dv
 
 instance HasGrad Double where
-  type Scalar Double = Double
+  type MScalar Double = Double
   type Grad Double = Double
   type Tang Double = Double
   type Metric Double = Double
