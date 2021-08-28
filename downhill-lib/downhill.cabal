@@ -47,41 +47,10 @@ library
   default-language:    Haskell2010
   ghc-options:         -Wall
 
-executable hello
-  main-is:             Hello.hs
-  build-depends:       base, downhill, vector-space, lens, free, distributive, transformers,
-                       vector, dlist, containers, template-haskell
-  hs-source-dirs:      samples
-  default-language:    Haskell2010
-
-executable higher
-  main-is:             Higher.hs
-  build-depends:       base, downhill, vector-space
-  hs-source-dirs:      samples
-  default-language:    Haskell2010
-
-executable affine
-  main-is:             Affine.hs
-  build-depends:       base, downhill, vector-space
-  hs-source-dirs:      samples
-  default-language:    Haskell2010
-
-executable record
-  main-is:             Record.hs
-  build-depends:       base, downhill, vector-space
-  hs-source-dirs:      samples
-  default-language:    Haskell2010
-
-executable th
-  main-is:             TH.hs
-  build-depends:       base, downhill, template-haskell, lens, vector-space
-  hs-source-dirs:      samples
-  default-language:    Haskell2010
-
-test-suite bp-test
+test-suite downhill-test
   type:                exitcode-stdio-1.0
   main-is:             Main.hs
-  other-modules:       Point
+  other-modules:       Point, Record
   build-depends:       base, downhill, tasty, tasty-hunit
   hs-source-dirs:      test
   default-language:    Haskell2010

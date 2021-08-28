@@ -1,10 +1,12 @@
 cradle:
   cabal:
-    - path: "./src"
-      component: "lib:downhill"
-    - path: "./test"
-      component: "test:bp-test"
-    - path: "./samples"
-      component: "exe:hello"
+    - path: "./downhill-lib/src"
+      component: "downhill-lib"
+    - path: "./downhill-lib/test"
+      component: "downhill-lib:downhill-test"
+    - path: "./samples/Hello.hs"
+      component: "downhill-samples:hello"
+    - path: "./samples/Record.hs"
+      component: "downhill-samples:record"
     - path: "./intro"
       component: "lib:downhill"

@@ -1,22 +1,29 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main where
 
-import Data.VectorSpace (AdditiveGroup ((^+^), zeroV), VectorSpace)
+import Data.VectorSpace (AdditiveGroup (zeroV, (^+^)), VectorSpace)
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.Grad (Dual (evalGrad), HasGrad (Tang, Grad, MScalar, Metric), MetricTensor (MtVector, MtCovector, evalMetric, sqrNorm))
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), DenseBuilder (DenseBuilder), maybeToMonoid, FullVector (identityBuilder, negateBuilder, scaleBuilder))
-import GHC.Generics (Generic)
-import Downhill.DVar (BVar(BVar))
-import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
+import Downhill.DVar (BVar (BVar))
+import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm))
 import Downhill.Linear.BackGrad
+import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), DenseBuilder (DenseBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder), maybeToMonoid)
+import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
+import GHC.Generics (Generic)
+import GHC.Records (HasField (getField))
 
 data MyRecord a b = MyRecord
   { fieldA :: a,
@@ -24,8 +31,8 @@ data MyRecord a b = MyRecord
   }
   deriving (Show, Generic)
 
-instance (Semigroup a, Semigroup b) => Semigroup (MyRecord a b)
-    where (MyRecord a1 b1) <> (MyRecord a2 b2) = MyRecord (a1<>a2) (b1<>b2)
+instance (Semigroup a, Semigroup b) => Semigroup (MyRecord a b) where
+  (MyRecord a1 b1) <> (MyRecord a2 b2) = MyRecord (a1 <> a2) (b1 <> b2)
 
 instance (AdditiveGroup a, AdditiveGroup b) => AdditiveGroup (MyRecord a b)
 
@@ -34,16 +41,17 @@ instance (VectorSpace a, VectorSpace b, VectorSpace.Scalar a ~ VectorSpace.Scala
 instance (BasicVector a, BasicVector b) => BasicVector (MyRecord a b) where
   type VecBuilder (MyRecord a b) = Maybe (MyRecord (VecBuilder a) (VecBuilder b))
   sumBuilder r = MyRecord (sumBuilder a) (sumBuilder b)
-    where a = maybeToMonoid (fieldA <$> r)
-          b = maybeToMonoid (fieldB <$> r)
+    where
+      a = maybeToMonoid (fieldA <$> r)
+      b = maybeToMonoid (fieldB <$> r)
 
 instance (Dual s da a, Dual s db b) => Dual s (MyRecord da db) (MyRecord a b) where
   evalGrad (MyRecord da db) (MyRecord a b) = evalGrad da a ^+^ evalGrad db b
 
 instance (FullVector a, FullVector b, VectorSpace.Scalar a ~ VectorSpace.Scalar b) => FullVector (MyRecord a b) where
-    identityBuilder (MyRecord a b) = Just (MyRecord (identityBuilder a) (identityBuilder b))
-    negateBuilder (MyRecord a b) = Just (MyRecord (negateBuilder a) (negateBuilder b))
-    scaleBuilder x (MyRecord a b) = Just (MyRecord (scaleBuilder x a) (scaleBuilder x b))
+  identityBuilder (MyRecord a b) = Just (MyRecord (identityBuilder a) (identityBuilder b))
+  negateBuilder (MyRecord a b) = Just (MyRecord (negateBuilder a) (negateBuilder b))
+  scaleBuilder x (MyRecord a b) = Just (MyRecord (scaleBuilder x a) (scaleBuilder x b))
 
 instance (MetricTensor s a, MetricTensor s b) => MetricTensor s (MyRecord a b) where
   type MtVector (MyRecord a b) = MyRecord (MtVector a) (MtVector b)
@@ -57,29 +65,31 @@ instance (HasGrad a, HasGrad b, MScalar a ~ MScalar b) => HasGrad (MyRecord a b)
   type Grad (MyRecord a b) = MyRecord (Grad a) (Grad b)
   type Metric (MyRecord a b) = MyRecord (Metric a) (Metric b)
 
+{-# ANN splitRecord ("HLint: ignore Avoid lambda" :: String) #-}
+splitRecord :: forall r a b. (BasicVector (Grad a), BasicVector (Grad b)) => BVar r (MyRecord a b) -> MyRecord (BVar r a) (BVar r b)
+splitRecord x = MyRecord (getField @"fieldA" x) (getField @"fieldB" x)
 
-{-# ANN splitRecord ("HLint: Avoid lambda using `infix`" :: String) #-}
-splitRecord :: forall r a b. (HasGrad a, HasGrad b) => BVar r (MyRecord a b) -> MyRecord (BVar r a) (BVar r b)
-splitRecord (BVar x dx) = MyRecord (BVar (fieldA x) da) (BVar (fieldB x) db)
-    where da :: BackGrad r (Grad a)
-          da = lift1_sparse (\dx_da -> Just (MyRecord dx_da mempty)) dx
-          db :: BackGrad r (Grad b)
-          db = lift1_sparse (\dx_db -> Just (MyRecord mempty dx_db)) dx
-
-splitRecord2 :: forall r a b. (HasGrad a, HasGrad b) => BVar r (MyRecord a b) -> MyRecord (BVar r a) (BVar r b)
-splitRecord2 (BVar x dx) = MyRecord (BVar (fieldA x) da) (BVar (fieldB x) db)
-    where da :: BackGrad r (Grad a)
-          da = lift1_sparse (\dx_da -> Just (MyRecord dx_da mempty)) dx
-          db :: BackGrad r (Grad b)
-          db = lift1_sparse (\dx_db -> Just (MyRecord mempty dx_db)) dx
-
-joinRecord :: forall r a b. (HasGrad a, HasGrad b) => MyRecord (BVar r a) (BVar r b) -> BVar r (MyRecord a b)
+joinRecord :: forall r a b. (BasicVector (Grad a), BasicVector (Grad b)) => MyRecord (BVar r a) (BVar r b) -> BVar r (MyRecord a b)
 joinRecord (MyRecord (BVar a da) (BVar b db)) = BVar (MyRecord a b) (lift2_sparse bpA bpB da db)
-    where bpA :: Maybe (MyRecord (VecBuilder (Grad a)) (VecBuilder (Grad b))) -> VecBuilder (Grad a)
-          bpA = maybeToMonoid . fmap fieldA
-          bpB :: Maybe (MyRecord (VecBuilder (Grad a)) (VecBuilder (Grad b))) -> VecBuilder (Grad b)
-          bpB = maybeToMonoid . fmap fieldB
+  where
+    bpA :: Maybe (MyRecord (VecBuilder (Grad a)) (VecBuilder (Grad b))) -> VecBuilder (Grad a)
+    bpA = maybeToMonoid . fmap fieldA
+    bpB :: Maybe (MyRecord (VecBuilder (Grad a)) (VecBuilder (Grad b))) -> VecBuilder (Grad b)
+    bpB = maybeToMonoid . fmap fieldB
 
+instance (BasicVector (Grad a), BasicVector (Grad b)) => HasField "fieldA" (BVar r (MyRecord a b)) (BVar r a) where
+  getField :: BVar r (MyRecord a b) -> BVar r a
+  getField (BVar x dx) = BVar (fieldA x) da
+    where
+      da :: BackGrad r (Grad a)
+      da = lift1_sparse (\dx_da -> Just (MyRecord dx_da mempty)) dx
+
+instance (BasicVector (Grad a), BasicVector (Grad b)) => HasField "fieldB" (BVar r (MyRecord a b)) (BVar r b) where
+  getField :: BVar r (MyRecord a b) -> BVar r b
+  getField (BVar x dx) = BVar (fieldB x) db
+    where
+      db :: BackGrad r (Grad b)
+      db = lift1_sparse (Just . MyRecord mempty) dx
 
 main :: IO ()
 main = return ()
