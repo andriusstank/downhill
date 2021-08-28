@@ -625,8 +625,10 @@ mkDVar'' cxt downhillTypes scalarType instVars = do
   gradInst <- mkBasicVectorInstance (mapDdt dtGrad downhillTypes) cxt instVars
   additiveTang <- mkAdditiveGroupInstance cxt (mapDdt (Identity . dvtVector) tangVector) instVars
   additiveGrad <- mkAdditiveGroupInstance cxt (mapDdt (Identity . dvtVector) gradVector) instVars
+  additiveMetric <- mkAdditiveGroupInstance cxt metric instVars
   vspaceTang <- mkVectorSpaceInstance (mapDdt (Identity . dvtVector) tangVector) scalarType cxt instVars
   vspaceGrad <- mkVectorSpaceInstance (mapDdt (Identity . dvtVector) gradVector) scalarType cxt instVars
+  vspaceMetric <- mkVectorSpaceInstance metric scalarType cxt instVars
   dualInstance <- mkDualInstance downhillTypes scalarType cxt instVars
   metricInstance <- mkMetricInstance downhillTypes scalarType cxt instVars
 
@@ -639,8 +641,10 @@ mkDVar'' cxt downhillTypes scalarType instVars = do
           gradSemigroup,
           additiveTang,
           additiveGrad,
+          additiveMetric,
           vspaceTang,
           vspaceGrad,
+          vspaceMetric,
           tangInst,
           gradInst,
           dualInstance,
@@ -648,19 +652,6 @@ mkDVar'' cxt downhillTypes scalarType instVars = do
           metricInstance
         ]
   return (concat decs)
-
-{-
-
-mkDVar' :: DVarOptions -> Cxt -> Name -> [Type] -> Q [Dec]
-mkDVar' options cxt recordName instVars = do
-  record <- parseDownhillDataType recordName
-  let downhillTypes = renameDownhillDataType' options record
-  mkDVar'' options cxt downhillTypes instVars
-
-mkDVar :: DVarOptions -> Name -> Q [Dec]
-mkDVar opts typeName = mkDVar' opts [] typeName []
-
--}
 
 parseRecordType :: Type -> [Type] -> Q (Name, [Type])
 parseRecordType type_ vars = case type_ of
@@ -734,26 +725,6 @@ mkDVarC1 options = \case
         return $ dvar ++ [hasgradInstance]
       _ -> fail "Instance head is not a constraint"
   _ -> fail "Expected instance declaration"
-
-{-
-InstanceD Nothing
-[AppT (ConT Downhill.Grad.HasGrad) (VarT a_0)] -- ctx
-
--- type
-(AppT
-  (
-    AppT (ConT Downhill.Grad.HasGrad) (ConT Main.MyRecord1)
-  ) (VarT a_0)
-)
-
-[
-  TySynInstD (
-    TySynEqn Nothing (
-      AppT (ConT Downhill.Grad.Scalar) (AppT (ConT Main.MyRecord1) (VarT a_0))
-    ) (AppT (ConT Downhill.Grad.Scalar) (VarT a_0))
-  )
-]
--}
 
 mkDVarC :: DVarOptions -> Q [Dec] -> Q [Dec]
 mkDVarC options decs = concat <$> (traverse (mkDVarC1 options) =<< decs)

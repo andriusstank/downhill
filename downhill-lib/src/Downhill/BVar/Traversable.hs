@@ -9,6 +9,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Downhill.BVar.Traversable
   ( TraversableVar (..),
@@ -23,7 +24,7 @@ import Data.AdditiveGroup (AdditiveGroup, sumV)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Maybe (fromMaybe)
-import Data.VectorSpace (AdditiveGroup (negateV, zeroV, (^+^), (^-^)), VectorSpace ((*^)))
+import Data.VectorSpace (AdditiveGroup (negateV, zeroV, (^+^), (^-^)), VectorSpace ((*^), Scalar))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.DVar (BVar (BVar), backprop, var)
 import Downhill.Grad
@@ -39,6 +40,7 @@ import Downhill.Grad
   )
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.Linear.Lift (lift1_sparse)
+import GHC.Generics (Generic)
 
 -- | 'Traversable' types can be provided 'HasGrad' instance by deriving via @TraversableVar@.
 --
@@ -50,6 +52,11 @@ newtype TraversableVar f a = TraversableVar {unTraversableVar :: f a}
   deriving stock (Functor, Foldable, Traversable)
 
 newtype TraversableMetric f a = TraversableMetric (Metric a)
+  deriving Generic
+
+instance AdditiveGroup (Metric a) => AdditiveGroup (TraversableMetric f a)
+instance VectorSpace (Metric a) => VectorSpace (TraversableMetric f a) where
+  type Scalar (TraversableMetric f a) = Scalar (Metric a)
 
 instance
   ( MetricTensor s (Metric a),

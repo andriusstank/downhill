@@ -1,25 +1,27 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ConstraintKinds #-}
 
 module Downhill.Grad
-  ( Dual (..), MetricTensor(..),
-    HasGrad (..), GradBuilder, HasFullGrad, HasGradAffine
+  ( Dual (..),
+    MetricTensor (..),
+    HasGrad (..),
+    GradBuilder,
+    HasFullGrad,
+    HasGradAffine,
   )
 where
 
+import Data.AffineSpace (AffineSpace (Diff))
 import Data.Kind (Type)
-import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
-import Downhill.Linear.Expr (FullVector, BasicVector (VecBuilder))
-import Data.AffineSpace (AffineSpace(Diff))
-
+import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace (Scalar))
 import qualified Data.VectorSpace as VectorSpace
-
+import Downhill.Linear.Expr (BasicVector (VecBuilder), FullVector)
 
 class
   ( AdditiveGroup s,
@@ -34,24 +36,32 @@ class
   evalGrad :: dv -> v -> s
 
 -- TODO: add (VectorSpace m) constraint
-class Dual s (MtVector m) (MtCovector m) => MetricTensor s m where
+class
+  ( Dual s (MtVector m) (MtCovector m),
+    VectorSpace m,
+    Scalar m ~ s
+  ) =>
+  MetricTensor s m
+  where
   type MtVector m :: Type
   type MtCovector m :: Type
   evalMetric :: m -> MtCovector m -> MtVector m
+
   -- | @innerProduct x m y == evalGrad x (evalMetric m y)@
   -- | @innerProduct x m y == innerProduct y m x@
   innerProduct :: MtCovector m -> m -> MtCovector m -> s
   innerProduct x m y = evalGrad x (evalMetric m y)
+
   sqrNorm :: m -> MtCovector m -> s
   sqrNorm m x = innerProduct x m x
 
 class
-  ( Dual (MScalar p) (Tang p) (Grad p)
-  , MetricTensor (MScalar p) (Metric p)
-  , MtVector (Metric p) ~ Tang p
-  , MtCovector (Metric p) ~ Grad p
-  , BasicVector (Tang p)
-  , BasicVector (Grad p)
+  ( Dual (MScalar p) (Tang p) (Grad p),
+    MetricTensor (MScalar p) (Metric p),
+    MtVector (Metric p) ~ Tang p,
+    MtCovector (Metric p) ~ Grad p,
+    BasicVector (Tang p),
+    BasicVector (Grad p)
   ) =>
   HasGrad p
   where
@@ -72,14 +82,14 @@ type HasGradAffine p =
     Grad (Tang p) ~ Grad p
   )
 
-instance Dual Integer Integer Integer  where
+instance Dual Integer Integer Integer where
   evalGrad = (*)
 
 instance MetricTensor Integer Integer where
-  type (MtVector Integer) = Integer
-  type (MtCovector Integer) = Integer
-  evalMetric m x = m*x
-  
+  type MtVector Integer = Integer
+  type MtCovector Integer = Integer
+  evalMetric m x = m * x
+
 instance HasGrad Integer where
   type MScalar Integer = Integer
   type Tang Integer = Integer
@@ -136,7 +146,7 @@ instance Dual Float Float Float where
 instance MetricTensor Float Float where
   type MtVector Float = Float
   type MtCovector Float = Float
-  evalMetric m dv = m*dv
+  evalMetric m dv = m * dv
 
 instance HasGrad Float where
   type MScalar Float = Float
@@ -150,7 +160,7 @@ instance Dual Double Double Double where
 instance MetricTensor Double Double where
   type MtVector Double = Double
   type MtCovector Double = Double
-  evalMetric m dv = m*dv
+  evalMetric m dv = m * dv
 
 instance HasGrad Double where
   type MScalar Double = Double

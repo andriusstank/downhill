@@ -8,5 +8,7 @@ cradle:
       component: "downhill-samples:hello"
     - path: "./samples/Record.hs"
       component: "downhill-samples:record"
+    - path: "./samples/TH.hs"
+      component: "downhill-samples:th"
     - path: "./intro"
       component: "lib:downhill"
