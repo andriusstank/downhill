@@ -58,7 +58,7 @@ instance (HasGrad a, HasGrad b, MScalar a ~ MScalar b) => HasGrad (MyRecord a b)
   type Metric (MyRecord a b) = MyRecord (Metric a) (Metric b)
 
 
-{-# ANN splitRecord "HLint: Avoid lambda using `infix`" #-}
+{-# ANN splitRecord ("HLint: Avoid lambda using `infix`" :: String) #-}
 splitRecord :: forall r a b. (HasGrad a, HasGrad b) => BVar r (MyRecord a b) -> MyRecord (BVar r a) (BVar r b)
 splitRecord (BVar x dx) = MyRecord (BVar (fieldA x) da) (BVar (fieldB x) db)
     where da :: BackGrad r (Grad a)

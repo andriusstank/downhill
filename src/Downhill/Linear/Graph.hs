@@ -10,14 +10,16 @@ module Downhill.Linear.Graph
     flipSomeGraph,
     buildSomeGraph,
     backpropGraph,
-    backprop, backprop'
+    backprop,
+    backprop',
   )
 where
 
 import Downhill.Internal.Graph.Graph
   ( Graph,
     SomeGraph (..),
-    evalGraph, flipGraph
+    evalGraph,
+    flipGraph,
   )
 import qualified Downhill.Internal.Graph.Graph as Graph
 import Downhill.Internal.Graph.OpenGraph (recoverSharing)

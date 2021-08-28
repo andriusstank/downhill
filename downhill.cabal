@@ -33,21 +33,13 @@ library
                        Downhill.TH
   -- other-modules:
   -- other-extensions:
-  build-depends:       base >=4.12.0.0 && <4.14,
+  build-depends:       base >=4.12.0.0 && <4.16,
                        vector-space,
-                       constraints,
                        containers, unordered-containers,
                        transformers,
                        reflection,
-                       adjunctions,
-                       data-fix,
-                       singletons ^>= 3.0,
-                       these,
-                       semialign,
                        manifolds-core,
                        tagged,
-                       singletons,
-                       constrained-categories,
                        template-haskell
 
   hs-source-dirs:      src
