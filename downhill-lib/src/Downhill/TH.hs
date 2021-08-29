@@ -21,18 +21,21 @@ where
 import Control.Monad
 import Data.AdditiveGroup ((^+^), (^-^))
 import Data.Functor.Identity (Identity (Identity, runIdentity))
-import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace ((*^), Scalar))
+import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace (Scalar, (*^)))
+import Downhill.DVar (BVar (BVar))
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, Metric, MScalar, Tang),
+    HasGrad (Grad, MScalar, Metric, Tang),
     MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm),
   )
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
+import Downhill.Linear.Lift (lift1_sparse)
+import GHC.Records (HasField (getField))
 import Language.Haskell.TH
   ( Bang (Bang),
     Con (NormalC, RecC),
     Cxt,
-    Dec (DataD, InstanceD),
+    Dec (DataD, InstanceD, SigD),
     Exp (AppE, ConE, InfixE, VarE),
     Info (TyConI),
     Name,
@@ -51,8 +54,10 @@ import Language.Haskell.TH.Syntax
     Body (NormalB),
     Clause (Clause),
     Dec (FunD, TySynInstD, ValD),
+    Exp (AppTypeE),
+    TyLit (StrTyLit),
     TySynEqn (TySynEqn),
-    Type (EqualityT),
+    Type (ArrowT, EqualityT, LitT),
     VarBangType,
     mkNameS,
   )
@@ -86,8 +91,10 @@ deriving instance Show a => Show (DownhillVectorType a)
 deriving instance Show a => Show (DownhillTypes a)
 
 deriving instance Show (DatatypeFields DownhillTypes)
+deriving instance Show (DatatypeFields Identity)
 
 deriving instance Show (DownhillDataType DownhillTypes)
+deriving instance Show (DownhillDataType Identity)
 
 mapDdt :: (forall a. f a -> g a) -> DownhillDataType f -> DownhillDataType g
 mapDdt f x =
@@ -608,6 +615,90 @@ renameDownhillDataType' options record =
           dtMetric = (fieldNamer (optMetricNamer options) name, AppT (ConT ''Metric) t)
         }
 
+data FieldInfo = FieldInfo
+  { fiName :: String,
+    fiIndex :: Int,
+    fiType :: Type
+  }
+
+mkGetField :: DownhillDataType DownhillTypes -> Type -> Cxt -> [Type] -> FieldInfo -> Q [Dec]
+mkGetField record scalarType cxt instVars field = do
+  rName <- newName "r"
+  instDec rName
+  where
+    n = ddtFieldCount record
+    applyVars :: Type -> Type
+    applyVars x = foldl AppT x instVars
+    pointType :: Type
+    pointType = applyVars (ConT . dtPoint $ ddtTypeConName record)
+    gradBuilderType = applyVars (ConT . dvtBuilder . dtGrad $ ddtTypeConName record)
+    instDec rName = do
+      let bvarType :: Type
+          bvarType = applyVars (AppT (ConT ''BVar) (VarT rName))
+      fieldPatNames <- replicateM n (newName "field")
+      xName <- newName "x"
+      dxName <- newName "x"
+      goName <- newName "go"
+      dxdaName <- newName "dx_da"
+      let pat :: Pat
+          pat = ConP (dtPoint $ ddtDataConName record) (map VarP fieldPatNames)
+      return $
+        [ InstanceD
+            Nothing
+            cxt
+            ( AppT
+                ( AppT
+                    (AppT (ConT ''HasField) (LitT (StrTyLit "myA")))
+                    (AppT (AppT (ConT ''BVar) (VarT rName)) pointType)
+                )
+                (AppT (AppT (ConT ''BVar) (VarT rName)) (fiType field))
+            )
+            [ FunD
+                'getField
+                [ Clause
+                    [ConP 'BVar [VarP xName, VarP dxName]]
+                    ( NormalB
+                        ( AppE
+                            ( AppE
+                                (ConE 'BVar)
+                                (AppE (AppTypeE (VarE 'getField) (LitT (StrTyLit "myA"))) (VarE xName))
+                            )
+                            (AppE (AppE (VarE 'lift1_sparse) (VarE goName)) (VarE dxName))
+                        )
+                    )
+                    [ SigD
+                        goName
+                        ( AppT
+                            ( AppT
+                                ArrowT
+                                ( (ConT ''VecBuilder)
+                                    `AppT` (AppT (ConT ''Grad) (fiType field))
+                                )
+                            )
+                            ( ConT ''Maybe
+                                `AppT` gradBuilderType
+                            )
+                        ),
+                      FunD
+                        goName
+                        [ Clause
+                            [VarP dxdaName]
+                            ( NormalB
+                                ( AppE
+                                    (ConE 'Just)
+                                    ( AppE
+                                        (AppE (ConE (dvtBuilder . dtGrad $ ddtDataConName record)) (VarE dxdaName))
+                                        (VarE 'mempty)
+                                    )
+                                )
+                            )
+                            []
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
 mkDVar'' :: Cxt -> DownhillDataType DownhillTypes -> Type -> [Type] -> Q [Dec]
 mkDVar'' cxt downhillTypes scalarType instVars = do
   let tangVector = mapDdt dtTang downhillTypes
@@ -632,6 +723,16 @@ mkDVar'' cxt downhillTypes scalarType instVars = do
   dualInstance <- mkDualInstance downhillTypes scalarType cxt instVars
   metricInstance <- mkMetricInstance downhillTypes scalarType cxt instVars
 
+  hasFieldInstance <- case ddtFields downhillTypes of
+    NormalFields _ -> return []
+    RecordFields dts ->
+      let info :: Int -> (String, Type) -> FieldInfo
+          info index (name, type_) = FieldInfo name index type_
+          fields :: [FieldInfo]
+          fields = zipWith info [0..] (dtPoint <$> dts)
+      in concat <$> traverse (mkGetField downhillTypes scalarType cxt instVars) fields
+  --hasFieldInstance <- mkGetField downhillTypes scalarType cxt instVars (FieldInfo "myA" 0 (instVars !! 0))
+
   let decs =
         [ tangDec,
           gradDec,
@@ -649,7 +750,8 @@ mkDVar'' cxt downhillTypes scalarType instVars = do
           gradInst,
           dualInstance,
           metricDec,
-          metricInstance
+          metricInstance --,
+          --hasFieldInstance
         ]
   return (concat decs)
 

@@ -16,7 +16,7 @@ module Main where
 import Data.AffineSpace (AffineSpace ((.+^), (.-.)))
 import qualified Data.AffineSpace as AffineSpace
 import Data.Foldable (traverse_)
-import Data.VectorSpace (AdditiveGroup (negateV, (^+^)), VectorSpace ((*^)))
+import Data.VectorSpace (AdditiveGroup (negateV, (^+^)), VectorSpace ((*^)), Scalar)
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.DVar (BVar (BVar, bvarValue), backprop, constant, var)
 import Downhill.Grad (Dual (evalGrad), HasGrad (Tang, Grad, MScalar, Metric), GradBuilder, MetricTensor(..), HasGradAffine)
@@ -24,6 +24,7 @@ import Downhill.Linear.BackGrad (BackGrad (BackGrad), realNode)
 import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), DenseBuilder (DenseBuilder), DenseVector (DenseVector), Expr (ExprSum), FullVector (identityBuilder), toDenseBuilder)
 import Downhill.Linear.Lift (lift1, lift1_dense)
 import GHC.Generics (Generic)
+import Downhill.BVar.Num (AsNum(AsNum))
 
 data Point = Point Double Double
   deriving (Generic, Show)
@@ -90,12 +91,20 @@ instance HilbertSpace Gradient Vector where
 
 --coriesz (Vector x y) = Gradient x y
 
-data L2 v dv = L2
+newtype L2 v dv = L2 (Scalar v)
+  deriving Generic
 
-instance (HilbertSpace dv v, Dual s v dv) => MetricTensor s (L2 v dv) where
+deriving via (AsNum (Scalar v)) instance Num (Scalar v) =>  AdditiveGroup (L2 v dv)
+
+
+instance (Num (Scalar v), VectorSpace v) => VectorSpace (L2 v dv) where
+  type Scalar (L2 v dv) = Scalar v
+  x *^ L2 y = L2 (x*y)
+
+instance (HilbertSpace dv v, Dual s v dv, Num s, Scalar v ~ s) => MetricTensor s (L2 v dv) where
   type MtVector (L2 v dv) = v
   type MtCovector (L2 v dv) = dv
-  evalMetric L2 = riesz
+  evalMetric (L2 x) = (x *^) . riesz
 
 type HilbertManifold p = (HasGrad p, MScalar p ~ Double)
 
@@ -175,6 +184,6 @@ main = traverse_ print iters
   where
     triangle = Triangle (Point 0 0) (Point 0 1) (Point 1 0)
     x0 = Point 1 1
-    lr = L2
+    lr = L2 1.0
     iters :: [Iterate Point Double]
     iters = take 20 $ solveFermatPoint triangle lr x0

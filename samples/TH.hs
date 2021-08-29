@@ -1,4 +1,5 @@
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
@@ -7,13 +8,16 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
+
 -- {-# OPTIONS_GHC -ddump-splices #-}
 --{-# OPTIONS_GHC -ddump-to-file #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Main where
 
@@ -22,13 +26,16 @@ import Data.AdditiveGroup (AdditiveGroup (..))
 import Data.Kind (Constraint, Type)
 import Data.Monoid (Sum)
 import Data.VectorSpace (VectorSpace (Scalar, (*^)))
-import Downhill.Grad (HasGrad (Grad, MScalar, Tang, Metric), Dual(..), MetricTensor(..))
+import qualified Data.VectorSpace as VectorSpace
+import Downhill.DVar (BVar (BVar))
+import Downhill.Grad (Dual (..), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (..))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
+import Downhill.Linear.Lift (lift1_sparse)
 import Downhill.TH
 import GHC.Generics (Generic)
-import Language.Haskell.TH (Dec, Exp, Q, runQ, stringE, Pat (ConP))
+import GHC.Records (HasField (getField))
+import Language.Haskell.TH (Dec, Exp, Pat (ConP), Q, runQ, stringE)
 import qualified Language.Haskell.TH as TH
-import qualified Data.VectorSpace as VectorSpace
 
 class FooClass a b
 
@@ -83,12 +90,6 @@ instance B MyRecord where
 --instance VectorSpace MyRecordGrad
 
 --mkBasicVectorInstance ''MyRecordGrad ''MyRecordGradBuilder
-iq =
-  [d|
-    instance HasGrad a => HasGrad (MyRecord1 a) where
-      type MScalar (MyRecord1 a) = MScalar a
-    |]
-
 --mkDVar defaultDVarOptions ''MyRecord
 
 mkDVarC
@@ -98,12 +99,27 @@ mkDVarC
       type MScalar (MyRecord1 a) = MScalar a
     |]
 
-test = [d| instance s ~ VectorSpace.Scalar (MyRecord1 a) => VectorSpace (MyRecord1 s) where
-             x *^ y = undefined
-          |]
+iq =
+  [d||]
+
+instance HasGrad a_a6HB => HasField "myA" (BVar r (MyRecord1 a_a6HB)) (BVar r a_a4jQ) where
+  getField (BVar x_a6IJ x_a6IK)
+    = (BVar ((getField @"myA") x_a6IJ)) ((lift1_sparse go_a6IL) x_a6IK)
+    where
+        go_a6IL ::
+          VecBuilder (Grad a_a4jQ) -> Maybe (MyRecord1GradTBuilderT a_a6HB)
+        go_a6IL dx_da_a6IM
+          = Just ((MyRecord1GradDBuilderD dx_da_a6IM) mempty)
+
+test =
+  [d|
+    instance s ~ VectorSpace.Scalar (MyRecord1 a) => VectorSpace (MyRecord1 s) where
+      x *^ y = undefined
+    |]
+
 
 main :: IO ()
 main = do
-  x <- runQ test
+  x <- runQ iq
   print x
   return ()
