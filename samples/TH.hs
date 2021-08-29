@@ -40,8 +40,8 @@ import qualified Language.Haskell.TH as TH
 class FooClass a b
 
 data MyRecord = MyRecord
-  { myA :: Float,
-    myB :: (Float, Float)
+  { myA :: Float
+  ,  myB :: (Float, Float)
   }
 
 data MyRecord1 a = MyRecord1
@@ -95,13 +95,14 @@ instance B MyRecord where
 mkDVarC
   defaultDVarOptions
   [d|
-    instance HasGrad a => HasGrad (MyRecord1 a) where
-      type MScalar (MyRecord1 a) = MScalar a
+    instance HasGrad (MyRecord1 Float) where
+      type MScalar (MyRecord1 Float) = MScalar Float
     |]
 
 iq =
   [d||]
 
+{-
 instance HasGrad a_a6HB => HasField "myA" (BVar r (MyRecord1 a_a6HB)) (BVar r a_a4jQ) where
   getField (BVar x_a6IJ x_a6IK)
     = (BVar ((getField @"myA") x_a6IJ)) ((lift1_sparse go_a6IL) x_a6IK)
@@ -110,6 +111,7 @@ instance HasGrad a_a6HB => HasField "myA" (BVar r (MyRecord1 a_a6HB)) (BVar r a_
           VecBuilder (Grad a_a4jQ) -> Maybe (MyRecord1GradTBuilderT a_a6HB)
         go_a6IL dx_da_a6IM
           = Just ((MyRecord1GradDBuilderD dx_da_a6IM) mempty)
+-}
 
 test =
   [d|
@@ -117,6 +119,7 @@ test =
       x *^ y = undefined
     |]
 
+x = 6
 
 main :: IO ()
 main = do

@@ -40,7 +40,8 @@ library
                        reflection,
                        manifolds-core,
                        tagged,
-                       template-haskell
+                       template-haskell,
+                       th-abstraction
 
   hs-source-dirs:      src
   other-modules:       Trace
