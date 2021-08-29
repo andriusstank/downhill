@@ -18,7 +18,7 @@ module Main where
 import Data.VectorSpace (AdditiveGroup (zeroV, (^+^)), VectorSpace)
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.DVar (BVar (BVar))
-import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm))
+import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm), GradBuilder)
 import Downhill.Linear.BackGrad
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), DenseBuilder (DenseBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder), maybeToMonoid)
 import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
@@ -79,17 +79,17 @@ joinRecord (MyRecord (BVar a da) (BVar b db)) = BVar (MyRecord a b) (lift2_spars
 
 instance (BasicVector (Grad a), BasicVector (Grad b)) => HasField "fieldA" (BVar r (MyRecord a b)) (BVar r a) where
   getField :: BVar r (MyRecord a b) -> BVar r a
-  getField (BVar x dx) = BVar (fieldA x) da
+  getField (BVar x dx) = BVar (fieldA x) (lift1_sparse go dx)
     where
-      da :: BackGrad r (Grad a)
-      da = lift1_sparse (\dx_da -> Just (MyRecord dx_da mempty)) dx
+      go :: GradBuilder a -> Maybe (MyRecord (GradBuilder a) (GradBuilder b))
+      go dx_da = Just (MyRecord dx_da mempty)
 
 instance (BasicVector (Grad a), BasicVector (Grad b)) => HasField "fieldB" (BVar r (MyRecord a b)) (BVar r b) where
   getField :: BVar r (MyRecord a b) -> BVar r b
-  getField (BVar x dx) = BVar (fieldB x) db
+  getField (BVar x dx) = BVar (fieldB x) (lift1_sparse go dx)
     where
-      db :: BackGrad r (Grad b)
-      db = lift1_sparse (Just . MyRecord mempty) dx
+      go :: GradBuilder b -> Maybe (MyRecord (GradBuilder a) (GradBuilder b))
+      go dx_db = Just (MyRecord mempty dx_db)
 
 main :: IO ()
 main = return ()
