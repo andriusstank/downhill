@@ -23,7 +23,6 @@ module Tensor (
     AFunction(..), transposeFunc,
 )
 where
-import Data.Constraint
 import Data.Kind (Type)
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
 import GHC.Generics (Generic)

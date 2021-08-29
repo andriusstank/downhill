@@ -8,7 +8,6 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
 module Downhill.TH
   ( --mkDVar,
     mkDVarC,
@@ -38,7 +37,6 @@ import Language.Haskell.TH
     Cxt,
     Dec (DataD, InstanceD, SigD),
     Exp (AppE, ConE, InfixE, VarE),
-    Info (TyConI),
     Name,
     Pat (ConP, VarP),
     Q,
@@ -48,7 +46,6 @@ import Language.Haskell.TH
     Type (AppT, ConT, VarT),
     nameBase,
     newName,
-    reify,
   )
 import Language.Haskell.TH.Syntax
   ( BangType,
@@ -63,7 +60,6 @@ import Language.Haskell.TH.Syntax
     mkNameS,
   )
 import Language.Haskell.TH.Datatype (reifyDatatype, DatatypeInfo (datatypeName, datatypeVars, datatypeCons, datatypeInstTypes), ConstructorInfo (constructorName, constructorFields, constructorVariant), ConstructorVariant (NormalConstructor, InfixConstructor, RecordConstructor), TypeSubstitution (applySubstitution))
-import Control.Monad.IO.Class (MonadIO(liftIO))
 
 data DatatypeFields f
   = NormalFields [f Type]
@@ -199,7 +195,7 @@ parseGradConstructor tyName c' typevars = do
     RecordConstructor fieldNames -> do
       when (length fieldNames /= n) (fail "parseGradConstructor: length fieldNames /= n")
       return (RecordFields (zipWith (\name ty -> Identity (nameBase name, ty)) fieldNames types))
-  return 
+  return
       DownhillDataType
         { ddtTypeConName = Identity tyName,
           ddtDataConName = Identity (constructorName c'),
@@ -218,7 +214,7 @@ parseDownhillDataType recordName record' = do
     [] -> fail (show recordName <> " has no data constructors")
     [constr''] -> return constr''
     _ -> fail (show recordName <> " has multiple data constructors")
-  
+
   parseGradConstructor name constr' typevars
 
 elementwiseOp :: DownhillDataType Identity -> Name -> Q Dec
@@ -617,8 +613,8 @@ data FieldInfo = FieldInfo
     fiType :: Type
   }
 
-mkGetField :: DownhillDataType DownhillTypes -> Type -> Cxt -> [Type] -> FieldInfo -> Q [Dec]
-mkGetField record scalarType cxt instVars field = do
+mkGetField :: DownhillDataType DownhillTypes -> Cxt -> [Type] -> FieldInfo -> Q [Dec]
+mkGetField record cxt instVars field = do
   rName <- newName "r"
   instDec rName
   where
@@ -629,20 +625,16 @@ mkGetField record scalarType cxt instVars field = do
     pointType = applyVars (ConT . dtPoint $ ddtTypeConName record)
     gradBuilderType = applyVars (ConT . dvtBuilder . dtGrad $ ddtTypeConName record)
     instDec rName = do
-      let bvarType :: Type
-          bvarType = applyVars (AppT (ConT ''BVar) (VarT rName))
-      fieldPatNames <- replicateM n (newName "field")
       xName <- newName "x"
       dxName <- newName "dx"
       goName <- newName "go"
       dxdaName <- newName "dx_da"
-      let pat :: Pat
-          pat = ConP (dtPoint $ ddtDataConName record) (map VarP fieldPatNames)
+      let
           rhsFieldList :: [Exp]
           rhsFieldList = replicate (fiIndex field) (VarE 'mempty) ++
             [VarE dxdaName] ++
             replicate (n - fiIndex field - 1) (VarE 'mempty)
-      return $
+      return
         [ InstanceD
             Nothing
             cxt
@@ -671,8 +663,8 @@ mkGetField record scalarType cxt instVars field = do
                         ( AppT
                             ( AppT
                                 ArrowT
-                                ( (ConT ''VecBuilder)
-                                    `AppT` (AppT (ConT ''Grad) (fiType field))
+                                ( ConT ''VecBuilder
+                                    `AppT` AppT (ConT ''Grad) (fiType field)
                                 )
                             )
                             ( ConT ''Maybe
@@ -724,11 +716,11 @@ mkDVar'' cxt downhillTypes scalarType instVars substitutedCInfo  = do
     NormalFields _ -> return []
     RecordFields dts ->
       let info :: Int -> (String, Type) -> Type -> FieldInfo
-          info index (name, type_) stype_ = FieldInfo name index stype_
+          info index (name, _) stype_ = FieldInfo name index stype_
           substitutedFields = constructorFields substitutedCInfo
           fields :: [FieldInfo]
           fields = zipWith3 info [0..] (dtPoint <$> dts) substitutedFields
-      in concat <$> traverse (mkGetField downhillTypes scalarType cxt instVars) fields
+      in concat <$> traverse (mkGetField downhillTypes cxt instVars) fields
   --hasFieldInstance <- mkGetField downhillTypes scalarType cxt instVars (FieldInfo "myA" 0 (instVars !! 0))
 
   let decs =
@@ -773,13 +765,19 @@ mkDVarC1 options = \case
         (recordName, instVars) <- parseRecordType recordInConstraintType []
         record' <- reifyDatatype recordName
         parsedRecord <- parseDownhillDataType recordName record'
-        let recordTypeVarNames = map getName (datatypeInstTypes record')
-              where getName (SigT (VarT x) _) = x
+        recordTypeVarNames <- do
+          let getName x = do
+                  --getName (SigT (VarT y) _) <- y
+                  let SigT (VarT y) _ = x
+                  --ConT y <- return x
+                  return y
+          traverse getName (datatypeInstTypes record')
         -- We have two sets of type variables: one in record definition (as in `data MyRecord a b c = ...`)
         -- and another one in instance head (`instance HasGrad (MyRecord a' b' c')). We need
         -- those from instance head for HasField instances.
         let substPairs = zip recordTypeVarNames instVars
             substitutedRecord = applySubstitution (Map.fromList substPairs) (ddtCInfo parsedRecord)
+        {-
         liftIO $ do
           putStrLn " === Record ==="
           print record'
@@ -788,6 +786,7 @@ mkDVarC1 options = \case
           putStrLn " === Substitution ==="
           --print substPairs
           print substitutedRecord
+        -}
         --dvar <- mkDVar' options cxt recordName instVars
         let downhillTypes = renameDownhillDataType' options parsedRecord
         scalarType <- case decs of

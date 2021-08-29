@@ -24,7 +24,14 @@ import Downhill.Internal.Graph.Graph
 import qualified Downhill.Internal.Graph.Graph as Graph
 import Downhill.Internal.Graph.OpenGraph (recoverSharing)
 import Downhill.Linear.BackGrad (BackGrad (..))
-import Downhill.Linear.Expr (BackFun, BasicVector (VecBuilder), FullVector (identityBuilder), FwdFun, SparseVector (SparseVector, unSparseVector), Term (Term), flipBackFun)
+import Downhill.Linear.Expr
+  ( BackFun,
+    BasicVector (VecBuilder),
+    FullVector (identityBuilder),
+    FwdFun,
+    SparseVector (SparseVector, unSparseVector),
+    flipBackFun, Term
+  )
 import GHC.IO.Unsafe (unsafePerformIO)
 
 evalSomeGraph :: SomeGraph FwdFun a p -> a -> p
@@ -53,7 +60,7 @@ backprop (BackGrad f) x = backpropGraph g (SparseVector x)
     g :: SomeGraph BackFun a (SparseVector v)
     g = buildSomeGraph (f unSparseVector)
 
-{-# ANN backprop' "HLint: Eta reduce" #-}
+{-# ANN backprop' "HLint: ignore Eta reduce" #-}
 backprop' :: forall a v. (BasicVector a, FullVector v) => BackGrad a v -> v -> a
 backprop' (BackGrad f) x = backpropGraph g x
   where

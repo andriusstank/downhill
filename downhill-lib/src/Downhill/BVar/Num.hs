@@ -21,7 +21,7 @@ import Data.AffineSpace (AffineSpace (..))
 import Data.Semigroup (Sum (Sum, getSum))
 import Data.Tagged (Tagged (..))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..), zeroV)
-import Downhill.DVar (BVar (bvarValue), backprop, backprop')
+import Downhill.DVar (BVar (bvarValue), backprop')
 import qualified Downhill.DVar as BVar
 import Downhill.Grad
   ( Dual (evalGrad),
