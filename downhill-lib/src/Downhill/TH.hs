@@ -633,18 +633,22 @@ mkGetField record scalarType cxt instVars field = do
           bvarType = applyVars (AppT (ConT ''BVar) (VarT rName))
       fieldPatNames <- replicateM n (newName "field")
       xName <- newName "x"
-      dxName <- newName "x"
+      dxName <- newName "dx"
       goName <- newName "go"
       dxdaName <- newName "dx_da"
       let pat :: Pat
           pat = ConP (dtPoint $ ddtDataConName record) (map VarP fieldPatNames)
+          rhsFieldList :: [Exp]
+          rhsFieldList = replicate (fiIndex field) (VarE 'mempty) ++
+            [VarE dxdaName] ++
+            replicate (n - fiIndex field - 1) (VarE 'mempty)
       return $
         [ InstanceD
             Nothing
             cxt
             ( AppT
                 ( AppT
-                    (AppT (ConT ''HasField) (LitT (StrTyLit "myA")))
+                    (AppT (ConT ''HasField) (LitT (StrTyLit (fiName field))))
                     (AppT (AppT (ConT ''BVar) (VarT rName)) pointType)
                 )
                 (AppT (AppT (ConT ''BVar) (VarT rName)) (fiType field))
@@ -657,7 +661,7 @@ mkGetField record scalarType cxt instVars field = do
                         ( AppE
                             ( AppE
                                 (ConE 'BVar)
-                                (AppE (AppTypeE (VarE 'getField) (LitT (StrTyLit "myA"))) (VarE xName))
+                                (AppE (AppTypeE (VarE 'getField) (LitT (StrTyLit (fiName field)))) (VarE xName))
                             )
                             (AppE (AppE (VarE 'lift1_sparse) (VarE goName)) (VarE dxName))
                         )
@@ -682,10 +686,7 @@ mkGetField record scalarType cxt instVars field = do
                             ( NormalB
                                 ( AppE
                                     (ConE 'Just)
-                                    ( AppE
-                                        (AppE (ConE (dvtBuilder . dtGrad $ ddtDataConName record)) (VarE dxdaName))
-                                        (VarE 'mempty)
-                                    )
+                                    (foldl AppE (ConE (dvtBuilder . dtGrad $ ddtDataConName record)) rhsFieldList)
                                 )
                             )
                             []
@@ -728,7 +729,7 @@ mkDVar'' cxt downhillTypes scalarType instVars substitutedCInfo  = do
           fields :: [FieldInfo]
           fields = zipWith3 info [0..] (dtPoint <$> dts) substitutedFields
       in concat <$> traverse (mkGetField downhillTypes scalarType cxt instVars) fields
-  hasFieldInstance <- mkGetField downhillTypes scalarType cxt instVars (FieldInfo "myA" 0 (instVars !! 0))
+  --hasFieldInstance <- mkGetField downhillTypes scalarType cxt instVars (FieldInfo "myA" 0 (instVars !! 0))
 
   let decs =
         [ tangDec,
