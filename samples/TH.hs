@@ -14,10 +14,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
---{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
-
--- {-# OPTIONS_GHC -ddump-splices #-}
---{-# OPTIONS_GHC -ddump-to-file #-}
+-- {-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Main where
 
@@ -31,13 +28,15 @@ import Downhill.DVar (BVar (BVar))
 import Downhill.Grad (Dual (..), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (..))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.Linear.Lift (lift1_sparse)
-import Downhill.TH
+import Downhill.TH ( defaultDVarOptions, mkDVarC )
 import GHC.Generics (Generic)
 import GHC.Records (HasField (getField))
 import Language.Haskell.TH (Dec, Exp, Pat (ConP), Q, runQ, stringE)
 import qualified Language.Haskell.TH as TH
 
 class FooClass a b
+
+newtype MyNewtype = MyNewtype Float
 
 data MyRecord = MyRecord
   { myA :: Float
@@ -92,11 +91,19 @@ instance B MyRecord where
 --mkBasicVectorInstance ''MyRecordGrad ''MyRecordGradBuilder
 --mkDVar defaultDVarOptions ''MyRecord
 
+
 mkDVarC
   defaultDVarOptions
   [d|
     instance HasGrad (MyRecord1 Float) where
       type MScalar (MyRecord1 Float) = MScalar Float
+    |]
+
+mkDVarC
+  defaultDVarOptions
+  [d|
+    instance HasGrad MyNewtype where
+      type MScalar MyNewtype = Float
     |]
 
 iq =
@@ -119,7 +126,7 @@ test =
       x *^ y = undefined
     |]
 
-x = 6
+x = 8
 
 main :: IO ()
 main = do

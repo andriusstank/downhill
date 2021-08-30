@@ -5,6 +5,7 @@ import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 import qualified Test.Tasty as Tasty
 import Downhill.BVar.Num (NumBVar(..), backpropNum, constant, var, numbvarValue, AsNum)
 import Record(recordTest)
+import TH (thTest)
 
 basicTests = testGroup "Basic tests"
   [ testCase "Derivative of constant == 0" testConstant
@@ -19,6 +20,6 @@ basicTests = testGroup "Basic tests"
             in backpropNum ((2+3*x) * (5+7*x)) @?= 29 + 42 * numbvarValue x
 
 tests :: TestTree
-tests = testGroup "Tests" [basicTests, recordTest]
+tests = testGroup "Tests" [basicTests, recordTest, thTest]
 
 main = defaultMain tests

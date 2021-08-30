@@ -12,8 +12,8 @@
 module Downhill.TH
   ( --mkDVar,
     mkDVarC,
-    RecordNamer,
-    DVarOptions,
+    RecordNamer(..),
+    DVarOptions(..),
     defaultDVarOptions,
   )
 where
@@ -128,32 +128,32 @@ data DVarOptions = DVarOptions
 defaultTangRecordNamer :: RecordNamer
 defaultTangRecordNamer =
   RecordNamer
-    { typeConNamer = (++ "TangT"),
-      dataConNamer = (++ "TangD"),
+    { typeConNamer = (++ "Tang"),
+      dataConNamer = (++ "Tang"),
       fieldNamer = id
     }
 
 defaultGradRecordNamer :: RecordNamer
 defaultGradRecordNamer =
   RecordNamer
-    { typeConNamer = (++ "GradT"),
-      dataConNamer = (++ "GradD"),
+    { typeConNamer = (++ "Grad"),
+      dataConNamer = (++ "Grad"),
       fieldNamer = id
     }
 
 defaultMetricRecordNamer :: RecordNamer
 defaultMetricRecordNamer =
   RecordNamer
-    { typeConNamer = (++ "MetricT"),
-      dataConNamer = (++ "MetricD"),
+    { typeConNamer = (++ "Metric"),
+      dataConNamer = (++ "Metric"),
       fieldNamer = id
     }
 
 defaultBuilderRecordNamer :: RecordNamer
 defaultBuilderRecordNamer =
   RecordNamer
-    { typeConNamer = (++ "BuilderT"),
-      dataConNamer = (++ "BuilderD"),
+    { typeConNamer = (++ "Builder"),
+      dataConNamer = (++ "Builder"),
       fieldNamer = id
     }
 
