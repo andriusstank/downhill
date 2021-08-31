@@ -536,11 +536,11 @@ mkMetricInstance record scalarType cxt instVars = do
                   []
               ]
 
-mkRecord :: DatatypeInfo -> DownhillRecord Identity -> Q [Dec]
-mkRecord dinfo record = do
+mkRecord :: DownhillRecord Identity -> Q [Dec]
+mkRecord record = do
   let newConstr = mkConstructor record
   let newRecordName = runIdentity (ddtTypeConName record)
-  let dataType = case datatypeVariant dinfo of
+  let dataType = case ddtVariant record of
         Newtype -> NewtypeD [] newRecordName (ddtTypeVars record) Nothing newConstr []
         _ -> DataD [] newRecordName (ddtTypeVars record) Nothing [newConstr] []
   return [dataType]
@@ -690,13 +690,13 @@ mkGetField record cxt instVars field = do
     pointType = applyVars (ConT . dtPoint $ ddtTypeConName record)
     gradBuilderType = applyVars (ConT . dvtBuilder . dtGrad $ ddtTypeConName record)
 
-mkVec :: Cxt -> [Type] -> Type -> DatatypeInfo -> DownhillRecord VectorTypes -> Q [Dec]
-mkVec cxt instVars scalarType dinfo tangVector = do
+mkVec :: Cxt -> [Type] -> Type -> DownhillRecord VectorTypes -> Q [Dec]
+mkVec cxt instVars scalarType tangVector = do
   let vectorType, builderType :: DownhillRecord Identity
       vectorType = mapDdt (Identity . dvtVector) tangVector
       builderType = mapDdt (Identity . dvtBuilder) tangVector
-  tangDec <- mkRecord dinfo vectorType
-  tangBuilderDec <- mkRecord dinfo builderType
+  tangDec <- mkRecord vectorType
+  tangBuilderDec <- mkRecord builderType
   tangSemigroup <- mkSemigroupInstance cxt builderType instVars
   tangInst <- mkBasicVectorInstance tangVector cxt instVars
   additiveTang <- mkAdditiveGroupInstance cxt vectorType instVars
@@ -712,16 +712,16 @@ mkVec cxt instVars scalarType dinfo tangVector = do
         ]
     )
 
-mkDVar'' :: Cxt -> DatatypeInfo -> DownhillRecord AllTypes -> Type -> [Type] -> ConstructorInfo -> Q [Dec]
-mkDVar'' cxt dinfo downhillTypes scalarType instVars substitutedCInfo = do
+mkDVar'' :: Cxt -> DownhillRecord AllTypes -> Type -> [Type] -> ConstructorInfo -> Q [Dec]
+mkDVar'' cxt downhillTypes scalarType instVars substitutedCInfo = do
   let tangVector = mapDdt dtTang downhillTypes
       gradVector = mapDdt dtGrad downhillTypes
       metric = mapDdt (Identity . dtMetric) downhillTypes
 
-  tangDecs <- mkVec cxt instVars scalarType dinfo tangVector
-  gradDecs <- mkVec cxt instVars scalarType dinfo gradVector
+  tangDecs <- mkVec cxt instVars scalarType tangVector
+  gradDecs <- mkVec cxt instVars scalarType gradVector
 
-  metricDec <- mkRecord dinfo metric
+  metricDec <- mkRecord metric
   additiveMetric <- mkAdditiveGroupInstance cxt metric instVars
   vspaceMetric <- mkVectorSpaceInstance metric scalarType cxt instVars
   dualInstance <- mkDualInstance downhillTypes scalarType cxt instVars
@@ -804,7 +804,7 @@ mkDVarC1 options = \case
             _ -> fail "HasGrad instance must contain `Scalar ... = ...` declaration"
           _ -> fail "`HasGrad` has multiple declarations"
 
-        dvar <- mkDVar'' cxt record' downhillTypes scalarType instVars substitutedRecord
+        dvar <- mkDVar'' cxt downhillTypes scalarType instVars substitutedRecord
 
         let tangName = dvtVector . dtTang $ ddtTypeConName downhillTypes
             gradName = dvtVector . dtGrad $ ddtTypeConName downhillTypes
