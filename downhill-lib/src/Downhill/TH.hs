@@ -753,10 +753,73 @@ mkVec cxt instVars scalarType vectorType builderNamer = do
         ]
     )
 
+renameDownhillRecordTang :: DVarOptions -> DownhillRecord (Identity Name) (DatatypeFields Identity) -> DownhillRecord (Identity Name) (DatatypeFields Identity)
+renameDownhillRecordTang options record =
+  DownhillRecord
+    { ddtTypeConName = Identity $ renameTypeS (typeConNamer namer) (runIdentity $ ddtTypeConName record),
+      ddtDataConName = Identity $ (renameTypeS (dataConNamer namer)) (runIdentity $ ddtDataConName record),
+      ddtTypeVars = ddtTypeVars record,
+      ddtFieldCount = ddtFieldCount record,
+      ddtFields = renameFields (ddtFields record),
+      ddtVariant = ddtVariant record
+    }
+  where
+    namer = optTangNamer options
+    renameFields :: DatatypeFields Identity -> DatatypeFields Identity
+    renameFields = \case
+      NormalFields fs -> NormalFields (types <$> fs)
+      RecordFields fs -> RecordFields (fields <$> fs)
+
+    types :: Identity Type -> Identity Type
+    types (Identity t) =
+      Identity
+        (
+          AppT (ConT ''Tang) t
+        )
+
+    fields :: Identity (String, Type) -> Identity (String, Type)
+    fields (Identity (name, t)) =
+      Identity
+        (
+          fieldNamer (optTangNamer options) name, AppT (ConT ''Tang) t
+        )
+
+renameDownhillRecordGrad :: DVarOptions -> DownhillRecord (Identity Name) (DatatypeFields Identity) -> DownhillRecord (Identity Name) (DatatypeFields Identity)
+renameDownhillRecordGrad options record =
+  DownhillRecord
+    { ddtTypeConName = Identity $ renameTypeS (typeConNamer namer) (runIdentity $ ddtTypeConName record),
+      ddtDataConName = Identity $ (renameTypeS (dataConNamer namer)) (runIdentity $ ddtDataConName record),
+      ddtTypeVars = ddtTypeVars record,
+      ddtFieldCount = ddtFieldCount record,
+      ddtFields = renameFields (ddtFields record),
+      ddtVariant = ddtVariant record
+    }
+  where
+    namer = optGradNamer options
+    renameFields :: DatatypeFields Identity -> DatatypeFields Identity
+    renameFields = \case
+      NormalFields fs -> NormalFields (types <$> fs)
+      RecordFields fs -> RecordFields (fields <$> fs)
+
+    types :: Identity Type -> Identity Type
+    types (Identity t) =
+      Identity
+        (
+          AppT (ConT ''Grad) t
+        )
+
+    fields :: Identity (String, Type) -> Identity (String, Type)
+    fields (Identity (name, t)) =
+      Identity
+        (
+          fieldNamer (optTangNamer options) name, AppT (ConT ''Grad) t
+        )
 mkDVar'' :: Cxt -> DownhillRecord (AllTypes Name) (DatatypeFields AllTypes) -> DVarOptions -> Type -> [Type] -> ConstructorInfo -> Q [Dec]
 mkDVar'' cxt downhillTypes options scalarType instVars substitutedCInfo = do
-  let tangVector = mapDdt (Identity . dvtVector . dtTang) downhillTypes
-      gradVector = mapDdt (Identity . dvtVector . dtGrad) downhillTypes
+  let --tangVector = mapDdt (Identity . dvtVector . dtTang) downhillTypes
+      tangVector = renameDownhillRecordTang options (mapDdt (Identity . dtPoint) downhillTypes)
+      --gradVector = mapDdt (Identity . dvtVector . dtGrad) downhillTypes
+      gradVector = renameDownhillRecordGrad options (mapDdt (Identity . dtPoint) downhillTypes)
       metric = mapDdt (Identity . dtMetric) downhillTypes
 
   tangDecs <- mkVec cxt instVars scalarType tangVector (optBuilerNamer options)
