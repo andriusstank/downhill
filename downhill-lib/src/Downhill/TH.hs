@@ -343,25 +343,26 @@ mkVectorSpaceInstance record scalarType cxt instVars = do
       decs = [scalarTypeDec, vmulDec]
   mkClassInstance ''VectorSpace cxt record instVars decs
 
-mkBasicVectorInstance :: DownhillRecord (VectorTypes Name) (DatatypeFields VectorTypes) -> RecordNamer -> Cxt -> [Type] -> Q [Dec]
-mkBasicVectorInstance record _builderNamer cxt instVars = do
+mkBasicVectorInstance :: DownhillRecord (Identity Name) (DatatypeFields Identity) -> RecordNamer -> Cxt -> [Type] -> Q [Dec]
+mkBasicVectorInstance vectorRecord builderNamer cxt instVars = do
   sumBuilderDec <- mkSumBuilder
   mkClassInstance ''BasicVector cxt vectorRecord instVars [vecbuilderDec, sumBuilderDec]
   where
-    n = ddtFieldCount record
-    vectorRecord :: DownhillRecord (Identity Name) (DatatypeFields Identity)
-    vectorRecord = mapDdt (Identity . dvtVector) record
+    n = ddtFieldCount vectorRecord
+    --vectorRecord :: DownhillRecord (Identity Name) (DatatypeFields Identity)
+    --vectorRecord = mapDdt (Identity . dvtVector) record
+    builderRecord = renameDownhillRecordBuilder builderNamer vectorRecord
 
     mkSumBuilder :: Q Dec
     mkSumBuilder = do
       builders <- replicateM n (newName "x")
       let pat :: Pat
-          pat = ConP (dvtBuilder (ddtDataConName record)) (map VarP builders)
+          pat = ConP (runIdentity (ddtDataConName builderRecord)) (map VarP builders)
           rhs :: Exp
           rhs =
             foldl
               AppE
-              (ConE (dvtVector (ddtDataConName record)))
+              (ConE (runIdentity (ddtDataConName vectorRecord)))
               [AppE (VarE 'sumBuilder) (VarE x) | x <- builders]
       return $
         FunD
@@ -378,8 +379,8 @@ mkBasicVectorInstance record _builderNamer cxt instVars = do
             (AppT (ConT ''Maybe) builderType)
         )
       where
-        vectorType = foldl AppT (ConT (dvtVector (ddtTypeConName record))) instVars
-        builderType = foldl AppT (ConT (dvtBuilder (ddtTypeConName record))) instVars
+        vectorType = foldl AppT (ConT (runIdentity (ddtTypeConName vectorRecord))) instVars
+        builderType = foldl AppT (ConT (runIdentity (ddtTypeConName builderRecord))) instVars
 
 sumVExpr :: [Exp] -> Exp
 sumVExpr = \case
@@ -720,16 +721,16 @@ renameDownhillRecordBuilder builderNamer record =
         ( fieldNamer builderNamer name, AppT (ConT ''VecBuilder) t
         )
 
-mkVec :: Cxt -> [Type] -> Type -> DownhillRecord (VectorTypes Name) (DatatypeFields VectorTypes) -> RecordNamer -> Q [Dec]
-mkVec cxt instVars scalarType tangVector builderNamer = do
-  let vectorType, builderType :: DownhillRecord (Identity Name) (DatatypeFields Identity)
-      vectorType = mapDdt (Identity . dvtVector) tangVector
+mkVec :: Cxt -> [Type] -> Type -> DownhillRecord (Identity Name) (DatatypeFields Identity) -> RecordNamer -> Q [Dec]
+mkVec cxt instVars scalarType vectorType builderNamer = do
+  let --vectorType, builderType :: DownhillRecord (Identity Name) (DatatypeFields Identity)
+      --vectorType = mapDdt (Identity . dvtVector) tangVector
       --builderType = mapDdt (Identity . dvtBuilder) tangVector
       builderType = renameDownhillRecordBuilder builderNamer vectorType
   tangDec <- mkRecord vectorType
   tangBuilderDec <- mkRecord builderType
   tangSemigroup <- mkSemigroupInstance cxt builderType instVars
-  tangInst <- mkBasicVectorInstance tangVector builderNamer cxt instVars
+  tangInst <- mkBasicVectorInstance vectorType builderNamer cxt instVars
   additiveTang <- mkAdditiveGroupInstance cxt vectorType instVars
   vspaceTang <- mkVectorSpaceInstance vectorType scalarType cxt instVars
   return
@@ -745,8 +746,8 @@ mkVec cxt instVars scalarType tangVector builderNamer = do
 
 mkDVar'' :: Cxt -> DownhillRecord (AllTypes Name) (DatatypeFields AllTypes) -> DVarOptions -> Type -> [Type] -> ConstructorInfo -> Q [Dec]
 mkDVar'' cxt downhillTypes options scalarType instVars substitutedCInfo = do
-  let tangVector = mapDdt dtTang downhillTypes
-      gradVector = mapDdt dtGrad downhillTypes
+  let tangVector = mapDdt (Identity . dvtVector . dtTang) downhillTypes
+      gradVector = mapDdt (Identity . dvtVector . dtGrad) downhillTypes
       metric = mapDdt (Identity . dtMetric) downhillTypes
 
   tangDecs <- mkVec cxt instVars scalarType tangVector (optBuilerNamer options)
