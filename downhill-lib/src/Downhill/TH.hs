@@ -853,14 +853,13 @@ renameDownhillRecordMetric options record =
 
 mkDVar'' ::
   Cxt ->
-  DownhillRecord (AllTypes Name) (DatatypeFields AllTypes) ->
   DownhillRecord (Identity Name) (DatatypeFields Identity) ->
   DVarOptions ->
   Type ->
   [Type] ->
   ConstructorInfo ->
   Q [Dec]
-mkDVar'' cxt downhillTypes pointRecord options scalarType instVars substitutedCInfo = do
+mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
   let -- pointRecord = mapDdt (Identity . dtPoint) downhillTypes
       --tangVector = mapDdt (Identity . dvtVector . dtTang) downhillTypes
       tangRecord = renameDownhillRecordTang options pointRecord
@@ -878,14 +877,14 @@ mkDVar'' cxt downhillTypes pointRecord options scalarType instVars substitutedCI
   dualInstance <- mkDualInstance tangRecord gradRecord scalarType cxt instVars
   metricInstance <- mkMetricInstance metricRecord tangRecord gradRecord scalarType cxt instVars
 
-  hasFieldInstance <- case ddtFields downhillTypes of
+  hasFieldInstance <- case ddtFields pointRecord of
     NormalFields _ -> return []
     RecordFields dts ->
       let info :: Int -> (String, Type) -> Type -> FieldInfo
           info index (name, _) stype_ = FieldInfo name index stype_
           substitutedFields = constructorFields substitutedCInfo
           fields :: [FieldInfo]
-          fields = zipWith3 info [0 ..] (dtPoint <$> dts) substitutedFields
+          fields = zipWith3 info [0 ..] (runIdentity <$> dts) substitutedFields
        in concat <$> traverse (mkGetField pointRecord (renameDownhillRecordBuilder (optBuilerNamer options) gradRecord) cxt instVars) fields
   --hasFieldInstance <- mkGetField downhillTypes scalarType cxt instVars (FieldInfo "myA" 0 (instVars !! 0))
 
@@ -944,7 +943,6 @@ mkDVarC1 options = \case
           print substitutedRecord
         -}
         --dvar <- mkDVar' options cxt recordName instVars
-        let downhillTypes = renameDownhillRecord' options parsedRecord
         scalarType <- case decs of
           [] -> fail "`HasGrad` instance has no declarations"
           [dec1] -> case dec1 of
@@ -955,11 +953,11 @@ mkDVarC1 options = \case
             _ -> fail "HasGrad instance must contain `Scalar ... = ...` declaration"
           _ -> fail "`HasGrad` has multiple declarations"
 
-        dvar <- mkDVar'' cxt downhillTypes parsedRecord options scalarType instVars substitutedRecord
+        dvar <- mkDVar'' cxt parsedRecord options scalarType instVars substitutedRecord
 
-        let tangName = dvtVector . dtTang $ ddtTypeConName downhillTypes
-            gradName = dvtVector . dtGrad $ ddtTypeConName downhillTypes
-            metricName = dtMetric $ ddtTypeConName downhillTypes
+        let tangName = runIdentity $ ddtTypeConName (renameDownhillRecordTang options parsedRecord)
+            gradName = runIdentity $ ddtTypeConName (renameDownhillRecordGrad options parsedRecord)
+            metricName = runIdentity $ ddtTypeConName (renameDownhillRecordMetric options parsedRecord)
             tangTypeDec =
               TySynInstD
                 ( TySynEqn
