@@ -9,4 +9,4 @@ inspection-testing package to test if inlineNode really inlines.
 
 splitBVar, joinBVar, AffineSpace, SemiManifold in TH.
 
-fields to ignore in TH.
+fields to ignore in TH. generate patterns

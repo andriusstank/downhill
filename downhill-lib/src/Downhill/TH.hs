@@ -78,10 +78,10 @@ data AllTypes a = AllTypes
     dtMetric :: a
   }
 
-data DownhillRecord f con fields = DownhillRecord
+data DownhillRecord con fields = DownhillRecord
   { ddtTypeConName :: con,
     ddtDataConName :: con,
-    ddtFields :: DatatypeFields f,
+    ddtFields :: fields,
     ddtTypeVars :: [TyVarBndr],
     ddtFieldCount :: Int,
     ddtVariant :: DatatypeVariant
@@ -95,11 +95,11 @@ deriving instance Show (DatatypeFields AllTypes)
 
 deriving instance Show (DatatypeFields Identity)
 
-deriving instance Show (DownhillRecord AllTypes (AllTypes Name) (DatatypeFields AllTypes))
+deriving instance Show (DownhillRecord (AllTypes Name) (DatatypeFields AllTypes))
 
-deriving instance Show (DownhillRecord Identity (Identity Name) (DatatypeFields Identity))
+deriving instance Show (DownhillRecord (Identity Name) (DatatypeFields Identity))
 
-mapDdt :: (forall a. f a -> g a) -> DownhillRecord f (f Name) (DatatypeFields f)-> DownhillRecord g (g Name) (DatatypeFields g)
+mapDdt :: (forall a. f a -> g a) -> DownhillRecord (f Name) (DatatypeFields f)-> DownhillRecord (g Name) (DatatypeFields g)
 mapDdt f x =
   DownhillRecord
     { ddtTypeConName = f (ddtTypeConName x),
@@ -122,7 +122,7 @@ data DVarOptions = DVarOptions
   { optTangNamer :: RecordNamer,
     optGradNamer :: RecordNamer,
     optMetricNamer :: RecordNamer,
-    optBuilerNamer :: RecordNamer
+    optBuilerNamer :: RecordNamer -- TODO: typo
   }
 
 defaultTangRecordNamer :: RecordNamer
@@ -166,7 +166,9 @@ defaultDVarOptions =
       optBuilerNamer = defaultBuilderRecordNamer
     }
 
-mkConstructor :: DownhillRecord Identity (Identity Name) (DatatypeFields Identity)-> Con
+--addIdentity :: DownhillRecord Name -> DownhillRecord (Identity Name) (DatatypeFields Identity)
+
+mkConstructor :: DownhillRecord (Identity Name) (DatatypeFields Identity) -> Con
 mkConstructor record =
   case ddtFields record of
     NormalFields types ->
@@ -188,7 +190,7 @@ mkConstructor record =
         type_
       )
 
-parseGradConstructor :: Name -> DatatypeInfo -> ConstructorInfo -> [TyVarBndr] -> Q (DownhillRecord Identity (Identity Name) (DatatypeFields Identity))
+parseGradConstructor :: Name -> DatatypeInfo -> ConstructorInfo -> [TyVarBndr] -> Q (DownhillRecord (Identity Name) (DatatypeFields Identity))
 parseGradConstructor tyName dinfo cinfo typevars = do
   let types = constructorFields cinfo
       n = length types
@@ -208,7 +210,7 @@ parseGradConstructor tyName dinfo cinfo typevars = do
         ddtVariant = datatypeVariant dinfo
       }
 
-parseDownhillRecord :: Name -> DatatypeInfo -> Q (DownhillRecord Identity (Identity Name) (DatatypeFields Identity), ConstructorInfo)
+parseDownhillRecord :: Name -> DatatypeInfo -> Q (DownhillRecord (Identity Name) (DatatypeFields Identity), ConstructorInfo)
 parseDownhillRecord recordName record' = do
   let name = datatypeName record'
   let typevars = datatypeVars record'
@@ -221,7 +223,7 @@ parseDownhillRecord recordName record' = do
   r <- parseGradConstructor name record' constr' typevars
   return (r, constr')
 
-elementwiseOp :: DownhillRecord Identity (Identity Name) (DatatypeFields Identity) -> Name -> Q Dec
+elementwiseOp :: DownhillRecord (Identity Name) (DatatypeFields Identity) -> Name -> Q Dec
 elementwiseOp record func = do
   let n = ddtFieldCount record
       dataConName :: Name
@@ -246,7 +248,7 @@ elementwiseOp record func = do
           ]
   return dec
 
-elementwiseValue :: DownhillRecord Identity (Identity Name) (DatatypeFields Identity) -> Name -> Q Dec
+elementwiseValue :: DownhillRecord (Identity Name) (DatatypeFields Identity) -> Name -> Q Dec
 elementwiseValue record func = do
   let n = ddtFieldCount record
       dataConName :: Name
@@ -256,7 +258,7 @@ elementwiseValue record func = do
       dec = ValD (VarP func) (NormalB rhs) []
   return dec
 
-elementwiseFunc :: DownhillRecord Identity (Identity Name) (DatatypeFields Identity) -> Name -> Q Dec
+elementwiseFunc :: DownhillRecord (Identity Name) (DatatypeFields Identity) -> Name -> Q Dec
 elementwiseFunc record func = do
   let n = ddtFieldCount record
       dataConName :: Name
@@ -282,18 +284,18 @@ elementwiseFunc record func = do
           ]
   return dec
 
-mkClassInstance :: Name -> Cxt -> DownhillRecord Identity (Identity Name) (DatatypeFields Identity) -> [Type] -> [Dec] -> Q [Dec]
+mkClassInstance :: Name -> Cxt -> DownhillRecord (Identity Name) (DatatypeFields Identity) -> [Type] -> [Dec] -> Q [Dec]
 mkClassInstance className cxt record instVars decs = do
   let recordType = ConT (runIdentity (ddtTypeConName record))
       ihead = AppT (ConT className) (foldl AppT recordType instVars)
   return [InstanceD Nothing cxt ihead decs]
 
-mkSemigroupInstance :: Cxt -> DownhillRecord Identity (Identity Name) (DatatypeFields Identity) -> [Type] -> Q [Dec]
+mkSemigroupInstance :: Cxt -> DownhillRecord (Identity Name) (DatatypeFields Identity) -> [Type] -> Q [Dec]
 mkSemigroupInstance cxt record instVars = do
   dec <- elementwiseOp record '(<>)
   mkClassInstance ''Semigroup cxt record instVars [dec]
 
-mkAdditiveGroupInstance :: Cxt -> DownhillRecord Identity (Identity Name) (DatatypeFields Identity) -> [Type] -> Q [Dec]
+mkAdditiveGroupInstance :: Cxt -> DownhillRecord (Identity Name) (DatatypeFields Identity) -> [Type] -> Q [Dec]
 mkAdditiveGroupInstance cxt record instVars = do
   zeroVDec <- elementwiseValue record 'zeroV
   negateDec <- elementwiseFunc record 'negateV
@@ -307,7 +309,7 @@ mkAdditiveGroupInstance cxt record instVars = do
         ]
   mkClassInstance ''AdditiveGroup cxt record instVars decs
 
-mkVectorSpaceInstance :: DownhillRecord Identity (Identity Name) (DatatypeFields Identity) -> Type -> Cxt -> [Type] -> Q [Dec]
+mkVectorSpaceInstance :: DownhillRecord (Identity Name) (DatatypeFields Identity) -> Type -> Cxt -> [Type] -> Q [Dec]
 mkVectorSpaceInstance record scalarType cxt instVars = do
   let n = ddtFieldCount record
       dataConName :: Name
@@ -341,13 +343,13 @@ mkVectorSpaceInstance record scalarType cxt instVars = do
       decs = [scalarTypeDec, vmulDec]
   mkClassInstance ''VectorSpace cxt record instVars decs
 
-mkBasicVectorInstance :: DownhillRecord VectorTypes (VectorTypes Name) (DatatypeFields VectorTypes) -> Cxt -> [Type] -> Q [Dec]
-mkBasicVectorInstance record cxt instVars = do
+mkBasicVectorInstance :: DownhillRecord (VectorTypes Name) (DatatypeFields VectorTypes) -> RecordNamer -> Cxt -> [Type] -> Q [Dec]
+mkBasicVectorInstance record _builderNamer cxt instVars = do
   sumBuilderDec <- mkSumBuilder
   mkClassInstance ''BasicVector cxt vectorRecord instVars [vecbuilderDec, sumBuilderDec]
   where
     n = ddtFieldCount record
-    vectorRecord :: DownhillRecord Identity (Identity Name) (DatatypeFields Identity)
+    vectorRecord :: DownhillRecord (Identity Name) (DatatypeFields Identity)
     vectorRecord = mapDdt (Identity . dvtVector) record
 
     mkSumBuilder :: Q Dec
@@ -387,7 +389,7 @@ sumVExpr = \case
     zipExpInfix :: Name -> Exp -> Exp -> Exp
     zipExpInfix f x y = InfixE (Just x) (VarE f) (Just y)
 
-mkDualInstance :: DownhillRecord AllTypes (AllTypes Name) (DatatypeFields AllTypes) -> Type -> Cxt -> [Type] -> Q [Dec]
+mkDualInstance :: DownhillRecord (AllTypes Name) (DatatypeFields AllTypes) -> Type -> Cxt -> [Type] -> Q [Dec]
 mkDualInstance record scalarType cxt instVars = do
   scalarTypeName <- newName "s"
   mkClassDec (VarT scalarTypeName)
@@ -438,7 +440,7 @@ mkDualInstance record scalarType cxt instVars = do
                   []
               ]
 
-mkMetricInstance :: DownhillRecord AllTypes (AllTypes Name) (DatatypeFields AllTypes) -> Type -> Cxt -> [Type] -> Q [Dec]
+mkMetricInstance :: DownhillRecord (AllTypes Name) (DatatypeFields AllTypes) -> Type -> Cxt -> [Type] -> Q [Dec]
 mkMetricInstance record scalarType cxt instVars = do
   scalarTypeName <- newName "s"
   mkClassDec (VarT scalarTypeName)
@@ -536,7 +538,7 @@ mkMetricInstance record scalarType cxt instVars = do
                   []
               ]
 
-mkRecord :: DownhillRecord Identity (Identity Name) (DatatypeFields Identity) -> Q [Dec]
+mkRecord :: DownhillRecord (Identity Name) (DatatypeFields Identity) -> Q [Dec]
 mkRecord record = do
   let newConstr = mkConstructor record
   let newRecordName = runIdentity (ddtTypeConName record)
@@ -548,7 +550,7 @@ mkRecord record = do
 renameTypeS :: (String -> String) -> Name -> Name
 renameTypeS f = mkNameS . f . nameBase
 
-renameDownhillRecord' :: DVarOptions -> DownhillRecord Identity (Identity Name) (DatatypeFields Identity) -> DownhillRecord AllTypes (AllTypes Name) (DatatypeFields AllTypes)
+renameDownhillRecord' :: DVarOptions -> DownhillRecord (Identity Name) (DatatypeFields Identity) -> DownhillRecord (AllTypes Name) (DatatypeFields AllTypes)
 renameDownhillRecord' options record =
   DownhillRecord
     { ddtTypeConName = renameCon typeConNamer (ddtTypeConName record),
@@ -616,7 +618,7 @@ data FieldInfo = FieldInfo
     fiType :: Type
   }
 
-mkGetField :: DownhillRecord AllTypes (AllTypes Name) (DatatypeFields AllTypes) -> Cxt -> [Type] -> FieldInfo -> Q [Dec]
+mkGetField :: DownhillRecord (AllTypes Name) (DatatypeFields AllTypes) -> Cxt -> [Type] -> FieldInfo -> Q [Dec]
 mkGetField record cxt instVars field = do
   rName <- newName "r"
   xName <- newName "x"
@@ -690,15 +692,44 @@ mkGetField record cxt instVars field = do
     pointType = applyVars (ConT . dtPoint $ ddtTypeConName record)
     gradBuilderType = applyVars (ConT . dvtBuilder . dtGrad $ ddtTypeConName record)
 
-mkVec :: Cxt -> [Type] -> Type -> DownhillRecord VectorTypes (VectorTypes Name) (DatatypeFields VectorTypes) -> Q [Dec]
-mkVec cxt instVars scalarType tangVector = do
-  let vectorType, builderType :: DownhillRecord Identity (Identity Name) (DatatypeFields Identity)
+renameDownhillRecordBuilder :: RecordNamer -> DownhillRecord (Identity Name) (DatatypeFields Identity) -> DownhillRecord (Identity Name) (DatatypeFields Identity)
+renameDownhillRecordBuilder builderNamer record =
+  DownhillRecord
+    { ddtTypeConName = Identity $ renameTypeS (typeConNamer builderNamer) (runIdentity $ ddtTypeConName record),
+      ddtDataConName = Identity $ (renameTypeS (dataConNamer builderNamer)) (runIdentity $ ddtDataConName record),
+      ddtTypeVars = ddtTypeVars record,
+      ddtFieldCount = ddtFieldCount record,
+      ddtFields = renameFields (ddtFields record),
+      ddtVariant = ddtVariant record
+    }
+  where
+    renameFields :: DatatypeFields Identity -> DatatypeFields Identity
+    renameFields = \case
+      NormalFields fs -> NormalFields (types <$> fs)
+      RecordFields fs -> RecordFields (fields <$> fs)
+
+    types :: Identity Type -> Identity Type
+    types (Identity t) =
+      Identity
+        ( AppT (ConT ''VecBuilder) t
+        )
+
+    fields :: Identity (String, Type) -> Identity (String, Type)
+    fields (Identity (name, t)) =
+      Identity
+        ( fieldNamer builderNamer name, AppT (ConT ''VecBuilder) t
+        )
+
+mkVec :: Cxt -> [Type] -> Type -> DownhillRecord (VectorTypes Name) (DatatypeFields VectorTypes) -> RecordNamer -> Q [Dec]
+mkVec cxt instVars scalarType tangVector builderNamer = do
+  let vectorType, builderType :: DownhillRecord (Identity Name) (DatatypeFields Identity)
       vectorType = mapDdt (Identity . dvtVector) tangVector
-      builderType = mapDdt (Identity . dvtBuilder) tangVector
+      --builderType = mapDdt (Identity . dvtBuilder) tangVector
+      builderType = renameDownhillRecordBuilder builderNamer vectorType
   tangDec <- mkRecord vectorType
   tangBuilderDec <- mkRecord builderType
   tangSemigroup <- mkSemigroupInstance cxt builderType instVars
-  tangInst <- mkBasicVectorInstance tangVector cxt instVars
+  tangInst <- mkBasicVectorInstance tangVector builderNamer cxt instVars
   additiveTang <- mkAdditiveGroupInstance cxt vectorType instVars
   vspaceTang <- mkVectorSpaceInstance vectorType scalarType cxt instVars
   return
@@ -712,14 +743,14 @@ mkVec cxt instVars scalarType tangVector = do
         ]
     )
 
-mkDVar'' :: Cxt -> DownhillRecord AllTypes (AllTypes Name) (DatatypeFields AllTypes) -> Type -> [Type] -> ConstructorInfo -> Q [Dec]
-mkDVar'' cxt downhillTypes scalarType instVars substitutedCInfo = do
+mkDVar'' :: Cxt -> DownhillRecord (AllTypes Name) (DatatypeFields AllTypes) -> DVarOptions -> Type -> [Type] -> ConstructorInfo -> Q [Dec]
+mkDVar'' cxt downhillTypes options scalarType instVars substitutedCInfo = do
   let tangVector = mapDdt dtTang downhillTypes
       gradVector = mapDdt dtGrad downhillTypes
       metric = mapDdt (Identity . dtMetric) downhillTypes
 
-  tangDecs <- mkVec cxt instVars scalarType tangVector
-  gradDecs <- mkVec cxt instVars scalarType gradVector
+  tangDecs <- mkVec cxt instVars scalarType tangVector (optBuilerNamer options)
+  gradDecs <- mkVec cxt instVars scalarType gradVector (optBuilerNamer options)
 
   metricDec <- mkRecord metric
   additiveMetric <- mkAdditiveGroupInstance cxt metric instVars
@@ -804,7 +835,7 @@ mkDVarC1 options = \case
             _ -> fail "HasGrad instance must contain `Scalar ... = ...` declaration"
           _ -> fail "`HasGrad` has multiple declarations"
 
-        dvar <- mkDVar'' cxt downhillTypes scalarType instVars substitutedRecord
+        dvar <- mkDVar'' cxt downhillTypes options scalarType instVars substitutedRecord
 
         let tangName = dvtVector . dtTang $ ddtTypeConName downhillTypes
             gradName = dvtVector . dtGrad $ ddtTypeConName downhillTypes

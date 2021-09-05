@@ -126,7 +126,7 @@ test =
       x *^ y = undefined
     |]
 
-x = 9
+x = 11
 
 main :: IO ()
 main = do
