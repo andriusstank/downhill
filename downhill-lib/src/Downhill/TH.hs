@@ -814,20 +814,53 @@ renameDownhillRecordGrad options record =
         (
           fieldNamer (optTangNamer options) name, AppT (ConT ''Grad) t
         )
+
+renameDownhillRecordMetric :: DVarOptions -> DownhillRecord (Identity Name) (DatatypeFields Identity) -> DownhillRecord (Identity Name) (DatatypeFields Identity)
+renameDownhillRecordMetric options record =
+  DownhillRecord
+    { ddtTypeConName = Identity $ renameTypeS (typeConNamer namer) (runIdentity $ ddtTypeConName record),
+      ddtDataConName = Identity $ (renameTypeS (dataConNamer namer)) (runIdentity $ ddtDataConName record),
+      ddtTypeVars = ddtTypeVars record,
+      ddtFieldCount = ddtFieldCount record,
+      ddtFields = renameFields (ddtFields record),
+      ddtVariant = ddtVariant record
+    }
+  where
+    namer = optMetricNamer options
+    renameFields :: DatatypeFields Identity -> DatatypeFields Identity
+    renameFields = \case
+      NormalFields fs -> NormalFields (types <$> fs)
+      RecordFields fs -> RecordFields (fields <$> fs)
+
+    types :: Identity Type -> Identity Type
+    types (Identity t) =
+      Identity
+        (
+         AppT (ConT ''Metric) t
+        )
+
+    fields :: Identity (String, Type) -> Identity (String, Type)
+    fields (Identity (name, t)) =
+      Identity
+        (
+          (fieldNamer (optMetricNamer options) name, AppT (ConT ''Metric) t)
+        )
+
 mkDVar'' :: Cxt -> DownhillRecord (AllTypes Name) (DatatypeFields AllTypes) -> DVarOptions -> Type -> [Type] -> ConstructorInfo -> Q [Dec]
 mkDVar'' cxt downhillTypes options scalarType instVars substitutedCInfo = do
   let --tangVector = mapDdt (Identity . dvtVector . dtTang) downhillTypes
       tangVector = renameDownhillRecordTang options (mapDdt (Identity . dtPoint) downhillTypes)
       --gradVector = mapDdt (Identity . dvtVector . dtGrad) downhillTypes
       gradVector = renameDownhillRecordGrad options (mapDdt (Identity . dtPoint) downhillTypes)
-      metric = mapDdt (Identity . dtMetric) downhillTypes
+      --metric = mapDdt (Identity . dtMetric) downhillTypes
+      metricRecord = renameDownhillRecordMetric options (mapDdt (Identity . dtPoint) downhillTypes)
 
   tangDecs <- mkVec cxt instVars scalarType tangVector (optBuilerNamer options)
   gradDecs <- mkVec cxt instVars scalarType gradVector (optBuilerNamer options)
 
-  metricDec <- mkRecord metric
-  additiveMetric <- mkAdditiveGroupInstance cxt metric instVars
-  vspaceMetric <- mkVectorSpaceInstance metric scalarType cxt instVars
+  metricDec <- mkRecord metricRecord
+  additiveMetric <- mkAdditiveGroupInstance cxt metricRecord instVars
+  vspaceMetric <- mkVectorSpaceInstance metricRecord scalarType cxt instVars
   dualInstance <- mkDualInstance tangVector gradVector scalarType cxt instVars
   metricInstance <- mkMetricInstance downhillTypes scalarType cxt instVars
 
