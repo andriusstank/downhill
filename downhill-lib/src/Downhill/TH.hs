@@ -99,7 +99,7 @@ deriving instance Show (DownhillRecord (AllTypes Name) (DatatypeFields AllTypes)
 
 deriving instance Show (DownhillRecord (Identity Name) (DatatypeFields Identity))
 
-mapDdt :: (forall a. f a -> g a) -> DownhillRecord (f Name) (DatatypeFields f)-> DownhillRecord (g Name) (DatatypeFields g)
+mapDdt :: (forall a. f a -> g a) -> DownhillRecord (f Name) (DatatypeFields f) -> DownhillRecord (g Name) (DatatypeFields g)
 mapDdt f x =
   DownhillRecord
     { ddtTypeConName = f (ddtTypeConName x),
@@ -390,12 +390,22 @@ sumVExpr = \case
     zipExpInfix :: Name -> Exp -> Exp -> Exp
     zipExpInfix f x y = InfixE (Just x) (VarE f) (Just y)
 
-mkDualInstance :: DownhillRecord (AllTypes Name) (DatatypeFields AllTypes) -> Type -> Cxt -> [Type] -> Q [Dec]
-mkDualInstance record scalarType cxt instVars = do
+mkDualInstance ::
+  DownhillRecord (Identity Name) (DatatypeFields Identity) ->
+  DownhillRecord (Identity Name) (DatatypeFields Identity) ->
+  Type ->
+  Cxt ->
+  [Type] ->
+  Q [Dec]
+mkDualInstance tangRecord  gradRecord scalarType cxt instVars = do
+  when (ddtFieldCount tangRecord /= ddtFieldCount gradRecord) $
+    fail "mkDualInstance: ddtFieldCount tangRecord /= ddtFieldCount gradRecord"
   scalarTypeName <- newName "s"
   mkClassDec (VarT scalarTypeName)
   where
-    n = ddtFieldCount record
+    n = ddtFieldCount tangRecord
+    --tangRecord = mapDdt (Identity . dvtVector . dtTang) record
+    --gradRecord = mapDdt (Identity . dvtVector . dtGrad) record
 
     -- instance (cxt, AdditiveGroup s, s ~ scalarType) => AdditiveGroup (Record a1 … an) where
     --   …
@@ -408,8 +418,8 @@ mkDualInstance record scalarType cxt instVars = do
         ihead :: Type
         ihead = ConT ''Dual `AppT` scalarVar `AppT` vecType `AppT` gradType
           where
-            vecType = foldl AppT (ConT . dvtVector . dtTang $ ddtTypeConName record) instVars
-            gradType = foldl AppT (ConT . dvtVector . dtGrad $ ddtTypeConName record) instVars
+            vecType = foldl AppT (ConT . runIdentity $ ddtTypeConName tangRecord) instVars
+            gradType = foldl AppT (ConT . runIdentity $ ddtTypeConName gradRecord) instVars
         newConstraints :: Cxt
         newConstraints =
           [ -- AdditiveGroup s
@@ -423,8 +433,8 @@ mkDualInstance record scalarType cxt instVars = do
         mkEvalGradDec = do
           xs <- replicateM n (newName "x")
           ys <- replicateM n (newName "y")
-          let leftPat = ConP (dvtVector . dtGrad $ ddtDataConName record) (map VarP xs)
-              rightPat = ConP (dvtVector . dtTang $ ddtDataConName record) (map VarP ys)
+          let leftPat = ConP (runIdentity $ ddtDataConName gradRecord) (map VarP xs)
+              rightPat = ConP (runIdentity $ ddtDataConName tangRecord) (map VarP ys)
               -- terms = [evalGrad x1 y1, …, evalGrad xn yn]
               terms :: [Exp]
               terms = zipWith evalGradExp xs ys
@@ -718,8 +728,7 @@ renameDownhillRecordBuilder builderNamer record =
     fields :: Identity (String, Type) -> Identity (String, Type)
     fields (Identity (name, t)) =
       Identity
-        ( fieldNamer builderNamer name, AppT (ConT ''VecBuilder) t
-        )
+        (fieldNamer builderNamer name, AppT (ConT ''VecBuilder) t)
 
 mkVec :: Cxt -> [Type] -> Type -> DownhillRecord (Identity Name) (DatatypeFields Identity) -> RecordNamer -> Q [Dec]
 mkVec cxt instVars scalarType vectorType builderNamer = do
@@ -756,7 +765,7 @@ mkDVar'' cxt downhillTypes options scalarType instVars substitutedCInfo = do
   metricDec <- mkRecord metric
   additiveMetric <- mkAdditiveGroupInstance cxt metric instVars
   vspaceMetric <- mkVectorSpaceInstance metric scalarType cxt instVars
-  dualInstance <- mkDualInstance downhillTypes scalarType cxt instVars
+  dualInstance <- mkDualInstance tangVector gradVector scalarType cxt instVars
   metricInstance <- mkMetricInstance downhillTypes scalarType cxt instVars
 
   hasFieldInstance <- case ddtFields downhillTypes of
