@@ -89,7 +89,7 @@ data DVarOptions = DVarOptions
   { optTangNamer :: RecordNamer,
     optGradNamer :: RecordNamer,
     optMetricNamer :: RecordNamer,
-    optBuilerNamer :: RecordNamer -- TODO: typo
+    optBuilderNamer :: RecordNamer
   }
 
 defaultTangRecordNamer :: RecordNamer
@@ -130,10 +130,8 @@ defaultDVarOptions =
     { optTangNamer = defaultTangRecordNamer,
       optGradNamer = defaultGradRecordNamer,
       optMetricNamer = defaultMetricRecordNamer,
-      optBuilerNamer = defaultBuilderRecordNamer
+      optBuilderNamer = defaultBuilderRecordNamer
     }
-
---addIdentity :: DownhillRecord Name -> DownhillRecord
 
 mkConstructor :: DownhillRecord -> Con
 mkConstructor record =
@@ -165,8 +163,6 @@ parseGradConstructor tyName dinfo cinfo typevars = do
     NormalConstructor -> return (types, Nothing)
     InfixConstructor -> return (types, Nothing)
     RecordConstructor fieldNames -> do
-      --when (length fieldNames /= n) (fail "parseGradConstructor: length fieldNames /= n")
-      --return (RecordFields (zipWith (\name ty -> (nameBase name, ty)) fieldNames types))
       return (types, Just (nameBase <$> fieldNames))
   return
     DownhillRecord
@@ -318,8 +314,6 @@ mkBasicVectorInstance vectorRecord options cxt instVars = do
   mkClassInstance ''BasicVector cxt vectorRecord instVars [vecbuilderDec, sumBuilderDec]
   where
     n = ddtFieldCount vectorRecord
-    --vectorRecord :: DownhillRecord
-    --vectorRecord = mapDdt (Identity . dvtVector) record
     builderRecord = renameDownhillRecord (builderTransform options) vectorRecord
 
     mkSumBuilder :: Q Dec
@@ -373,8 +367,6 @@ mkDualInstance tangRecord gradRecord scalarType cxt instVars = do
   mkClassDec (VarT scalarTypeName)
   where
     n = ddtFieldCount tangRecord
-    --tangRecord = mapDdt (Identity . dvtVector . dtTang) record
-    --gradRecord = mapDdt (Identity . dvtVector . dtGrad) record
 
     -- instance (cxt, AdditiveGroup s, s ~ scalarType) => AdditiveGroup (Record a1 … an) where
     --   …
@@ -636,7 +628,7 @@ renameDownhillRecord (RecordTranstorm namer typeFun) record =
     }
 
 builderTransform :: DVarOptions -> RecordTranstorm
-builderTransform options = RecordTranstorm (optBuilerNamer options) (AppT (ConT ''VecBuilder))
+builderTransform options = RecordTranstorm (optBuilderNamer options) (AppT (ConT ''VecBuilder))
 
 tangTransform :: DVarOptions -> RecordTranstorm
 tangTransform options = RecordTranstorm (optTangNamer options) (AppT (ConT ''Tang))
@@ -649,10 +641,7 @@ metricTransform options = RecordTranstorm (optMetricNamer options) (AppT (ConT '
 
 mkVec :: Cxt -> [Type] -> Type -> DownhillRecord -> DVarOptions -> Q [Dec]
 mkVec cxt instVars scalarType vectorType options = do
-  let --vectorType, builderType :: DownhillRecord
-      --vectorType = mapDdt (Identity . dvtVector) tangVector
-      --builderType = mapDdt (Identity . dvtBuilder) tangVector
-      builderType = renameDownhillRecord (builderTransform options) vectorType
+  let builderType = renameDownhillRecord (builderTransform options) vectorType
   tangDec <- mkRecord vectorType
   tangBuilderDec <- mkRecord builderType
   tangSemigroup <- mkSemigroupInstance cxt builderType instVars
@@ -736,7 +725,6 @@ mkDVarC1 options = \case
       Just _ -> fail "Overlapping instances not implemented"
       _ -> return ()
     case type_ of
-      -- AppT (ConT Downhill.Grad.HasGrad) (AppT (ConT Main.MyRecord1) (VarT a_1))
       AppT (ConT hasgradCtx) recordInConstraintType -> do
         when (hasgradCtx /= ''HasGrad) $
           fail $ "Constraint must be `HasGrad`, got " ++ show hasgradCtx
@@ -745,9 +733,7 @@ mkDVarC1 options = \case
         (parsedRecord, cinfo) <- parseDownhillRecord recordName record'
         recordTypeVarNames <- do
           let getName x = do
-                --getName (SigT (VarT y) _) <- y
                 let SigT (VarT y) _ = x
-                --ConT y <- return x
                 return y
           traverse getName (datatypeInstTypes record')
         -- We have two sets of type variables: one in record definition (as in `data MyRecord a b c = ...`)
@@ -755,17 +741,7 @@ mkDVarC1 options = \case
         -- those from instance head for HasField instances.
         let substPairs = zip recordTypeVarNames instVars
             substitutedRecord = applySubstitution (Map.fromList substPairs) cinfo
-        {-
-        liftIO $ do
-          putStrLn " === Record ==="
-          print record'
-          putStrLn " === Constraint ==="
-          print recordInConstraintType
-          putStrLn " === Substitution ==="
-          --print substPairs
-          print substitutedRecord
-        -}
-        --dvar <- mkDVar' options cxt recordName instVars
+
         scalarType <- case decs of
           [] -> fail "`HasGrad` instance has no declarations"
           [dec1] -> case dec1 of

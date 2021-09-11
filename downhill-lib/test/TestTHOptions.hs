@@ -39,6 +39,6 @@ defaultDVarOptions =
     { optTangNamer = defaultTangRecordNamer,
       optGradNamer = defaultGradRecordNamer,
       optMetricNamer = defaultMetricRecordNamer,
-      optBuilerNamer = defaultBuilderRecordNamer
+      optBuilderNamer = defaultBuilderRecordNamer
     }
 
