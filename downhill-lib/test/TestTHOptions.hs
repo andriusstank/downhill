@@ -1,5 +1,5 @@
 module TestTHOptions(defaultDVarOptions) where
-import Downhill.TH ( mkDVarC, RecordNamer(..), DVarOptions(..))
+import Downhill.TH ( mkDVarC, RecordNamer(..), DVarOptions(..), AffineSpaceOptions (AutoAffineSpace))
 
 defaultTangRecordNamer :: RecordNamer
 defaultTangRecordNamer =
@@ -39,6 +39,8 @@ defaultDVarOptions =
     { optTangNamer = defaultTangRecordNamer,
       optGradNamer = defaultGradRecordNamer,
       optMetricNamer = defaultMetricRecordNamer,
-      optBuilderNamer = defaultBuilderRecordNamer
+      optBuilderNamer = defaultBuilderRecordNamer,
+      optAffineSpace = AutoAffineSpace,
+      optExcludeFields = []
     }
 

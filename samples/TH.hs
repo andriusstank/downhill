@@ -29,7 +29,7 @@ import Downhill.DVar (BVar (BVar))
 import Downhill.Grad (Dual (..), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (..))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.Linear.Lift (lift1_sparse)
-import Downhill.TH ( defaultDVarOptions, mkDVarC )
+import Downhill.TH ( DVarOptions(..), defaultDVarOptions, mkDVarC )
 import GHC.Generics (Generic)
 import GHC.Records (HasField (getField))
 import Language.Haskell.TH (Dec, Exp, Pat (ConP), Q, runQ, stringE)
@@ -53,6 +53,11 @@ data MyRecordGradBuilder3 = MyRecordGradBuilder3
   { myA :: Sum Int,
     myB :: Sum Float,
     myC :: Sum Float
+  }
+
+data MyRecord4 a = MyRecord4
+  { myField4 :: a
+  , myLabel4 :: String
   }
 
 data InfixC = Int :^^^ Float
@@ -93,6 +98,7 @@ instance B MyRecord where
 --mkDVar defaultDVarOptions ''MyRecord
 
 
+{-
 mkDVarC
   defaultDVarOptions
   [d|
@@ -105,6 +111,14 @@ mkDVarC
   [d|
     instance HasGrad MyNewtype where
       type MScalar MyNewtype = Float
+    |]
+-}
+
+mkDVarC
+  defaultDVarOptions {optExcludeFields = ["myLabel4"]}
+  [d|
+    instance HasGrad a => HasGrad (MyRecord4 a) where
+      type MScalar (MyRecord4 a) = MScalar a
     |]
 
 iq =
@@ -127,7 +141,7 @@ test =
       x *^ y = undefined
     |]
 
-x = 11
+x = 12
 
 main :: IO ()
 main = do

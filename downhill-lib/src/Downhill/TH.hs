@@ -5,6 +5,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -12,6 +13,7 @@
 module Downhill.TH
   ( --mkDVar,
     mkDVarC,
+    AffineSpaceOptions(..),
     RecordNamer (..),
     DVarOptions (..),
     defaultDVarOptions,
@@ -21,7 +23,9 @@ where
 import Control.Monad
 import Data.AdditiveGroup ((^+^), (^-^))
 import Data.AffineSpace (AffineSpace (Diff, (.+^), (.-.)))
+import Data.Foldable (traverse_)
 import qualified Data.Map as Map
+import Data.Maybe (catMaybes)
 import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace (Scalar, (*^)))
 import Downhill.DVar (BVar (BVar))
 import Downhill.Grad
@@ -86,11 +90,18 @@ data RecordNamer = RecordNamer
 
 data RecordTranstorm = RecordTranstorm RecordNamer (Type -> Type)
 
+data AffineSpaceOptions
+  = MakeAffineSpace -- ^ Generate AffineSpace instance
+  | NoAffineSpace  -- ^ Don't generate AffineSpace instance
+  | AutoAffineSpace  -- ^ Generate AffineSpace instance if @optExcludeFields@ is empty
+
 data DVarOptions = DVarOptions
   { optTangNamer :: RecordNamer,
     optGradNamer :: RecordNamer,
     optMetricNamer :: RecordNamer,
-    optBuilderNamer :: RecordNamer
+    optBuilderNamer :: RecordNamer,
+    optAffineSpace :: AffineSpaceOptions,
+    optExcludeFields :: [String]
   }
 
 defaultTangRecordNamer :: RecordNamer
@@ -131,7 +142,9 @@ defaultDVarOptions =
     { optTangNamer = defaultTangRecordNamer,
       optGradNamer = defaultGradRecordNamer,
       optMetricNamer = defaultMetricRecordNamer,
-      optBuilderNamer = defaultBuilderRecordNamer
+      optBuilderNamer = defaultBuilderRecordNamer,
+      optAffineSpace = AutoAffineSpace,
+      optExcludeFields = []
     }
 
 mkConstructor :: DownhillRecord -> Con
@@ -195,8 +208,8 @@ elementwiseOp record = elementwiseOp' record record record
 elementwiseOp' :: DownhillRecord -> DownhillRecord -> DownhillRecord -> Name -> Q Dec
 elementwiseOp' leftRecord rightRecord resRecord func = do
   let n = ddtFieldCount resRecord
-      --dataConName :: Name
-      --dataConName = ddtDataConName record
+  --dataConName :: Name
+  --dataConName = ddtDataConName record
   xs <- replicateM n (newName "x")
   ys <- replicateM n (newName "y")
   let fieldOp :: Name -> Name -> Exp
@@ -685,7 +698,15 @@ mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
   vspaceMetric <- mkVectorSpaceInstance metricRecord scalarType cxt instVars
   dualInstance <- mkDualInstance tangRecord gradRecord scalarType cxt instVars
   metricInstance <- mkMetricInstance metricRecord tangRecord gradRecord scalarType cxt instVars
-  affineSpaceInstance <- mkAffineSpaceInstance cxt pointRecord tangRecord instVars
+  let needAffineSpace = case optAffineSpace options of
+        MakeAffineSpace -> True
+        NoAffineSpace -> False
+        AutoAffineSpace -> null (optExcludeFields options)
+
+  affineSpaceInstance <-
+    if needAffineSpace
+      then mkAffineSpaceInstance cxt pointRecord tangRecord instVars
+      else return []
 
   hasFieldInstance <- case ddtFieldNames pointRecord of
     Nothing -> return []
@@ -745,6 +766,41 @@ mkAffineSpaceInstance cxt recordPoint recordTang instVars = do
         ]
   mkClassInstance ''AffineSpace cxt recordPoint instVars decs
 
+filterFields :: forall m. MonadFail m => DVarOptions -> DownhillRecord -> m DownhillRecord
+filterFields options record =
+  case optExcludeFields options of
+    [] -> return record
+    _ -> do
+      fieldList <- case ddtFieldNames record of
+        Just fields -> return fields
+        Nothing -> fail (nameBase (ddtTypeConName record) ++ " is not a records, can't exclude fields")
+      doFilterFields fieldList
+  where
+    doFilterFields fieldList = do
+      traverse_ check (optExcludeFields options)
+      return
+        record
+          { ddtFieldTypes = go (ddtFieldTypes record),
+            ddtFieldNames = go <$> ddtFieldNames record,
+            ddtFieldCount = goN (ddtFieldCount record)
+          }
+      where
+        check :: String -> m ()
+        check name
+          | name `elem` fieldList = return ()
+          | otherwise = fail ("Field " ++ name ++ " is not a member of " ++ nameBase (ddtTypeConName record))
+        excludeZipList :: [x -> Maybe x]
+        excludeZipList = filterField <$> fieldList
+          where
+            filterField :: String -> x -> Maybe x
+            filterField fieldName x
+              | fieldName `elem` optExcludeFields options = Nothing
+              | otherwise = Just x
+        go :: [a] -> [a]
+        go = catMaybes . zipWith ($) excludeZipList
+        goN :: Int -> Int
+        goN n = length . go $ replicate n ()
+
 mkDVarC1 :: DVarOptions -> Dec -> Q [Dec]
 mkDVarC1 options = \case
   InstanceD mayOverlap cxt type_ decs -> do
@@ -757,7 +813,9 @@ mkDVarC1 options = \case
           fail $ "Constraint must be `HasGrad`, got " ++ show hasgradCtx
         (recordName, instVars) <- parseRecordType recordInConstraintType []
         record' <- reifyDatatype recordName
-        (parsedRecord, cinfo) <- parseDownhillRecord recordName record'
+
+        (fullParsedRecord, cinfo) <- parseDownhillRecord recordName record'
+        parsedRecord <- filterFields options fullParsedRecord
         recordTypeVarNames <- do
           let getName x = do
                 let SigT (VarT y) _ = x

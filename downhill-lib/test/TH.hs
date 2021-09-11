@@ -2,6 +2,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications #-}
 
 module TH (thTest) where
 
@@ -12,7 +15,6 @@ import Test.Tasty (TestTree, testGroup)
 import TestTHOptions (defaultDVarOptions)
 
 {-# ANN module "HLint: ignore Use newtype instead of data" #-}
-
 newtype MyRecord1 = MyRecord1 Float
 
 data MyRecord2 = MyRecord2 Float
@@ -82,6 +84,18 @@ mkDVarC
       HasGrad (MyRecord6 a Float)
       where
       type MScalar (MyRecord6 a Float) = Float
+    |]
+
+data MyRecord7 a = MyRecord7
+  { myField7 :: a
+  , myLabel7 :: String
+  }
+
+mkDVarC
+  defaultDVarOptions {optExcludeFields = ["myLabel7"]}
+  [d|
+    instance HasGrad a => HasGrad (MyRecord7 a) where
+      type MScalar (MyRecord7 a) = MScalar a
     |]
 
 thTest :: TestTree
