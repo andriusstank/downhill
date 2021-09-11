@@ -1,20 +1,21 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module TH(thTest) where
+module TH (thTest) where
 
+import Data.AffineSpace (AffineSpace (..))
+import Downhill.Grad (HasGrad (MScalar, Tang))
+import Downhill.TH (DVarOptions (..), RecordNamer (..), mkDVarC)
 import Test.Tasty (TestTree, testGroup)
-import Downhill.TH ( mkDVarC, RecordNamer(..), DVarOptions(..))
-import Downhill.Grad (HasGrad(MScalar))
 import TestTHOptions (defaultDVarOptions)
 
 {-# ANN module "HLint: ignore Use newtype instead of data" #-}
 
 newtype MyRecord1 = MyRecord1 Float
-data MyRecord2 = MyRecord2 Float
 
+data MyRecord2 = MyRecord2 Float
 
 mkDVarC
   defaultDVarOptions
@@ -44,7 +45,7 @@ data MyRecord4 a = MyRecord4 a
 mkDVarC
   defaultDVarOptions
   [d|
-    instance HasGrad a => HasGrad (MyRecord4 a) where
+    instance (AffineSpace a, HasGrad a, Diff a ~ Tang a) => HasGrad (MyRecord4 a) where
       type MScalar (MyRecord4 a) = MScalar a
     |]
 
@@ -53,7 +54,17 @@ data MyRecord5 a b = MyRecord5 a b
 mkDVarC
   defaultDVarOptions
   [d|
-    instance (HasGrad a, HasGrad b, MScalar a ~ MScalar b) => HasGrad (MyRecord5 a b) where
+    instance
+      ( AffineSpace a,
+        AffineSpace b,
+        HasGrad a,
+        HasGrad b,
+        MScalar a ~ MScalar b,
+        Diff a ~ Tang a,
+        Diff b ~ Tang b
+      ) =>
+      HasGrad (MyRecord5 a b)
+      where
       type MScalar (MyRecord5 a b) = MScalar a
     |]
 
@@ -62,10 +73,16 @@ data MyRecord6 a b = MyRecord6 a b
 mkDVarC
   defaultDVarOptions
   [d|
-    instance (HasGrad a, MScalar a ~ Float) => HasGrad (MyRecord6 a Float) where
+    instance
+      ( AffineSpace a,
+        HasGrad a,
+        MScalar a ~ Float,
+        Diff a ~ Tang a
+      ) =>
+      HasGrad (MyRecord6 a Float)
+      where
       type MScalar (MyRecord6 a Float) = Float
     |]
-
 
 thTest :: TestTree
 thTest = testGroup "Template Haskell" []

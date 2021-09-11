@@ -20,6 +20,7 @@ where
 
 import Control.Monad
 import Data.AdditiveGroup ((^+^), (^-^))
+import Data.AffineSpace (AffineSpace (Diff, (.+^), (.-.)))
 import qualified Data.Map as Map
 import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace (Scalar, (*^)))
 import Downhill.DVar (BVar (BVar))
@@ -680,6 +681,7 @@ mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
   vspaceMetric <- mkVectorSpaceInstance metricRecord scalarType cxt instVars
   dualInstance <- mkDualInstance tangRecord gradRecord scalarType cxt instVars
   metricInstance <- mkMetricInstance metricRecord tangRecord gradRecord scalarType cxt instVars
+  affineSpaceInstance <- mkAffineSpaceInstance cxt pointRecord tangRecord instVars
 
   hasFieldInstance <- case ddtFieldNames pointRecord of
     Nothing -> return []
@@ -708,7 +710,8 @@ mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
           dualInstance,
           metricDec,
           metricInstance,
-          hasFieldInstance
+          hasFieldInstance,
+          affineSpaceInstance
         ]
   return (concat decs)
 
@@ -717,6 +720,77 @@ parseRecordType type_ vars = case type_ of
   AppT inner typeVar -> parseRecordType inner (typeVar : vars)
   ConT recordName -> return (recordName, vars)
   _ -> fail "Expected (T a1 ... an) in constraint"
+
+mkAffineSpaceInstance :: Cxt -> DownhillRecord -> DownhillRecord -> [Type] -> Q [Dec]
+mkAffineSpaceInstance cxt recordPoint recordTang instVars = do
+  let mkPlusDec :: Q Dec
+      mkPlusDec = do
+        let n = ddtFieldCount recordPoint
+            dataConNamePoint, dataConNameTang :: Name
+            dataConNamePoint = ddtDataConName recordPoint
+            dataConNameTang = ddtDataConName recordTang
+        xs <- replicateM n (newName "x")
+        ys <- replicateM n (newName "y")
+        let fieldOp :: Name -> Name -> Exp
+            fieldOp x y = InfixE (Just (VarE x)) (VarE '(.+^)) (Just (VarE y))
+            resultFields :: [Exp]
+            resultFields = zipWith fieldOp xs ys
+            leftPat = ConP dataConNamePoint (map VarP xs)
+            rightPat = ConP dataConNameTang (map VarP ys)
+            rhs :: Exp
+            rhs = foldl AppE (ConE dataConNamePoint) resultFields
+            dec =
+              FunD
+                '(.+^)
+                [ Clause
+                    [leftPat, rightPat]
+                    (NormalB rhs)
+                    []
+                ]
+        return dec
+  let mkMinusDec :: Q Dec
+      mkMinusDec = do
+        let n = ddtFieldCount recordPoint
+            dataConNamePoint, dataConNameTang :: Name
+            dataConNamePoint = ddtDataConName recordPoint
+            dataConNameTang = ddtDataConName recordTang
+        xs <- replicateM n (newName "x")
+        ys <- replicateM n (newName "y")
+        let fieldOp :: Name -> Name -> Exp
+            fieldOp x y = InfixE (Just (VarE x)) (VarE '(.-.)) (Just (VarE y))
+            resultFields :: [Exp]
+            resultFields = zipWith fieldOp xs ys
+            leftPat = ConP dataConNamePoint (map VarP xs)
+            rightPat = ConP dataConNamePoint (map VarP ys)
+            rhs :: Exp
+            rhs = foldl AppE (ConE dataConNameTang) resultFields
+            dec =
+              FunD
+                '(.-.)
+                [ Clause
+                    [leftPat, rightPat]
+                    (NormalB rhs)
+                    []
+                ]
+        return dec
+
+  plusDec <- mkPlusDec
+  minusDec <- mkMinusDec
+  let recordTypePoint = foldl AppT (ConT (ddtTypeConName recordPoint)) instVars
+      recordTypeTang = foldl AppT (ConT (ddtTypeConName recordTang)) instVars
+      diffTypeDec =
+        TySynInstD
+          ( TySynEqn
+              Nothing
+              (AppT (ConT ''Diff) recordTypePoint)
+              recordTypeTang
+          )
+  let decs =
+        [ plusDec,
+          minusDec,
+          diffTypeDec
+        ]
+  mkClassInstance ''AffineSpace cxt recordPoint instVars decs
 
 mkDVarC1 :: DVarOptions -> Dec -> Q [Dec]
 mkDVarC1 options = \case

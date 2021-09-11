@@ -14,7 +14,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
--- {-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
+{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Main where
 
@@ -23,6 +23,7 @@ import Data.AdditiveGroup (AdditiveGroup (..))
 import Data.Kind (Constraint, Type)
 import Data.Monoid (Sum)
 import Data.VectorSpace (VectorSpace (Scalar, (*^)))
+import Data.AffineSpace (AffineSpace (..))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.DVar (BVar (BVar))
 import Downhill.Grad (Dual (..), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (..))
