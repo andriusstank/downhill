@@ -190,20 +190,23 @@ parseDownhillRecord recordName record' = do
   return (r, constr')
 
 elementwiseOp :: DownhillRecord -> Name -> Q Dec
-elementwiseOp record func = do
-  let n = ddtFieldCount record
-      dataConName :: Name
-      dataConName = ddtDataConName record
+elementwiseOp record = elementwiseOp' record record record
+
+elementwiseOp' :: DownhillRecord -> DownhillRecord -> DownhillRecord -> Name -> Q Dec
+elementwiseOp' leftRecord rightRecord resRecord func = do
+  let n = ddtFieldCount resRecord
+      --dataConName :: Name
+      --dataConName = ddtDataConName record
   xs <- replicateM n (newName "x")
   ys <- replicateM n (newName "y")
   let fieldOp :: Name -> Name -> Exp
       fieldOp x y = InfixE (Just (VarE x)) (VarE func) (Just (VarE y))
       resultFields :: [Exp]
       resultFields = zipWith fieldOp xs ys
-      leftPat = ConP dataConName (map VarP xs)
-      rightPat = ConP dataConName (map VarP ys)
+      leftPat = ConP (ddtDataConName leftRecord) (map VarP xs)
+      rightPat = ConP (ddtDataConName rightRecord) (map VarP ys)
       rhs :: Exp
-      rhs = foldl AppE (ConE dataConName) resultFields
+      rhs = foldl AppE (ConE (ddtDataConName resRecord)) resultFields
       dec =
         FunD
           func
@@ -317,6 +320,7 @@ mkBasicVectorInstance vectorRecord options cxt instVars = do
     n = ddtFieldCount vectorRecord
     builderRecord = renameDownhillRecord (builderTransform options) vectorRecord
 
+    -- not an elementiseOp, because right hand side is wrapped in Maybe
     mkSumBuilder :: Q Dec
     mkSumBuilder = do
       builders <- replicateM n (newName "x")
@@ -723,59 +727,8 @@ parseRecordType type_ vars = case type_ of
 
 mkAffineSpaceInstance :: Cxt -> DownhillRecord -> DownhillRecord -> [Type] -> Q [Dec]
 mkAffineSpaceInstance cxt recordPoint recordTang instVars = do
-  let mkPlusDec :: Q Dec
-      mkPlusDec = do
-        let n = ddtFieldCount recordPoint
-            dataConNamePoint, dataConNameTang :: Name
-            dataConNamePoint = ddtDataConName recordPoint
-            dataConNameTang = ddtDataConName recordTang
-        xs <- replicateM n (newName "x")
-        ys <- replicateM n (newName "y")
-        let fieldOp :: Name -> Name -> Exp
-            fieldOp x y = InfixE (Just (VarE x)) (VarE '(.+^)) (Just (VarE y))
-            resultFields :: [Exp]
-            resultFields = zipWith fieldOp xs ys
-            leftPat = ConP dataConNamePoint (map VarP xs)
-            rightPat = ConP dataConNameTang (map VarP ys)
-            rhs :: Exp
-            rhs = foldl AppE (ConE dataConNamePoint) resultFields
-            dec =
-              FunD
-                '(.+^)
-                [ Clause
-                    [leftPat, rightPat]
-                    (NormalB rhs)
-                    []
-                ]
-        return dec
-  let mkMinusDec :: Q Dec
-      mkMinusDec = do
-        let n = ddtFieldCount recordPoint
-            dataConNamePoint, dataConNameTang :: Name
-            dataConNamePoint = ddtDataConName recordPoint
-            dataConNameTang = ddtDataConName recordTang
-        xs <- replicateM n (newName "x")
-        ys <- replicateM n (newName "y")
-        let fieldOp :: Name -> Name -> Exp
-            fieldOp x y = InfixE (Just (VarE x)) (VarE '(.-.)) (Just (VarE y))
-            resultFields :: [Exp]
-            resultFields = zipWith fieldOp xs ys
-            leftPat = ConP dataConNamePoint (map VarP xs)
-            rightPat = ConP dataConNamePoint (map VarP ys)
-            rhs :: Exp
-            rhs = foldl AppE (ConE dataConNameTang) resultFields
-            dec =
-              FunD
-                '(.-.)
-                [ Clause
-                    [leftPat, rightPat]
-                    (NormalB rhs)
-                    []
-                ]
-        return dec
-
-  plusDec <- mkPlusDec
-  minusDec <- mkMinusDec
+  plusDec <- elementwiseOp' recordPoint recordTang recordPoint '(.+^)
+  minusDec <- elementwiseOp' recordPoint recordPoint recordTang '(.-.)
   let recordTypePoint = foldl AppT (ConT (ddtTypeConName recordPoint)) instVars
       recordTypeTang = foldl AppT (ConT (ddtTypeConName recordTang)) instVars
       diffTypeDec =
