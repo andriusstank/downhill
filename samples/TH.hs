@@ -14,7 +14,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
+-- {-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Main where
 

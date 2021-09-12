@@ -5,8 +5,8 @@
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 
 module Downhill.Internal.Graph.OpenGraph (
-    OpenArg, OpenTerm, OpenExpr,
     OpenGraph(..),
+    OpenArg, OpenTerm, OpenExpr,
     recoverSharing
 )
 where
@@ -45,14 +45,13 @@ buildExpr action key = do
 runTreeBuilder :: forall e a g dv. TreeBuilder e a (g dv) -> IO (g dv, OpenMap (OpenExpr e a))
 runTreeBuilder rs_x = runStateT (unTreeCache rs_x) OpenMap.empty
 
-
-
 type OpenArg = Endpoint OpenKey
 type OpenTerm e = Edge OpenKey e
 type OpenExpr e da = Node OpenKey e da
 
 -- | Computational graph under construction. "Open" refers to the set of the nodes – new nodes can be
--- added to this graph.
+-- added to this graph. Once the graph is complete the set of nodes will be frozen
+-- and the type of the graph will become 'Graph' ("Downhill.Internal.Graph" module).
 data OpenGraph e a z = OpenGraph (Node OpenKey e a z) (OpenMap (OpenExpr e a))
 
 goEdges :: BasicVector v => [Term e a v] -> TreeBuilder e a (Node OpenKey e a v)
@@ -73,7 +72,7 @@ goSharing4term = \case
         arg' <- goSharing4arg arg
         return (Edge f arg')
 
--- | Use observable sharing and ('System.Mem.StableName.StableName')
+-- | Collects duplicate nodes in 'Expr' tree and converts it to a graph.
 recoverSharing :: forall e a z. BasicVector z => [Term e a z] -> IO (OpenGraph e a z)
 recoverSharing xs = do
         (final_node, graph) <- runTreeBuilder (goEdges xs)

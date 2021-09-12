@@ -1,45 +1,35 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Downhill.Linear.Graph
-  ( Graph,
-    SomeGraph (..),
-    evalSomeGraph,
-    flipSomeGraph,
-    buildSomeGraph,
-    backpropGraph,
+  ( -- * Backpropagation
     backprop,
     backprop',
+    buildSomeGraph,
   )
 where
 
 import Downhill.Internal.Graph.Graph
-  ( Graph,
-    SomeGraph (..),
+  ( SomeGraph (..),
     evalGraph,
-    flipGraph,
+    transposeGraph,
   )
 import qualified Downhill.Internal.Graph.Graph as Graph
 import Downhill.Internal.Graph.OpenGraph (recoverSharing)
-import Downhill.Linear.BackGrad (BackGrad (..))
+import Downhill.Linear.BackGrad (BackGrad (..), castBackGrad)
 import Downhill.Linear.Expr
   ( BackFun,
     BasicVector (VecBuilder),
     FullVector (identityBuilder),
-    FwdFun,
     SparseVector (SparseVector, unSparseVector),
-    flipBackFun, Term
+    Term,
+    flipBackFun,
   )
 import GHC.IO.Unsafe (unsafePerformIO)
-
-evalSomeGraph :: SomeGraph FwdFun a p -> a -> p
-evalSomeGraph g v = case g of
-  SomeGraph g' -> evalGraph g' v
-
-flipSomeGraph :: SomeGraph BackFun a z -> SomeGraph FwdFun z a
-flipSomeGraph (SomeGraph g) = SomeGraph (Graph.flipGraph flipBackFun g)
 
 buildSomeGraph ::
   forall a v.
@@ -50,19 +40,20 @@ buildSomeGraph fidentityBuilder = unsafePerformIO $ do
   og <- recoverSharing fidentityBuilder
   return (Graph.fromOpenGraph og)
 
-backpropGraph :: SomeGraph BackFun a z -> z -> a
-backpropGraph someGraph x = case someGraph of
-  SomeGraph g -> evalGraph (flipGraph flipBackFun g) x
+abstractBackprop ::
+  forall a v.
+  (BasicVector a, BasicVector v) =>
+  BackGrad a v ->
+  (v -> VecBuilder v) ->
+  v ->
+  a
+abstractBackprop (BackGrad f) builder x = case buildSomeGraph (f builder) of
+  SomeGraph g -> evalGraph (transposeGraph flipBackFun g) x
 
 backprop :: forall a v. (BasicVector a, BasicVector v) => BackGrad a v -> VecBuilder v -> a
-backprop (BackGrad f) x = backpropGraph g (SparseVector x)
-  where
-    g :: SomeGraph BackFun a (SparseVector v)
-    g = buildSomeGraph (f unSparseVector)
+backprop dvar x = abstractBackprop sparseDVar unSparseVector (SparseVector x)
+  where sparseDVar :: BackGrad a (SparseVector v)
+        sparseDVar = castBackGrad dvar
 
-{-# ANN backprop' "HLint: ignore Eta reduce" #-}
 backprop' :: forall a v. (BasicVector a, FullVector v) => BackGrad a v -> v -> a
-backprop' (BackGrad f) x = backpropGraph g x
-  where
-    g :: SomeGraph BackFun a v
-    g = buildSomeGraph (f identityBuilder)
+backprop' dvar = abstractBackprop dvar identityBuilder
