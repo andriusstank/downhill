@@ -27,7 +27,7 @@ import Data.Foldable (traverse_)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace (Scalar, (*^)))
-import Downhill.DVar (BVar (BVar))
+import Downhill.BVar (BVar (BVar))
 import Downhill.Grad
   ( Dual (evalGrad),
     HasGrad (Grad, MScalar, Metric, Tang),

@@ -5,7 +5,7 @@
 {-# LANGUAGE ViewPatterns #-}
 module Downhill.BVar.Prelude (pattern T2, pattern T3) where
 
-import Downhill.DVar (BVar (BVar))
+import Downhill.BVar (BVar (BVar))
 import qualified Downhill.Linear.Prelude as Linear
 import Prelude ()
 import Downhill.Grad (HasGrad)

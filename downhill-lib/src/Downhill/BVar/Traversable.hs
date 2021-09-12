@@ -26,7 +26,7 @@ import qualified Data.IntMap as IntMap
 import Data.Maybe (fromMaybe)
 import Data.VectorSpace (AdditiveGroup (negateV, zeroV, (^+^), (^-^)), VectorSpace ((*^), Scalar))
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.DVar (BVar (BVar), backprop, var)
+import Downhill.BVar (BVar (BVar), backprop, var)
 import Downhill.Grad
   ( Dual (evalGrad),
     HasFullGrad,

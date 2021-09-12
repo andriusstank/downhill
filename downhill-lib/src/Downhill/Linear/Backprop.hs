@@ -5,11 +5,12 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Downhill.Linear.Graph
+module Downhill.Linear.Backprop
   ( -- * Backpropagation
     backprop,
     backprop',
     buildSomeGraph,
+    abstractBackprop,
   )
 where
 

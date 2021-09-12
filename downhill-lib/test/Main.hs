@@ -1,4 +1,4 @@
-import Downhill.DVar(bvarValue)
+import Downhill.BVar(bvarValue)
 import Test.Tasty (defaultMain, testGroup, TestTree)
 import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 

@@ -7,7 +7,7 @@
 module Record(recordTest) where
 
 import Downhill.BVar.Traversable (IntmapVector (IntmapVector), TraversableVar (TraversableVar), backpropTraversable, splitTraversable)
-import Downhill.DVar (BVar (BVar), backprop, var)
+import Downhill.BVar (BVar (BVar), backprop, var)
 import Downhill.Grad (HasGrad)
 import Test.Tasty (TestTree)
 import Test.Tasty.HUnit (testCase, (@?=))

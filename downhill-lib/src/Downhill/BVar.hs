@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Downhill.DVar
+module Downhill.BVar
   ( BVar (..),
     var,
     constant,
@@ -36,7 +36,7 @@ import Downhill.Linear.BackGrad
     realNode,
   )
 import Downhill.Linear.Expr (Expr (ExprVar), FullVector, BasicVector)
-import qualified Downhill.Linear.Graph as Graph
+import qualified Downhill.Linear.Backprop as BP
 import Downhill.Linear.Lift (lift2_dense)
 import Prelude hiding (id, (.))
 
@@ -121,7 +121,8 @@ var x = BVar x (realNode ExprVar)
 
 -- | Backpropagation.
 backprop :: forall a p. (HasGrad p, BasicVector a) => BVar a p -> GradBuilder p -> a
-backprop (BVar _y0 x) = Graph.backprop x
+backprop (BVar _y0 x) = BP.backprop x
 
+-- | Like @backprop@, but takes @Grad p@  instead of @GradBuilder p@.
 backprop' :: forall a p. (HasGrad p, FullVector (Grad p), BasicVector a) => BVar a p -> Grad p -> a
-backprop' (BVar _y0 x) = Graph.backprop' x
+backprop' (BVar _y0 x) = BP.backprop' x
