@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -7,26 +8,22 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE DeriveGeneric #-}
 
-{-| Easy backpropagation when all variables have the same type.
-
-@
-data MyRecord a = ...
-  deriving (Functor, Foldable, Traversable)
-
-deriving via (TraversableVar MyRecord a) instance HasGrad a => HasGrad (MyRecord a)
-@
--}
-
+-- | Easy backpropagation when all variables have the same type.
+--
+-- @
+-- data MyRecord a = ...
+--  deriving (Functor, Foldable, Traversable)
+--
+-- deriving via (TraversableVar MyRecord a) instance HasGrad a => HasGrad (MyRecord a)
+-- @
 module Downhill.BVar.Traversable
-  (
-    backpropTraversable,
+  ( backpropTraversable,
     splitTraversable,
     TraversableVar (..),
-    --IntmapVector (..),
   )
 where
 
@@ -35,14 +32,13 @@ import Data.AdditiveGroup (AdditiveGroup, sumV)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Maybe (fromMaybe)
-import Data.VectorSpace (AdditiveGroup (negateV, zeroV, (^+^), (^-^)), VectorSpace ((*^), Scalar))
+import Data.VectorSpace (AdditiveGroup (negateV, zeroV, (^+^), (^-^)), VectorSpace (Scalar, (*^)))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar), backprop, var)
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasFullGrad,
-    HasGrad (Grad, Metric, MScalar, Tang),
     GradBuilder,
+    HasGrad (Grad, MScalar, Metric, Tang),
     MetricTensor
       ( MtCovector,
         MtVector,
@@ -57,9 +53,10 @@ newtype TraversableVar f a = TraversableVar {unTraversableVar :: f a}
   deriving stock (Functor, Foldable, Traversable)
 
 newtype TraversableMetric f a = TraversableMetric (Metric a)
-  deriving Generic
+  deriving (Generic)
 
 instance AdditiveGroup (Metric a) => AdditiveGroup (TraversableMetric f a)
+
 instance VectorSpace (Metric a) => VectorSpace (TraversableMetric f a) where
   type Scalar (TraversableMetric f a) = Scalar (Metric a)
 
@@ -71,21 +68,21 @@ instance
   ) =>
   MetricTensor s (TraversableMetric f a)
   where
-  type MtVector (TraversableMetric f a) = IntmapVector (Tang a)
-  type MtCovector (TraversableMetric f a) = IntmapVector (Grad a)
+  type MtVector (TraversableMetric f a) = IntmapVector f (Tang a)
+  type MtCovector (TraversableMetric f a) = IntmapVector f (Grad a)
   evalMetric (TraversableMetric m) (IntmapVector da) = IntmapVector (IntMap.map (evalMetric m) da)
 
 instance HasGrad a => HasGrad (TraversableVar f a) where
   type MScalar (TraversableVar f a) = MScalar a
-  type Tang (TraversableVar f a) = IntmapVector (Tang a)
-  type Grad (TraversableVar f a) = IntmapVector (Grad a)
+  type Tang (TraversableVar f a) = IntmapVector f (Tang a)
+  type Grad (TraversableVar f a) = IntmapVector f (Grad a)
   type Metric (TraversableVar f a) = TraversableMetric f a
 
 -- | @IntmapVector@ serves as a gradient of 'TraversableVar'.
-newtype IntmapVector v = IntmapVector {unIntmapVector :: IntMap v}
+newtype IntmapVector f v = IntmapVector {unIntmapVector :: IntMap v}
   deriving (Show)
 
-instance AdditiveGroup a => AdditiveGroup (IntmapVector a) where
+instance AdditiveGroup a => AdditiveGroup (IntmapVector f a) where
   zeroV = IntmapVector IntMap.empty
   negateV (IntmapVector v) = IntmapVector (negateV <$> v)
   IntmapVector u ^+^ IntmapVector v = IntmapVector (IntMap.unionWith (^+^) u v)
@@ -95,19 +92,19 @@ instance AdditiveGroup a => AdditiveGroup (IntmapVector a) where
       only1 = id
       only2 = fmap negateV
 
-instance VectorSpace v => VectorSpace (IntmapVector v) where
-  type Scalar (IntmapVector v) = VectorSpace.Scalar v
+instance VectorSpace v => VectorSpace (IntmapVector f v) where
+  type Scalar (IntmapVector f v) = VectorSpace.Scalar v
   a *^ (IntmapVector v) = IntmapVector (fmap (a *^) v)
 
-instance Dual s dv v => Dual s (IntmapVector dv) (IntmapVector v) where
+instance Dual s dv v => Dual s (IntmapVector f dv) (IntmapVector f v) where
   evalGrad (IntmapVector dv) (IntmapVector v) = sumV $ IntMap.intersectionWith evalGrad dv v
 
-deriving via (IntMap v) instance Semigroup v => Semigroup (IntmapVector v)
+deriving via (IntMap v) instance Semigroup v => Semigroup (IntmapVector f v)
 
-deriving via (IntMap v) instance Monoid v => Monoid (IntmapVector v)
+deriving via (IntMap v) instance Monoid v => Monoid (IntmapVector f v)
 
-instance BasicVector v => BasicVector (IntmapVector v) where
-  type VecBuilder (IntmapVector v) = IntmapVector (VecBuilder v)
+instance BasicVector v => BasicVector (IntmapVector f v) where
+  type VecBuilder (IntmapVector f v) = IntmapVector f (VecBuilder v)
   sumBuilder (IntmapVector v) = IntmapVector (fmap sumBuilder v)
 
 imap ::
@@ -138,28 +135,27 @@ splitTraversable (BVar xs dxs) = vars
     vars = imap mkBVar xs
     mkBVar :: Int -> a -> BVar r a
     mkBVar index x =
-      let mkBuilder :: VecBuilder (Grad a) -> IntmapVector (VecBuilder (Grad a))
+      let mkBuilder :: VecBuilder (Grad a) -> IntmapVector f (VecBuilder (Grad a))
           mkBuilder dx = IntmapVector (IntMap.singleton index dx)
        in BVar x (lift1_sparse mkBuilder dxs)
 
-{-| @backpropTraversable one combine fun@
+-- splitTraversable' x = unTraversableVar (splitTraversable (TraversableVar x))
 
-@one@ is a value to be backpropagated. In case of @p@ is scalar, set @one@
-to 1 to compute unscaled gradient.
-
-@combine@ is given value of a parameter and its gradient to construct result,
-just like @zipWith@.
-
-@f@ is a function to be differentiated. 
-
--}
-
+-- | @backpropTraversable one combine fun@
+--
+-- @one@ is a value to be backpropagated. In case of @p@ being scalar, set @one@
+-- to 1 to compute unscaled gradient.
+--
+-- @combine@ is given value of a parameter and its gradient to construct result,
+-- just like @zipWith@.
+--
+-- @f@ is a function to be differentiated.
 backpropTraversable ::
   forall f a b p.
   ( Traversable f,
-    Grad (f a) ~ IntmapVector (Grad a),
-    HasFullGrad a,
-    HasFullGrad p
+    Grad (f a) ~ Grad (TraversableVar f a),
+    HasGrad a,
+    HasGrad p
   ) =>
   GradBuilder p ->
   (a -> Grad a -> b) ->
@@ -169,7 +165,7 @@ backpropTraversable ::
 backpropTraversable one combine fun x = imap makeResult x
   where
     splitX :: f (BVar (Grad (f a)) a)
-    splitX = unTraversableVar (splitTraversable (var (TraversableVar x)))
+    splitX = splitTraversable (var x)
 
     y :: BVar (Grad (f a)) p
     y = fun splitX

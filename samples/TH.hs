@@ -25,7 +25,7 @@ import Data.Monoid (Sum)
 import Data.VectorSpace (VectorSpace (Scalar, (*^)))
 import Data.AffineSpace (AffineSpace (..))
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.DVar (BVar (BVar))
+import Downhill.BVar (BVar (BVar))
 import Downhill.Grad (Dual (..), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (..))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.Linear.Lift (lift1_sparse)

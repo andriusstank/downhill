@@ -18,7 +18,7 @@ import qualified Data.AffineSpace as AffineSpace
 import Data.Foldable (traverse_)
 import Data.VectorSpace (AdditiveGroup (negateV, (^+^)), VectorSpace ((*^)), Scalar)
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.DVar (BVar (BVar, bvarValue), backprop, constant, var)
+import Downhill.BVar (BVar (BVar, bvarValue), backprop, constant, var)
 import Downhill.Grad (Dual (evalGrad), HasGrad (Tang, Grad, MScalar, Metric), GradBuilder, MetricTensor(..), HasGradAffine)
 import Downhill.Linear.BackGrad (BackGrad (BackGrad), realNode)
 import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), DenseBuilder (DenseBuilder), DenseVector (DenseVector), Expr (ExprSum), FullVector (identityBuilder), toDenseBuilder)

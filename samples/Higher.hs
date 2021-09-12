@@ -8,7 +8,7 @@ module Main where
 import Data.VectorSpace (VectorSpace(..))
 import Downhill.BVar.Num (AsNum(AsNum, unAsNum), NumBVar, backpropNum, numbvarValue)
 import Downhill.Linear.Expr (FullVector)
-import Downhill.DVar (var)
+import Downhill.BVar (var)
 
 diff :: forall a. Floating a => (forall b. Floating b => (b -> b)) -> a -> a
 diff f x0 = backpropNum (f (var (AsNum x0)))

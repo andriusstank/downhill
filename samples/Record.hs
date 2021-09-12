@@ -17,7 +17,7 @@ module Main where
 
 import Data.VectorSpace (AdditiveGroup (zeroV, (^+^)), VectorSpace)
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.DVar (BVar (BVar))
+import Downhill.BVar (BVar (BVar))
 import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm), GradBuilder)
 import Downhill.Linear.BackGrad
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), DenseBuilder (DenseBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder), maybeToMonoid)
