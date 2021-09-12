@@ -23,6 +23,7 @@ import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace (Scalar))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.Linear.Expr (BasicVector (VecBuilder), FullVector)
 
+{-| Dual of a vector @v@ is a linear map @v -> Scalar v@. -}
 class
   ( AdditiveGroup s,
     VectorSpace v,
@@ -36,6 +37,9 @@ class
   evalGrad :: dv -> v -> s
 
 -- TODO: add (VectorSpace m) constraint
+{-| The job of a metric tensor is to convert gradients to vectors. Actually,
+it's /inverse/ of a metric tensor, but that's what we need for gradient descent.
+-}
 class
   ( Dual s (MtVector m) (MtCovector m),
     VectorSpace m,
@@ -45,16 +49,20 @@ class
   where
   type MtVector m :: Type
   type MtCovector m :: Type
+  -- | @m@ must be symmetric:
+  --
+  -- @evalGrad x (evalMetric m y) = evalGrad y (evalMetric m x)@
   evalMetric :: m -> MtCovector m -> MtVector m
 
-  -- | @innerProduct x m y == evalGrad x (evalMetric m y)@
-  -- | @innerProduct x m y == innerProduct y m x@
-  innerProduct :: MtCovector m -> m -> MtCovector m -> s
-  innerProduct x m y = evalGrad x (evalMetric m y)
+  -- | @innerProduct m x y = evalGrad x (evalMetric m y)@
+  innerProduct :: m -> MtCovector m -> MtCovector m -> s
+  innerProduct m x y = evalGrad x (evalMetric m y)
 
+  -- | @sqrNorm m x = innerProduct m x x@
   sqrNorm :: m -> MtCovector m -> s
-  sqrNorm m x = innerProduct x m x
+  sqrNorm m x = innerProduct m x x
 
+-- | Full pack of types and constraints for differentiation.
 class
   ( Dual (MScalar p) (Tang p) (Grad p),
     MetricTensor (MScalar p) (Metric p),
@@ -65,9 +73,14 @@ class
   ) =>
   HasGrad p
   where
+  -- | Scalar of @Tang p@ and @Grad p@.
   type MScalar p :: Type
+  -- | Tangent vector of manifold @p@. If p is 'AffineSpace', @Tang p@ should
+  -- be @'Diff' p@. If @p@ is 'VectorSpace', @Tang p@ might be the same as @p@ itself.
   type Tang p :: Type
+  -- | Dual of tangent space of @p@.
   type Grad p :: Type
+  -- | A 'MetricTensor'.
   type Metric p :: Type
 
 type GradBuilder v = VecBuilder (Grad v)

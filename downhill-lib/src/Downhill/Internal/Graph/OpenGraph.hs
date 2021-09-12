@@ -11,7 +11,6 @@ module Downhill.Internal.Graph.OpenGraph (
 )
 where
 import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector)
-import Downhill.Internal.Graph.Sharing ()
 import Prelude hiding (lookup)
 import Downhill.Internal.Graph.OpenMap (OpenMap, OpenKey)
 import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))

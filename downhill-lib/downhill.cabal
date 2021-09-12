@@ -23,7 +23,6 @@ library
                        Downhill.Internal.Graph.OpenMap,
                        Downhill.Internal.Graph.NodeMap,
                        Downhill.Internal.Graph.OpenGraph,
-                       Downhill.Internal.Graph.Sharing,
                        Downhill.Internal.Graph.Graph,
                        Downhill.Grad,
                        Downhill.BVar

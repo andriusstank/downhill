@@ -11,11 +11,22 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DeriveGeneric #-}
 
+{-| Easy backpropagation when all variables have the same type.
+
+@
+data MyRecord a = ...
+  deriving (Functor, Foldable, Traversable)
+
+deriving via (TraversableVar MyRecord a) instance HasGrad a => HasGrad (MyRecord a)
+@
+-}
+
 module Downhill.BVar.Traversable
-  ( TraversableVar (..),
-    IntmapVector (..),
-    splitTraversable,
+  (
     backpropTraversable,
+    splitTraversable,
+    TraversableVar (..),
+    --IntmapVector (..),
   )
 where
 
@@ -42,12 +53,6 @@ import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.Linear.Lift (lift1_sparse)
 import GHC.Generics (Generic)
 
--- | 'Traversable' types can be provided 'HasGrad' instance by deriving via @TraversableVar@.
---
--- @
--- data MyRecord a = ...
--- deriving via (TraversableVar MyRecord a) instance HasGrad a => HasGrad (MyRecord a)
--- @
 newtype TraversableVar f a = TraversableVar {unTraversableVar :: f a}
   deriving stock (Functor, Foldable, Traversable)
 
@@ -122,7 +127,7 @@ imap mkBVar' xs' = evalState (traverse getmkvar xs') 0
 splitTraversable ::
   forall f r a.
   ( Traversable f,
-    Grad (f a) ~ IntmapVector (Grad a),
+    Grad (f a) ~ Grad (TraversableVar f a),
     HasGrad a
   ) =>
   BVar r (f a) ->
@@ -136,6 +141,18 @@ splitTraversable (BVar xs dxs) = vars
       let mkBuilder :: VecBuilder (Grad a) -> IntmapVector (VecBuilder (Grad a))
           mkBuilder dx = IntmapVector (IntMap.singleton index dx)
        in BVar x (lift1_sparse mkBuilder dxs)
+
+{-| @backpropTraversable one combine fun@
+
+@one@ is a value to be backpropagated. In case of @p@ is scalar, set @one@
+to 1 to compute unscaled gradient.
+
+@combine@ is given value of a parameter and its gradient to construct result,
+just like @zipWith@.
+
+@f@ is a function to be differentiated. 
+
+-}
 
 backpropTraversable ::
   forall f a b p.
@@ -151,10 +168,10 @@ backpropTraversable ::
   f b
 backpropTraversable one combine fun x = imap makeResult x
   where
-    splitX :: f (BVar (IntmapVector (Grad a)) a)
+    splitX :: f (BVar (Grad (f a)) a)
     splitX = unTraversableVar (splitTraversable (var (TraversableVar x)))
 
-    y :: BVar (IntmapVector (Grad a)) p
+    y :: BVar (Grad (f a)) p
     y = fun splitX
 
     grad :: IntMap (Grad a)

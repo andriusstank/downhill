@@ -15,7 +15,6 @@ import Downhill.Linear.Expr
       Term(..) )
 import System.IO (hPutStrLn, stderr)
 import GHC.IO (evaluate, unsafePerformIO)
-import Downhill.Internal.Graph.Sharing ()
 import Control.Monad (when)
 import GHC.Generics (Generic)
 import Downhill.BVar.Num(var, backpropNum)

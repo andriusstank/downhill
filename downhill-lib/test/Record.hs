@@ -6,9 +6,9 @@
 
 module Record(recordTest) where
 
-import Downhill.BVar.Traversable (IntmapVector (IntmapVector), TraversableVar (TraversableVar), backpropTraversable, splitTraversable)
+import Downhill.BVar.Traversable (TraversableVar (TraversableVar), backpropTraversable, splitTraversable)
 import Downhill.BVar (BVar (BVar), backprop, var)
-import Downhill.Grad (HasGrad)
+import Downhill.Grad (HasGrad (Grad))
 import Test.Tasty (TestTree)
 import Test.Tasty.HUnit (testCase, (@?=))
 
@@ -32,14 +32,16 @@ test_dr =
 test_fun :: Num a => MyRecord a -> a
 test_fun (MyRecord (x, y) zs) = 2 * x + 3 * y + 5 * sum zs
 
+type MyGrad a = Grad (MyRecord a)
+
 foo :: MyRecord (Integer, Integer)
 foo = backpropTraversable 1 (,) test_fun test_r
   where
-    x :: BVar (IntmapVector Integer) (MyRecord Integer)
+    x :: BVar (MyGrad Integer) (MyRecord Integer)
     x = var test_r
-    x' :: MyRecord (BVar (IntmapVector Integer) Integer)
+    x' :: MyRecord (BVar (MyGrad Integer) Integer)
     x' = splitTraversable x
-    y :: BVar (IntmapVector Integer) Integer
+    y :: BVar (MyGrad Integer) Integer
     y = test_fun x'
 
 recordTest :: TestTree
