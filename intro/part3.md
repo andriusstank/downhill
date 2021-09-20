@@ -1,19 +1,26 @@
 # Important details
 
-It's easy to run into quadratic complexity in functional setting.
+It's easy to run into quadratic complexity.
 
 Gradients are often sparse. Consider backpropagating over `fst :: (a, b) -> a`.
-If gradient of `a` is `da`, gradient of `(a, b)` is `(da, zeroV)`. The second
+If gradient of `a` is `da`, then gradient of `(a, b)` is `(da, zeroV)`. The second
 element might be a large nested record of big arrays, all full of zeros! Extreme
 case of gradient sparsity appears in indexing a vector. All but one elements of
 gradient are zero. Constructing such a vector makes indexing $O(n)$ operation.
 
 ## Sparse gradients
 
-Imperative style implementations of backpropagation dodge this problem by updating
+Imperative implementations of backpropagation dodge this problem by updating
 gradients in-place. While that's possible to do in Haskell, there's a better way --
-builders. Functions on graph edges would produce builders and nodes would combine
-all incoming gradients at once into dense represenations.
+builders.
+
+~~~ {.haskell}
+type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
+~~~
+
+
+Functions on graph edges would produce builders and nodes would collect
+all of them and convert to dense represenations of gradient.
 
 For example, we might start with such a vector builder type:
 
@@ -24,17 +31,10 @@ data VecBuilder a
 ~~~
 
 `SingletonVector n x` encodes a vector that contains `x` in position `n` and
-zero everywhere else. `DenseVector` is there to avoid cost of linked lists
-for dense operations. Support for efficient slicing would be nice, too, but let's
+zero everywhere else. `DenseVector` is an efficient way to store gradients of
+dense operations while `SingletonVector` handles indexing.
+Support for efficient slicing would be nice, too, but let's
 keep things simple here.
-
-Once we have collected all builders, it's perfect time to actually perform in-place
-updates:
-
-~~~ {.haskell}
-sumBuilder :: [VecBuilder a] -> Vector a
-sumBuilder xs = runST $ ...
-~~~
 
 `Downhill` library has a class for all this builder stuff:
 
@@ -44,16 +44,18 @@ class Monoid (VecBuilder v) => BasicVector v where
     sumBuilder :: VecBuilder v -> v
 ~~~
 
+TODO: explain why Monoid, not sumBuilder :: [VecBuilder v] -> v
+
 Instance for vector would be like this:
 
 ~~~ {.haskell}
 instance BasicVector (Vector a) where
   type VecBuilder (Vector a) = DList (VecBuilder a)
-  sumBuilder = ...
+  sumBuilder = runST $ ...
 ~~~
 
 `DList` provides `Monoid` instance. Plain Haskell list are not good here,
-because concatenation has quadratic complexity when operations are left associated.
+because left associated concatenation of many lists has quadratic complexity.
 
 There's a little problem: `sumBuilder` needs to produce a vector, but it has
 no way to know its length -- the list of builders might be even empty. We need
@@ -130,7 +132,7 @@ realNode x = BackGrad (\f -> [Term (BackFun f) x])
 relay gradients to parent node. See `inlineNode` function in the source
 code.
 
-## Sparse nodes
+## Sparse nodes  {#sparse-nodes}
 
 Inline nodes are still not enough. There's still no good way to access elements
 of tuples. Constructing real `Expr` nodes is suboptimal, because accessing nested
@@ -152,4 +154,7 @@ store gradient and hide it under `BackGrad` as if nothing happened. We have a da
 
 `sumBuilder` of `SparseVector` doesn't really sum anything, it just stores unevaluated
 builders.
+
+Sparse nodes play an important role for tree shaped data structures such as
+nested records. They recreate tree structure bottom up.
 

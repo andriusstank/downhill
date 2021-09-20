@@ -13,7 +13,10 @@ mass ratio of a rocket in pseudo haskell:
 
 ~~~ {.haskell}
 dry, fuel :: Kg
-ratio = (dry+fuel) / dry :: R
+ratio = (dry+fuel) / dryyyyy + foo :: R
+
+y :: Int
+y = (x + z) :: Int
 ~~~
 
 Here `dry` is the mass of the rocket, `fuel` is the mass of the fuel
