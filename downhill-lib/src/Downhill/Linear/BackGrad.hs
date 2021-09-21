@@ -18,11 +18,21 @@ import Data.VectorSpace
     Scalar,
     VectorSpace (..),
   )
-import Downhill.Linear.Expr (BasicVector (VecBuilder), Expr (ExprSum), FullVector (identityBuilder, negateBuilder, scaleBuilder), Term (Term))
+import Downhill.Linear.Expr
+  ( BasicVector (VecBuilder),
+    Expr (ExprSum),
+    FullVector (identityBuilder, negateBuilder, scaleBuilder),
+    Term (Term),
+  )
 
 -- | Linear expression, made for backpropagation.
 -- It is similar to @'Expr' 'BackFun'@, but has a more flexible form.
-newtype BackGrad a v = BackGrad (forall x. (x -> VecBuilder v) -> [Term a x])
+newtype BackGrad a v
+  = BackGrad
+      ( forall x.
+        (x -> VecBuilder v) ->
+        [Term a x]
+      )
 
 -- | Creates a @BackGrad@ that is backed by a real node. Gradient of type @v@ will be computed for this node.
 realNode :: Expr a v -> BackGrad a v
@@ -33,7 +43,11 @@ realNode x = BackGrad (\f -> [Term f x])
 -- more than once, @f@ will be evaluated multiple times, too. It is intended to be used for @newtype@ wrappers.
 -- @inlineNode f x@ also shouldn't prevent
 -- compiler to inline and optimize @x@, but I should verify wether this is really the case.
-inlineNode :: forall r u v. (VecBuilder v -> VecBuilder u) -> BackGrad r u -> BackGrad r v
+inlineNode ::
+  forall r u v.
+  (VecBuilder v -> VecBuilder u) ->
+  BackGrad r u ->
+  BackGrad r v
 inlineNode f (BackGrad g) = BackGrad go
   where
     go :: forall x. (x -> VecBuilder v) -> [Term r x]
@@ -43,7 +57,6 @@ inlineNode f (BackGrad g) = BackGrad go
 -- as long as @VecBuilder@ stays the same.
 castBackGrad :: forall r v z. (BasicVector v, VecBuilder z ~ VecBuilder v) => BackGrad r v -> BackGrad r z
 castBackGrad (BackGrad g) = BackGrad g
-
 
 instance (FullVector v) => AdditiveGroup (BackGrad r v) where
   zeroV = BackGrad (const [])

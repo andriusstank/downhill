@@ -78,17 +78,6 @@ pairs of vectors and gradients, such as `a da v dv`. Just `a v`. Full set of
 parameters was very useful to explain the idea, but only `da` and `dv` are needed
 for backpropagation. That's much simpler.
 
-We'll need different types of linear functions for forward and reverse mode
-evaluation:
-
-~~~ {.haskell}
-newtype BackFun u v = BackFun {unBackFun :: v -> VecBuilder u}
-newtype FwdFun u v = FwdFun {unFwdFun :: u -> VecBuilder v}
-~~~
-
-Graph is constructed with `BackFun` edges first.
-They become `FwdFun` when we flip the graph.
-
 There's also a little problem with our `Expr` type.
 As we're going to convert it to a graph, we
 need a clear separation of nodes and edges.
@@ -97,22 +86,23 @@ node, but it contains a mixed bag of adjacent edges _and nodes_.
 We disallow this situation by splitting AST into terms and expressions:
 
 ~~~ {.haskell}
-data Term e a v where
-    Term :: e u v -> Expr e a u -> Term e a v
+data Term a v where
+  Term :: (v -> VecBuilder u) -> Expr a u -> Term a v
 
-data Expr e a v where
-    ExprVar :: Expr e a a
-    ExprSum :: BasicVector v => [Term e a v] -> Expr e a v
+data Expr a v where
+  ExprVar :: Expr a a
+  ExprSum :: BasicVector v => [Term a v] -> Expr a v
 ~~~
 
-`e` is the type of the edge -- `BackFun` or `FwdFun`.
-
-`BasicVector` replaces `AdditiveGroup`, as explained above.
+In order to allow sparse gradients we use `v -> VecBuilder u` instead
+of plain `dv -> du` as in previous part. `BasicVector` replaces `AdditiveGroup`
+in `ExprSum`.
 
 
 ## Inline nodes
 
-Builders are not enough. Say we have a simple newtype wrapper for vector:
+Builders are not enough. Say we have a simple newtype wrapper for vector.
+Let's have a closer look at what happens when we attempt to index it:
 
 ~~~ {.haskell}
 newtype MyVector a = MyVector { unMyVector :: Vector a }
@@ -121,37 +111,47 @@ myLookup :: MyVector a -> Int -> a
 myLookup v i = unMyVector v ! i
 ~~~
 
-Newtype wrappers are expected to have (near) zero runtime cost.
+`Expr` tree will have three nodes with two edges between them:
 
-A node for `unMyVector` operation will be created. It will receive single builder
-for indexing operation `(! i)`, evaluate `sumBuilder` on it, which will turn
-small builder into vector, full of zeros. Turns out wrapper ondoes all builder
-optimizations and makes lookup $O(n)$ again!
+![](./inline_fwd.dot.svg)
+
+Let's see how gradients propagate when we flip edges:
+
+![](./inline_back.dot.svg)
+
+Indexing function `(! i)` produces lightweight gradient builder, as desired.
+Which intermediate node promptly converts into big fat vector, ruining all
+optimization!
+
 
 We need a data type with ability to relay gradients without summing them.
-Enter `BackGrad`:
+That's what `BackGrad` is for:
 
 ~~~ {.haskell}
-newtype BackGrad a v = BackGrad (forall x. (x -> VecBuilder v) -> [Term BackFun a x])
+newtype BackGrad a v
+  = BackGrad
+      ( forall x.
+        (x -> VecBuilder v) ->
+        [Term a x]
+      )
 ~~~
 
-It generalizes  `Expr BackFun`:
+`BackGrad` turns linear functions to `Term`s. It generalizes `Expr`:
 
 ~~~ {.haskell}
-realNode :: Expr BackFun a v -> BackGrad a v
-realNode x = BackGrad (\f -> [Term (BackFun f) x])
+realNode :: Expr a v -> BackGrad a v
+realNode x = BackGrad (\f -> [Term f x])
 ~~~
 
 and provides means to apply linear function without creating a node:
 
 ~~~ {.haskell}
-inlineNode :: forall r u v. (VecBuilder v -> VecBuilder u) -> BackGrad r u -> BackGrad r v
+inlineNode ::
+  forall r u v.
+  (VecBuilder v -> VecBuilder u) ->
+  BackGrad r u ->
+  BackGrad r v
 ~~~
-
-
-`BackGrad` is not required to construct a node. It might opt to simply
-relay gradients to parent node. See `inlineNode` function in the source
-code.
 
 ## Sparse nodes  {#sparse-nodes}
 

@@ -24,8 +24,6 @@ module Downhill.Linear.Expr
     toDenseBuilder,
 
     -- * Misc
-    zeroExpr,
-    sumExpr,
     maybeToMonoid,
   )
 where
@@ -45,18 +43,17 @@ data Expr a v where
   ExprSum :: BasicVector v => [Term a v] -> Expr a v
 
 class Monoid (VecBuilder v) => BasicVector v where
-  {- | @VecBuilder v@ is a sparse representation of vector @v@. Edges of a computational graph
-    produce builders, which are then summed into vectors in nodes. Monoid operation '<>'
-    means addition of vectors, but it doesn't need to compute the sum immediately - it
-    might defer computation until 'sumBuilder' is evaluated.
-
-@
-sumBuilder mempty = zeroV
-sumBuilder (x <> y) = sumBuilder x ^+^ sumBuilder y
-@
-
-    'mempty' must be cheap. '<>' must be O(1).
--}
+  -- | @VecBuilder v@ is a sparse representation of vector @v@. Edges of a computational graph
+  -- produce builders, which are then summed into vectors in nodes. Monoid operation '<>'
+  -- means addition of vectors, but it doesn't need to compute the sum immediately - it
+  -- might defer computation until 'sumBuilder' is evaluated.
+  --
+  -- @
+  -- sumBuilder mempty = zeroV
+  -- sumBuilder (x <> y) = sumBuilder x ^+^ sumBuilder y
+  -- @
+  --
+  -- 'mempty' must be cheap. '<>' must be O(1).
   type VecBuilder v :: Type
 
   sumBuilder :: VecBuilder v -> v
@@ -166,7 +163,7 @@ instance VectorSpace v => FullVector (DenseVector v) where
   scaleBuilder a (DenseVector v) = DenseBuilder (Just (a *^ v))
 
 instance FullVector v => AdditiveGroup (Expr a v) where
-  zeroV = zeroExpr
+  zeroV = ExprSum []
   negateV x = ExprSum [Term negateBuilder x]
   x ^+^ y = ExprSum [Term identityBuilder x, Term identityBuilder y]
   x ^-^ y = ExprSum [Term identityBuilder x, Term negateBuilder y]
@@ -174,11 +171,3 @@ instance FullVector v => AdditiveGroup (Expr a v) where
 instance FullVector dv => VectorSpace (Expr da dv) where
   type Scalar (Expr da dv) = Scalar dv
   a *^ v = ExprSum [Term (scaleBuilder a) v]
-
-zeroExpr :: BasicVector dv => Expr da dv
-zeroExpr = ExprSum []
-
-sumExpr :: FullVector dv => [Expr da dv] -> Expr da dv
-sumExpr xs = ExprSum (wrap <$> xs)
-  where
-    wrap x = Term identityBuilder x
