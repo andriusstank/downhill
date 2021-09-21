@@ -10,7 +10,7 @@ module Downhill.Internal.Graph.OpenGraph (
     recoverSharing
 )
 where
-import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector)
+import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector, BackFun)
 import Prelude hiding (lookup)
 import Downhill.Internal.Graph.OpenMap (OpenMap, OpenKey)
 import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
@@ -29,7 +29,7 @@ insertIntoCache name value = TreeCache $ modify (OpenMap.insert name value)
 -- store it in cache. If @key@ is already in cache, @action@ will not be run.
 buildExpr
   :: TreeBuilder e a (OpenExpr e a v)
-  -> Expr e a v
+  -> Expr a v
   -> TreeBuilder e a (OpenKey v, OpenExpr e a v)
 buildExpr action key = do
     name <- TreeCache (lift (OpenMap.makeOpenKey key))
@@ -53,26 +53,26 @@ type OpenExpr e da = Node OpenKey e da
 -- and the type of the graph will become 'Graph' ("Downhill.Internal.Graph" module).
 data OpenGraph e a z = OpenGraph (Node OpenKey e a z) (OpenMap (OpenExpr e a))
 
-goEdges :: BasicVector v => [Term e a v] -> TreeBuilder e a (Node OpenKey e a v)
+goEdges :: BasicVector v => [Term a v] -> TreeBuilder BackFun a (Node OpenKey BackFun a v)
 goEdges xs = do
     xs' <- traverse goSharing4term xs
     return $ Node xs'
 
-goSharing4arg :: forall e a v. Expr e a v -> TreeBuilder e a (OpenArg a v)
+goSharing4arg :: forall a v. Expr a v -> TreeBuilder BackFun a (OpenArg a v)
 goSharing4arg key = case key of
     ExprVar -> return SourceNode
     ExprSum xs -> do
         (gRef, _) <- buildExpr (goEdges xs) key
         return (InnerNode gRef)
 
-goSharing4term :: forall e a v. Term e a v -> TreeBuilder e a (OpenTerm e a v)
+goSharing4term :: forall a v. Term a v -> TreeBuilder BackFun a (OpenTerm BackFun a v)
 goSharing4term = \case
     Term f arg -> do
         arg' <- goSharing4arg arg
         return (Edge f arg')
 
 -- | Collects duplicate nodes in 'Expr' tree and converts it to a graph.
-recoverSharing :: forall e a z. BasicVector z => [Term e a z] -> IO (OpenGraph e a z)
+recoverSharing :: forall a z. BasicVector z => [Term a z] -> IO (OpenGraph BackFun a z)
 recoverSharing xs = do
         (final_node, graph) <- runTreeBuilder (goEdges xs)
         return (OpenGraph final_node graph)

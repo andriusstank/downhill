@@ -66,15 +66,15 @@ tracingFunc name value = BackFun back
             hPutStrLn stderr (name ++ "'(" ++ show x' ++ ") -> " ++ show y)
             return (Sum (R (value*x')))
 
-exprToTerm :: FullVector dv => Expr BackFun da dv -> Term BackFun da dv
+exprToTerm :: FullVector dv => Expr da dv -> Term da dv
 exprToTerm = Term (BackFun identityBuilder)
 
 
-testExpr :: IO (Expr BackFun R R)
+testExpr :: IO (Expr R R)
 testExpr = do
     let f = tracingFunc "f" 2
         g = tracingFunc "g" 3
-        x0, x1 :: Expr BackFun R R
+        x0, x1 :: Expr R R
         x0 = ExprSum [Term f ExprVar]
         x1 = ExprSum [Term g ExprVar]
         x2 = ExprSum [exprToTerm x0, exprToTerm x1]

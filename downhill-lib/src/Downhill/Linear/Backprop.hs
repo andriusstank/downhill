@@ -35,7 +35,7 @@ import GHC.IO.Unsafe (unsafePerformIO)
 buildSomeGraph ::
   forall a v.
   (BasicVector a, BasicVector v) =>
-  [Term BackFun a v] ->
+  [Term a v] ->
   SomeGraph BackFun a v
 buildSomeGraph fidentityBuilder = unsafePerformIO $ do
   og <- recoverSharing fidentityBuilder

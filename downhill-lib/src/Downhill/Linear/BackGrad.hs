@@ -22,10 +22,10 @@ import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), Expr (
 
 -- | Linear expression, made for backpropagation.
 -- It is similar to @'Expr' 'BackFun'@, but has a more flexible form.
-newtype BackGrad a v = BackGrad (forall x. (x -> VecBuilder v) -> [Term BackFun a x])
+newtype BackGrad a v = BackGrad (forall x. (x -> VecBuilder v) -> [Term a x])
 
 -- | Creates a @BackGrad@ that is backed by a real node. Gradient of type @v@ will be computed for this node.
-realNode :: Expr BackFun a v -> BackGrad a v
+realNode :: Expr a v -> BackGrad a v
 realNode x = BackGrad (\f -> [Term (BackFun f) x])
 
 -- | @inlineNode f x@ will apply function @f@ to variable @x@ without creating a node. All the gradients
@@ -36,7 +36,7 @@ realNode x = BackGrad (\f -> [Term (BackFun f) x])
 inlineNode :: forall r u v. (VecBuilder v -> VecBuilder u) -> BackGrad r u -> BackGrad r v
 inlineNode f (BackGrad g) = BackGrad go
   where
-    go :: forall x. (x -> VecBuilder v) -> [Term BackFun r x]
+    go :: forall x. (x -> VecBuilder v) -> [Term r x]
     go h = g (f . h)
 
 -- | @BackGrad@ doesn't track the type of the node. Type of @BackGrad@ can be changed freely

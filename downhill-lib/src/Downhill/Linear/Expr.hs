@@ -42,14 +42,14 @@ import Data.Semigroup (Sum (Sum, getSum))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..))
 
 -- | Linear function 'e u v' applied to single argument of type 'u'.
-data Term e a v where
-  Term :: e u v -> Expr e a u -> Term e a v
+data Term a v where
+  Term :: BackFun u v -> Expr a u -> Term a v
 
 -- | @Expr e a v@ represents a linear expression of type @v@, containing some free variables of type @a@.
 --  @e@ is a type of the edge in computational graph, 'BackFun' for reverse mode AD.
-data Expr e a v where
-  ExprVar :: Expr e a a
-  ExprSum :: BasicVector v => [Term e a v] -> Expr e a v
+data Expr a v where
+  ExprVar :: Expr a a
+  ExprSum :: BasicVector v => [Term a v] -> Expr a v
 
 class Monoid (VecBuilder v) => BasicVector v where
   {- | @VecBuilder v@ is a sparse representation of vector @v@. Edges of a computational graph
@@ -184,20 +184,20 @@ flipBackFun (BackFun f) = FwdFun f
 flipFwdFun :: FwdFun u v -> BackFun v u
 flipFwdFun (FwdFun f) = BackFun f
 
-instance FullVector v => AdditiveGroup (Expr BackFun a v) where
+instance FullVector v => AdditiveGroup (Expr a v) where
   zeroV = zeroExpr
   negateV x = ExprSum [Term (BackFun negateBuilder) x]
   x ^+^ y = ExprSum [Term (BackFun identityBuilder) x, Term (BackFun identityBuilder) y]
   x ^-^ y = ExprSum [Term (BackFun identityBuilder) x, Term (BackFun negateBuilder) y]
 
-instance FullVector dv => VectorSpace (Expr BackFun da dv) where
-  type Scalar (Expr BackFun da dv) = Scalar dv
+instance FullVector dv => VectorSpace (Expr da dv) where
+  type Scalar (Expr da dv) = Scalar dv
   a *^ v = ExprSum [Term (BackFun (scaleBuilder a)) v]
 
-zeroExpr :: BasicVector dv => Expr e da dv
+zeroExpr :: BasicVector dv => Expr da dv
 zeroExpr = ExprSum []
 
-sumExpr :: FullVector dv => [Expr BackFun da dv] -> Expr BackFun da dv
+sumExpr :: FullVector dv => [Expr da dv] -> Expr da dv
 sumExpr xs = ExprSum (wrap <$> xs)
   where
     wrap x = Term (BackFun identityBuilder) x
