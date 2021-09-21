@@ -12,29 +12,8 @@ gradient are zero. Constructing such a vector makes indexing $O(n)$ operation.
 
 Imperative implementations of backpropagation dodge this problem by updating
 gradients in-place. While that's possible to do in Haskell, there's a better way --
-builders.
-
-~~~ {.haskell}
-type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
-~~~
-
-
-Functions on graph edges would produce builders and nodes would collect
-all of them and convert to dense represenations of gradient.
-
-For example, we might start with such a vector builder type:
-
-~~~ {.haskell}
-data VecBuilder a
-  = SingletonVector Int a
-  | DenseVector (Vector a)
-~~~
-
-`SingletonVector n x` encodes a vector that contains `x` in position `n` and
-zero everywhere else. `DenseVector` is an efficient way to store gradients of
-dense operations while `SingletonVector` handles indexing.
-Support for efficient slicing would be nice, too, but let's
-keep things simple here.
+builders. Builder is data type for efficient representation of sparse gradients.
+Or it might be a `ST` action that bumps the gradient in-place.
 
 `Downhill` library has a class for all this builder stuff:
 
@@ -44,9 +23,37 @@ class Monoid (VecBuilder v) => BasicVector v where
     sumBuilder :: VecBuilder v -> v
 ~~~
 
-TODO: explain why Monoid, not sumBuilder :: [VecBuilder v] -> v
+Functions on graph edges produce `VecBuilder`s. Nodes then `mconcat` them and
+call `sumBuilder`.
 
-Instance for vector would be like this:
+For example, builder for pairs looks like this:
+
+~~~ {.haskell}
+type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
+~~~
+
+`Nothing` stands for zero vector. `Maybe` is important here. Data types can be nested and `Maybe`
+allows to cut whole subtrees of zeros.
+
+<!---
+
+Vector builder type might be:
+
+~~~ {.haskell}
+data VecBuilder a
+  = SingletonVector Int a
+  | DenseVector (Vector a)
+  | ...
+~~~
+
+`SingletonVector n x` encodes a vector that contains `x` in position `n` and
+zero everywhere else. `DenseVector` is an efficient way to store gradients of
+dense operations while `SingletonVector` handles indexing.
+Support for efficient slicing would be nice, too, but let's
+keep things simple here.
+
+
+TODO: explain why Monoid, not sumBuilder :: [VecBuilder v] -> v
 
 ~~~ {.haskell}
 instance BasicVector (Vector a) where
@@ -60,21 +67,34 @@ because left associated concatenation of many lists has quadratic complexity.
 There's a little problem: `sumBuilder` needs to produce a vector, but it has
 no way to know its length -- the list of builders might be even empty. We need
 length indexed vectors, but thats a different topic.
+-->
 
 ## Better AST
 
 `Expr` type in the library is different in a few ways.
 
 First of all, it hasn't got
-pairs of vectors and gradients, such as `a da v dv`. Just `a v`. The biggest trouble
-with pairs `a da` is flipping the graph -- we would need to swap `a` and `da` in types
-of _nodes_. It's a trouble, because we track the set of nodes in types.
+pairs of vectors and gradients, such as `a da v dv`. Just `a v`. Full set of
+parameters was very useful to explain the idea, but only `da` and `dv` are needed
+for backpropagation. That's much simpler.
 
-We split AST into terms and expressions. Since we're going to convert this AST to graph, we
-need a clear separation of nodes and edges. `Func` is clearly an edge. `Sum` itself is a
+We'll need different types of linear functions for forward and reverse mode
+evaluation:
+
+~~~ {.haskell}
+newtype BackFun u v = BackFun {unBackFun :: v -> VecBuilder u}
+newtype FwdFun u v = FwdFun {unFwdFun :: u -> VecBuilder v}
+~~~
+
+Graph is constructed with `BackFun` edges first.
+They become `FwdFun` when we flip the graph.
+
+There's also a little problem with our `Expr` type.
+As we're going to convert it to a graph, we
+need a clear separation of nodes and edges.
+`Func` is definetely an edge. `Sum` itself is a
 node, but it contains a mixed bag of adjacent edges _and nodes_.
-
-Real AST is this:
+We disallow this situation by splitting AST into terms and expressions:
 
 ~~~ {.haskell}
 data Term e a v where
@@ -85,11 +105,10 @@ data Expr e a v where
     ExprSum :: BasicVector v => [Term e a v] -> Expr e a v
 ~~~
 
-It's polymorphic in type of the edge `e`. It starts with `BackFun` and becomes
-`FwdFun` when flipped. This way we recover functionality we lost when 
-we tossed `da` and `dv` away.
+`e` is the type of the edge -- `BackFun` or `FwdFun`.
 
-There's also `BasicVector` instead of `AdditiveGroup`, as explained above.
+`BasicVector` replaces `AdditiveGroup`, as explained above.
+
 
 ## Inline nodes
 
@@ -109,24 +128,26 @@ for indexing operation `(! i)`, evaluate `sumBuilder` on it, which will turn
 small builder into vector, full of zeros. Turns out wrapper ondoes all builder
 optimizations and makes lookup $O(n)$ again!
 
-Pretty much the only thing we can do with `Expr` is to use it in `Term`
-constructor. If we punch a hole there `e u v -> _ -> Term e a v`, we see
-that `Expr` is a thing that turns linear functions (that's the edge `e u v`)
-into `Term`s.
+We need a data type with ability to relay gradients without summing them.
+Enter `BackGrad`:
 
 ~~~ {.haskell}
 newtype BackGrad a v = BackGrad (forall x. (x -> VecBuilder v) -> [Term BackFun a x])
 ~~~
 
-Returning a list is convenient, we have a good way to construct zero by simply
-returning an empty list.
-
-It's a generalization of `Expr BackFun`:
+It generalizes  `Expr BackFun`:
 
 ~~~ {.haskell}
 realNode :: Expr BackFun a v -> BackGrad a v
 realNode x = BackGrad (\f -> [Term (BackFun f) x])
 ~~~
+
+and provides means to apply linear function without creating a node:
+
+~~~ {.haskell}
+inlineNode :: forall r u v. (VecBuilder v -> VecBuilder u) -> BackGrad r u -> BackGrad r v
+~~~
+
 
 `BackGrad` is not required to construct a node. It might opt to simply
 relay gradients to parent node. See `inlineNode` function in the source
@@ -135,16 +156,20 @@ code.
 ## Sparse nodes  {#sparse-nodes}
 
 Inline nodes are still not enough. There's still no good way to access elements
-of tuples. Constructing real `Expr` nodes is suboptimal, because accessing nested
+of tuples, or other product types for that matter.
+Constructing real `Expr` nodes is suboptimal, because accessing nested
 elements as in `fst . fst` will destroy gradient sparsity. Inline nodes is not an
-options, because there's a possibility of long chains. Lists can be seen as
+option, because there's a possibility of long chains of inline operations.
+Lists, for example, can be seen as
 recursively nested pairs. Iterating over the list will create a chain of inline
-nodes, compilter won't inline them, because it can't inline recursive functions.
-This will make traversing a list $O(n^2)$ operation.
+nodes, compiler won't inline them, because it can't inline recursive functions.
+This all will make complexity of traversing a list $O(n^2)$. Unacceptable.
 
-Type of node doesn't really matter. Have a look at `BackGrad` definition -- there's
+Luckily, the type of the node doesn't really matter.
+Have a look at `BackGrad` definition -- there's
 no `v`, only `VecBuilder`. This means we can choose a different type of node to
-store gradient and hide it under `BackGrad` as if nothing happened. We have a data type
+store gradient and hide it under `BackGrad` as if nothing happened.
+We have a data type
 `SparseVector` for that.
 
 ~~~ {.haskell}

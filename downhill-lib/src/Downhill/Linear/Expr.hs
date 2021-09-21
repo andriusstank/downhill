@@ -52,12 +52,18 @@ data Expr e a v where
   ExprSum :: BasicVector v => [Term e a v] -> Expr e a v
 
 class Monoid (VecBuilder v) => BasicVector v where
-  -- | @VecBuilder v@ is a sparse representation of vector @v@. Edges of a computational graph
-  --  produce builders, which are then summed into vectors in nodes. Monoid operation '<>'
-  --  means addition of vectors, but it doesn't need to compute the sum immediately - it
-  --  might defer computation until 'sumBuilder' is evaluated.
-  --
-  --  'mempty' must be cheap. '<>' must be O(1).
+  {- | @VecBuilder v@ is a sparse representation of vector @v@. Edges of a computational graph
+    produce builders, which are then summed into vectors in nodes. Monoid operation '<>'
+    means addition of vectors, but it doesn't need to compute the sum immediately - it
+    might defer computation until 'sumBuilder' is evaluated.
+
+@
+sumBuilder mempty = zeroV
+sumBuilder (x <> y) = sumBuilder x ^+^ sumBuilder y
+@
+
+    'mempty' must be cheap. '<>' must be O(1).
+-}
   type VecBuilder v :: Type
 
   sumBuilder :: VecBuilder v -> v
