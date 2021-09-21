@@ -23,14 +23,13 @@ import qualified Downhill.Internal.Graph.Graph as Graph
 import Downhill.Internal.Graph.OpenGraph (recoverSharing)
 import Downhill.Linear.BackGrad (BackGrad (..), castBackGrad)
 import Downhill.Linear.Expr
-  ( BackFun,
-    BasicVector (VecBuilder),
+  ( BasicVector (VecBuilder),
     FullVector (identityBuilder),
     SparseVector (SparseVector, unSparseVector),
     Term,
-    flipBackFun,
   )
 import GHC.IO.Unsafe (unsafePerformIO)
+import Downhill.Internal.Graph.Types ( BackFun, flipBackFun )
 
 buildSomeGraph ::
   forall a v.
@@ -53,8 +52,9 @@ abstractBackprop (BackGrad f) builder x = case buildSomeGraph (f builder) of
 
 backprop :: forall a v. (BasicVector a, BasicVector v) => BackGrad a v -> VecBuilder v -> a
 backprop dvar x = abstractBackprop sparseDVar unSparseVector (SparseVector x)
-  where sparseDVar :: BackGrad a (SparseVector v)
-        sparseDVar = castBackGrad dvar
+  where
+    sparseDVar :: BackGrad a (SparseVector v)
+    sparseDVar = castBackGrad dvar
 
 backprop' :: forall a v. (BasicVector a, FullVector v) => BackGrad a v -> v -> a
 backprop' dvar = abstractBackprop dvar identityBuilder

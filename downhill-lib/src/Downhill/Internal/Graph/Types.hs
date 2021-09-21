@@ -12,9 +12,17 @@ Parameters:
 -}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE GADTs #-}
-module Downhill.Internal.Graph.Types where
+module Downhill.Internal.Graph.Types
+(
+  -- * Graph parts
+  Edge(..), Endpoint(..), Node(..),
+  -- * Linear functions
+  BackFun(..), FwdFun(..),
+  flipBackFun, flipFwdFun
+)
+ where
 
-import Downhill.Linear.Expr (BasicVector)
+import Downhill.Linear.Expr (BasicVector (VecBuilder))
 
 data Endpoint p a v where
     SourceNode :: Endpoint p a a
@@ -25,3 +33,17 @@ data Edge p e a v where
 
 {-| Inner node. This does not include initial node. -}
 data Node p e a v = BasicVector v => Node [Edge p e a v]
+
+
+-- | Edge type for backward mode evaluation
+newtype BackFun u v = BackFun {unBackFun :: v -> VecBuilder u}
+
+-- | Edge type for forward mode evaluation
+newtype FwdFun u v = FwdFun {unFwdFun :: u -> VecBuilder v}
+
+flipBackFun :: BackFun u v -> FwdFun v u
+flipBackFun (BackFun f) = FwdFun f
+
+flipFwdFun :: FwdFun u v -> BackFun v u
+flipFwdFun (FwdFun f) = BackFun f
+

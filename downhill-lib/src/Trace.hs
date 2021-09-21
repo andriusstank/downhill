@@ -8,8 +8,7 @@
 module Trace where
 import Data.VectorSpace (VectorSpace(..), AdditiveGroup(..))
 import Downhill.Linear.Expr
-    ( BackFun(BackFun),
-      BasicVector(..),
+    ( BasicVector(..),
       Expr(..),
       FullVector(..),
       Term(..) )
@@ -58,8 +57,8 @@ instance FullVector R where
     negateBuilder = Sum . negateV
     scaleBuilder a = Sum . (a *^)
 
-tracingFunc :: String -> Integer -> BackFun R R
-tracingFunc name value = BackFun back
+tracingFunc :: String -> Integer -> (R -> Sum R)
+tracingFunc name value = back
     where back (R x) = unsafePerformIO $ do
             x' <- evaluate x
             let y = value*x'
@@ -67,7 +66,7 @@ tracingFunc name value = BackFun back
             return (Sum (R (value*x')))
 
 exprToTerm :: FullVector dv => Expr da dv -> Term da dv
-exprToTerm = Term (BackFun identityBuilder)
+exprToTerm = Term identityBuilder
 
 
 testExpr :: IO (Expr R R)

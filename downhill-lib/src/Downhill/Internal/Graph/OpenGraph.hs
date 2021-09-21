@@ -10,10 +10,10 @@ module Downhill.Internal.Graph.OpenGraph (
     recoverSharing
 )
 where
-import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector, BackFun)
+import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector)
 import Prelude hiding (lookup)
 import Downhill.Internal.Graph.OpenMap (OpenMap, OpenKey)
-import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge))
+import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge), BackFun (BackFun))
 import Control.Monad.Trans.State.Strict ( StateT(..), get, modify )
 import Control.Monad.Trans.Class(lift)
 import qualified Downhill.Internal.Graph.OpenMap as OpenMap
@@ -69,7 +69,7 @@ goSharing4term :: forall a v. Term a v -> TreeBuilder BackFun a (OpenTerm BackFu
 goSharing4term = \case
     Term f arg -> do
         arg' <- goSharing4arg arg
-        return (Edge f arg')
+        return (Edge (BackFun f) arg')
 
 -- | Collects duplicate nodes in 'Expr' tree and converts it to a graph.
 recoverSharing :: forall a z. BasicVector z => [Term a z] -> IO (OpenGraph BackFun a z)

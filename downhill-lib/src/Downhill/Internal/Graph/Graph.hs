@@ -34,8 +34,8 @@ import Downhill.Internal.Graph.NodeMap
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import Downhill.Internal.Graph.OpenGraph (OpenExpr, OpenGraph (OpenGraph))
 import Downhill.Internal.Graph.OpenMap (OpenKey)
-import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), Node (Node))
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FwdFun (unFwdFun))
+import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), Node (Node), FwdFun (unFwdFun))
+import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Prelude hiding (head, tail)
 
 -- | A set of inner nodes plus a final node.

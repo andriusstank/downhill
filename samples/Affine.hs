@@ -21,7 +21,7 @@ import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar, bvarValue), backprop, constant, var)
 import Downhill.Grad (Dual (evalGrad), HasGrad (Tang, Grad, MScalar, Metric), GradBuilder, MetricTensor(..), HasGradAffine)
 import Downhill.Linear.BackGrad (BackGrad (BackGrad), realNode)
-import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), DenseBuilder (DenseBuilder), DenseVector (DenseVector), Expr (ExprSum), FullVector (identityBuilder), toDenseBuilder)
+import Downhill.Linear.Expr (BasicVector (VecBuilder), DenseBuilder (DenseBuilder), DenseVector (DenseVector), Expr (ExprSum), FullVector (identityBuilder), toDenseBuilder)
 import Downhill.Linear.Lift (lift1, lift1_dense)
 import GHC.Generics (Generic)
 import Downhill.BVar.Num (AsNum(AsNum))

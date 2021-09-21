@@ -23,12 +23,6 @@ module Downhill.Linear.Expr
     DenseBuilder (..),
     toDenseBuilder,
 
-    -- * Functions
-    FwdFun (..),
-    BackFun (..),
-    flipFwdFun,
-    flipBackFun,
-
     -- * Misc
     zeroExpr,
     sumExpr,
@@ -41,12 +35,11 @@ import Data.Maybe (fromMaybe)
 import Data.Semigroup (Sum (Sum, getSum))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..))
 
--- | Linear function 'e u v' applied to single argument of type 'u'.
+-- | Argument @f@ in @Term f x@ must be /linear/ function. That's a law.
 data Term a v where
-  Term :: BackFun u v -> Expr a u -> Term a v
+  Term :: (v -> VecBuilder u) -> Expr a u -> Term a v
 
--- | @Expr e a v@ represents a linear expression of type @v@, containing some free variables of type @a@.
---  @e@ is a type of the edge in computational graph, 'BackFun' for reverse mode AD.
+-- | @Expr a v@ represents a linear expression of type @v@, containing some free variables of type @a@.
 data Expr a v where
   ExprVar :: Expr a a
   ExprSum :: BasicVector v => [Term a v] -> Expr a v
@@ -172,27 +165,15 @@ instance VectorSpace v => FullVector (DenseVector v) where
   negateBuilder (DenseVector v) = DenseBuilder (Just (negateV v))
   scaleBuilder a (DenseVector v) = DenseBuilder (Just (a *^ v))
 
--- | Edge type for backward mode evaluation
-newtype BackFun u v = BackFun {unBackFun :: v -> VecBuilder u}
-
--- | Edge type for forward mode evaluation
-newtype FwdFun u v = FwdFun {unFwdFun :: u -> VecBuilder v}
-
-flipBackFun :: BackFun u v -> FwdFun v u
-flipBackFun (BackFun f) = FwdFun f
-
-flipFwdFun :: FwdFun u v -> BackFun v u
-flipFwdFun (FwdFun f) = BackFun f
-
 instance FullVector v => AdditiveGroup (Expr a v) where
   zeroV = zeroExpr
-  negateV x = ExprSum [Term (BackFun negateBuilder) x]
-  x ^+^ y = ExprSum [Term (BackFun identityBuilder) x, Term (BackFun identityBuilder) y]
-  x ^-^ y = ExprSum [Term (BackFun identityBuilder) x, Term (BackFun negateBuilder) y]
+  negateV x = ExprSum [Term negateBuilder x]
+  x ^+^ y = ExprSum [Term identityBuilder x, Term identityBuilder y]
+  x ^-^ y = ExprSum [Term identityBuilder x, Term negateBuilder y]
 
 instance FullVector dv => VectorSpace (Expr da dv) where
   type Scalar (Expr da dv) = Scalar dv
-  a *^ v = ExprSum [Term (BackFun (scaleBuilder a)) v]
+  a *^ v = ExprSum [Term (scaleBuilder a) v]
 
 zeroExpr :: BasicVector dv => Expr da dv
 zeroExpr = ExprSum []
@@ -200,4 +181,4 @@ zeroExpr = ExprSum []
 sumExpr :: FullVector dv => [Expr da dv] -> Expr da dv
 sumExpr xs = ExprSum (wrap <$> xs)
   where
-    wrap x = Term (BackFun identityBuilder) x
+    wrap x = Term identityBuilder x

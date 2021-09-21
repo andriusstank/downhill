@@ -18,7 +18,7 @@ import Data.VectorSpace
     Scalar,
     VectorSpace (..),
   )
-import Downhill.Linear.Expr (BackFun (BackFun), BasicVector (VecBuilder), Expr (ExprSum), FullVector (identityBuilder, negateBuilder, scaleBuilder), Term (Term))
+import Downhill.Linear.Expr (BasicVector (VecBuilder), Expr (ExprSum), FullVector (identityBuilder, negateBuilder, scaleBuilder), Term (Term))
 
 -- | Linear expression, made for backpropagation.
 -- It is similar to @'Expr' 'BackFun'@, but has a more flexible form.
@@ -26,7 +26,7 @@ newtype BackGrad a v = BackGrad (forall x. (x -> VecBuilder v) -> [Term a x])
 
 -- | Creates a @BackGrad@ that is backed by a real node. Gradient of type @v@ will be computed for this node.
 realNode :: Expr a v -> BackGrad a v
-realNode x = BackGrad (\f -> [Term (BackFun f) x])
+realNode x = BackGrad (\f -> [Term f x])
 
 -- | @inlineNode f x@ will apply function @f@ to variable @x@ without creating a node. All the gradients
 -- coming to this expression will be forwarded to the parents of @x@. However, if this expression is used
