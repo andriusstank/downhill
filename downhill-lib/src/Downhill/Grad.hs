@@ -41,26 +41,26 @@ class
 it's /inverse/ of a metric tensor, but that's what we need for gradient descent.
 -}
 class
-  ( Dual s (MtVector m) (MtCovector m),
-    VectorSpace m,
-    Scalar m ~ s
+  ( Dual s (MtVector g) (MtCovector g),
+    VectorSpace g,
+    Scalar g ~ s
   ) =>
-  MetricTensor s m
+  MetricTensor s g
   where
-  type MtVector m :: Type
-  type MtCovector m :: Type
+  type MtVector g :: Type
+  type MtCovector g :: Type
   -- | @m@ must be symmetric:
   --
   -- @evalGrad x (evalMetric m y) = evalGrad y (evalMetric m x)@
-  evalMetric :: m -> MtCovector m -> MtVector m
+  evalMetric :: g -> MtCovector g -> MtVector g
 
   -- | @innerProduct m x y = evalGrad x (evalMetric m y)@
-  innerProduct :: m -> MtCovector m -> MtCovector m -> s
-  innerProduct m x y = evalGrad x (evalMetric m y)
+  innerProduct :: g -> MtCovector g -> MtCovector g -> s
+  innerProduct g x y = evalGrad x (evalMetric g y)
 
   -- | @sqrNorm m x = innerProduct m x x@
-  sqrNorm :: m -> MtCovector m -> s
-  sqrNorm m x = innerProduct m x x
+  sqrNorm :: g -> MtCovector g -> s
+  sqrNorm g x = innerProduct g x x
 
 -- | Full pack of types and constraints for differentiation.
 class
