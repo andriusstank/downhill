@@ -22,7 +22,7 @@ mass ratio of a rocket in pseudo haskell as example:
 
 ~~~ {.haskell}
 dry, fuel :: Kg
-ratio = (dry+fuel) / dry + foo :: R
+ratio = (dry+fuel) / dry :: R
 ~~~
 
 Here `dry` is the mass of empty rocket, `fuel` is the mass of the fuel,
@@ -53,6 +53,8 @@ linear function of type `V -> R`. Of course, such a representation is
 unworkable -- we need to store gradients as numbers and actually compute sums
 during reverse accumulation. Otherwise we will run into combinatorial
 explosion of repeated computations.
+
+Linear functions $\phi \colon V \to \mathbb{R}$ form a vector space $V^*$.
 
 Now if `V` happens to be Hilbert space, then `V -> R` is isomorphic to `V`.
 For our purposes Hilbert space requirement boils down
@@ -88,7 +90,7 @@ indeed exist, but we wouldn't want to invoke it automatically.
 ## Gradient descent
 
 Having established the rule of no mixing of variables and gradients, we
-see that gradient descent is outright violation of this rule:
+see that gradient descent is in outright violation of this rule:
 $$\mathbf{a}_{n+1} = \mathbf{a}_n-\gamma\nabla F(\mathbf{a}_n)$$
 
 We need a _metric tensor_ to relate gradients and variables. It's not
@@ -96,12 +98,7 @@ surprinsing -- gradient descent moves in the direction of the steepest
 descent. Talking about steepness makes no sense without ability to
 measure distances.
 
-Metric tensor converts different units into commensurable quantities
+Metric tensor brings different units into commensurable quantities
 and plays the role of preconditioner.
 
-$$\mathbf{a}_{n+1} = \mathbf{a}_n-\gamma g^{-1} \nabla F(\mathbf{a}_n)$$
-
-$g^{-1}\colon V^* \to V$.
-
 Importantly, differentiation does not depend of the choice of metric.
-
