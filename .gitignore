@@ -4,6 +4,6 @@ dist/cabal-config-flags
 cabal.project.local
 cabal.project.local~
 intro/part1.html
-intro/style.css
 /intro/part2.html
 /intro/part3.html
+/intro/html

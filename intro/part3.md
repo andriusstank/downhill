@@ -151,35 +151,48 @@ inlineNode ::
   (VecBuilder v -> VecBuilder u) ->
   BackGrad r u ->
   BackGrad r v
+inlineNode f (BackGrad g) = BackGrad go
+  where
+    go :: forall x. (x -> VecBuilder v) -> [Term r x]
+    go h = g (f . h)
 ~~~
 
 ## Sparse nodes  {#sparse-nodes}
 
-Inline nodes are still not enough. There's still no good way to access elements
-of tuples, or other product types for that matter.
-Constructing real `Expr` nodes is suboptimal, because accessing nested
-elements as in `fst . fst` will destroy gradient sparsity. Inline nodes is not an
-option, because there's a possibility of long chains of inline operations.
-Lists, for example, can be seen as
-recursively nested pairs. Iterating over the list will create a chain of inline
-nodes, compiler won't inline them, because it can't inline recursive functions.
-This all will make complexity of traversing a list $O(n^2)$. Unacceptable.
+Inline nodes are still not enough. There's still no good way to access members
+of tuples, or other product types for that matter. This library differentiates
+unary functions `BVar a -> BVar b` only. If we have many variables to differentiate with
+respect to, we have to pack them together into single tuple or record `BVar a`.
+If we have a complex model, `a` might be a complex structure of nested records.
+
+Constructing real `Expr` nodes is inefficient, because accessing any member with
+have a cost proportional to the size of the whole structure. Inline nodes is not an
+option, too. Accessing deeply nested members will create a long chain of `inlineNode`s.
+The cost of traversing the whole chain will have to be paid every time the variable
+is used. That's fine for newtypes, as wrapping is zero cost and compiler can inline it.
+Wrapping gradient builders in structs with `mempty` siblings, however isn't free.
+Lists, can be seen as recursively nested pairs. All this makes complexity of iterating
+over the list will be $O(n^2)$. Unacceptable.
 
 Luckily, the type of the node doesn't really matter.
 Have a look at `BackGrad` definition -- there's
 no `v`, only `VecBuilder`. This means we can choose a different type of node to
-store gradient and hide it under `BackGrad` as if nothing happened.
-We have a data type
-`SparseVector` for that.
+store gradient and hide it under `BackGrad` as if nothing happened. No one can
+possibly notice. Best way to store
+gradients for member access is simply store the builder, without summing it.
+We have a data type for that:
 
 ~~~ {.haskell}
-  newtype SparseVector v = SparseVector
-    { unSparseVector :: VecBuilder v }
+newtype SparseVector v = SparseVector
+  { unSparseVector :: VecBuilder v }
 ~~~
 
-`sumBuilder` of `SparseVector` doesn't really sum anything, it just stores unevaluated
-builders.
+`sumBuilder :: VecBuilder v -> SparseVector v` doesn't really sum anything,
+it just stores unevaluated builders.
 
-Sparse nodes play an important role for tree shaped data structures such as
-nested records. They recreate tree structure bottom up.
-
+It might seem such sparse nodes don't do anything apart from forwarding gradients,
+but that's not the case. Concatenating gradient of product types with `<>`
+will collect all builders from child nodes, group them together into single struct
+and pass them to parent node as a single unit. This way gradients are assembled
+into a tree, making member access $O(1)$. Assuming records have reasonably small number
+of direct members, of course. Behemoth records are not covered.
