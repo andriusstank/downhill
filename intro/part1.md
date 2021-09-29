@@ -93,12 +93,17 @@ Having established the rule of no mixing of variables and gradients, we
 see that gradient descent is in outright violation of this rule:
 $$\mathbf{a}_{n+1} = \mathbf{a}_n-\gamma\nabla F(\mathbf{a}_n)$$
 
-We need a _metric tensor_ to relate gradients and variables. It's not
-surprinsing -- gradient descent moves in the direction of the steepest
+We need a _metric tensor_ to relate gradients and variables. It's logical
+when you think about it -- gradient descent moves in the
+direction of the steepest
 descent. Talking about steepness makes no sense without ability to
 measure distances.
 
 Metric tensor brings different units into commensurable quantities
 and plays the role of preconditioner.
 
-Importantly, differentiation does not depend of the choice of metric.
+There are many choices of metric tensor, each one of them giving rise
+to a different Hilbert space with its own inner product. Demanding `V` to be
+a Hilbert space amounts to choosing a canonical metric tensor.
+But differentiation, unlike gradient descent, does not depend on the
+choice of metric in any way. Use of arbitrary metric is just asking for bugs.
