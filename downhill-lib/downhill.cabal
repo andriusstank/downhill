@@ -40,7 +40,10 @@ library
                        manifolds-core,
                        tagged,
                        template-haskell,
-                       th-abstraction
+                       th-abstraction,
+                       dlist,
+                       vector,
+                       vector-sized
 
   hs-source-dirs:      src
   other-modules:       Trace
