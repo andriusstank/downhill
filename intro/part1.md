@@ -18,7 +18,7 @@ if compiler didn't help tracking which is which.
 ## Dimensional analysis
 Units make a great example of why we might want to keep distinction
 between variables and their gradients. Take an expression to compute
-mass ratio of a rocket in pseudo haskell as example:
+mass ratio of a rocket as example:
 
 ~~~ {.haskell}
 dry, fuel :: Kg
@@ -26,8 +26,8 @@ ratio = (dry+fuel) / dry :: R
 ~~~
 
 Here `dry` is the mass of empty rocket, `fuel` is the mass of the fuel,
-both measured in kilograms. Mass ratio is a dimensionless real number.
-Gradient of mass ratio is also dimensionless number.
+both measured in kilograms. Mass ratio, as well as its gradient, are
+dimensionless real numbers.
 It was intentionally chosen so, in order to avoid circular reasoning.
 Let's compute gradients of `dry` and `fuel`, starting backpropagation
 from `ratio`:
@@ -54,8 +54,6 @@ unworkable -- we need to store gradients as numbers and actually compute sums
 during reverse accumulation. Otherwise we will run into combinatorial
 explosion of repeated computations.
 
-Linear functions $\phi \colon V \to \mathbb{R}$ form a vector space $V^*$.
-
 Now if `V` happens to be Hilbert space, then `V -> R` is isomorphic to `V`.
 For our purposes Hilbert space requirement boils down
 to existance of a well behaved inner product
@@ -64,7 +62,7 @@ Seems to be a benign requirement -- any finite
 dimensional vector space over real numbers can be equipped with one.
 
 We have a solid theory behind using `V` type for gradients. Nonetheless,
-we saw units don't match in this case. How come?
+we saw units don't match. How come?
 
 Turns out we can't take inner product for granted. Record with variety of
 units shows this clearly:
@@ -75,15 +73,15 @@ data Rocket = Rocket
   , rocketVelocity :: Meter/Second
   }
 
--- InnerSpace type class comes from `vector-space` package.
+-- InnerSpace comes from vector-space package.
 instance InnerSpace Rocket where
   Rocket m1 v1 <.> Rocket m2 v2 = (m1 <.> m2) ^+^ (v1 <.> v2)
 ~~~
 
-We are trying to add $\frac{m^2}{s^2}$ to $\mathrm{kg}^2$ and expecting to get a
+We are adding $\frac{m^2}{s^2}$ to $\mathrm{kg}^2$ and expecting to get a
 dimensionless scalar! Although it is possible to provide an `InnerSpace Rocket`
 instance -- all we need to do
-is to drop units, but we'd very much rather not to. Isomorphism grounded on
+is to drop units -- but we'd very much rather not to. Isomorphism grounded on
 such an instance is akin to isomorphism between kilograms and meters -- it does
 indeed exist, but we wouldn't want to invoke it automatically.
 
@@ -93,8 +91,8 @@ Having established the rule of no mixing of variables and gradients, we
 see that gradient descent is in outright violation of this rule:
 $$\mathbf{a}_{n+1} = \mathbf{a}_n-\gamma\nabla F(\mathbf{a}_n)$$
 
-We need a _metric tensor_ to relate gradients and variables. It's logical
-when you think about it -- gradient descent moves in the
+We need a _metric tensor_ to relate gradients and variables here.
+It's logical when you think about it -- gradient descent moves in the
 direction of the steepest
 descent. Talking about steepness makes no sense without ability to
 measure distances.
