@@ -1,14 +1,158 @@
 # Linear computational graph
 
-We're going to build abstract syntax tree and use observal sharing to combine identical
-expressions. We don't, however, need to store entire computation as an AST. Recall
-that derivative is a linear function. More specificially, its a linear approximation of a
-function at a given point. Conal Elliott has wonderful explanation in his paper _The Simple Essence of Automatic Differentiation_ [^1]. We only need to store that linear part as an AST
-and evaluate that.
+One way to do reverse mode automatic differentiation
+is to create a DSL for differentiable functions and use `StableName` to recover
+sharing information and construct computational graph.
+We adopt this approach, but with a twist.
 
-## Linear functions
+## The twist
+The easiest automatic differentiation is forward mode with dual numbers like this:
 
-Let's start with linear functions with one argument.
+~~~ {.haskell}
+data DVar a = DVar
+  { dvarValue :: a
+  , dvarGrad :: ???
+  }
+~~~
+
+We build computational graph for `dvarGrad` only.
+
+That is, we start as in forward mode AD, but instead of evaluating `dvarGrad`
+immediately, we build an AST that we evaluate later in reverse mode.
+This way we retain efficiency of reverse mode while greatly reducing scope
+and complexity of otherwise tricky "reverse" part.
+
+Gradient is a linear function, thus `dvarGrad`
+is a linear expression by construction. Linear functions are much simpler than more
+general differentiable functions and lend much better to the Haskell type system, as
+we will see later. What's
+more, computational graph ends up being linear, too. Evaluating linear graph in reverse
+mode is also easy -- just flip all edges and then evaluate in forward mode!
+
+## Linear maps
+
+Automatic differentiation is all about vector spaces and linear maps. Let me quickly
+introduce them.
+
+Vector spaces are covered by `vector-space` package, which we will
+build on. Two most relevant operations are vector
+addition and scalar-vector multiplication:
+
+~~~ {.haskell}
+(^+^) :: v -> v -> v
+(*^) :: Scalar v -> v -> v
+~~~
+
+Linear map is a mapping $f: U \to V$, where $U$ and $V$ are vector spaces,
+satisfying the following conditions:
+
+$$f(x+y) = f(x) + f(y)$$
+$$f(a x) = a f(x)$$
+
+Note that derivative of a function is a linear map. Conal Elliott's paper [^1]
+has a very nice explanation of what derivative really is. Shortly, derivative of
+function $f: U \to V$ at $x_0$ is a linear map $f': U \to V$, which is
+the best local linear approximation of $f$ at $x_0$:
+
+$$f(x) \approx f(x_0) + f'(x-x_0)$$
+
+While linear maps are conceptually just functions, we can't represent
+each one of them as Haskell functions, as that would
+lead to terrible algorithmic complexity. Gradients, for example, a linear
+maps, but they must be stored as data during backpropagation.
+
+The best way to represent a linear map depends on the types of vector
+spaces in question and on the nature of linear map itself. That's what
+type classes are for.
+We introduce a class for linear maps and an operator to evaluating them.
+The inspiration for the choice of operator comes
+from the fact that
+linear maps can be represented as matrices (or, more generally, tensors)
+and evaluation corresponds to matrix-vector product.
+
+~~~ {.haskell}
+class TensorMul u v where
+  type u ✕ v :: Type
+  (✕) :: u -> v -> u ✕ v
+~~~
+
+If `f` represents linear map $f: U \to V$ and `x :: U`,
+then `f ✕ x :: V` evaluates $f(x)$.
+
+Such a general operator wouldn't be very good for a Haskell library.
+More specific functions
+have better type inference, better error messages and make code easier to read
+and navigate.  Operator `✕` is supposed to mean tensor product followed by contraction,
+but there might be multiple sensible contractions, there might be multiple
+possible representations of result.
+Anyway, it is very useful for explaining things and demonstrating that
+quite a few operations are essentially the same.
+
+Laws of linear map can now be translated to Haskell:
+
+~~~ {.haskell}
+f ✕ (u ^+^ v) = f ✕ u ^+^ f ✕ v
+f ✕ (a *^ u) = a *^ (f ✕ u)
+~~~
+
+Linear maps form a vector space themselves:
+
+~~~ {.haskell}
+(f ^+^ g) ✕ u = f ✕ u ^+^ g ✕ u
+(a *^ f) ✕ u = a *^ (f ✕ u)
+~~~
+
+Those two equation can be seen as definition of vector arithmetic on linear maps.
+Or they could be assumed to be a part of axiomatic definition of `TensorMul`.
+
+A common case in backpropagation is domain of $f$ being scalar. We will name
+it $\mathbb{R}$ to make this text more intuitive, though actual type of it isn't
+really important. Gradient of variable $u \in U$ is a linear map $u^*: U \to \mathbb{R}$.
+Vector space of such linear maps is said to be *dual vector space* of $U$.
+Translating this to Haskell and choosing name `du` for $u^*$ gives
+
+~~~ {.haskell}
+u  :: u
+du :: du
+du ✕ u :: R
+~~~
+
+We use lowercase type variables `u` and `du`, because all automatic differentiation
+code will be polymorphic -- `u` and `du` are type variables. Here `du` can be seen
+as a function:
+
+~~~ {.haskell}
+(du ✕) :: u -> R
+~~~
+
+Vector `u` can be seen as a function, too:
+
+~~~ {.haskell}
+(✕ u) -> du -> R
+~~~
+
+There's a nice symmetry between `u` and `du` -- both have data representation,
+both have function representation and both are
+duals of each other.
+
+Another important operation besides evaluation is composition. We don't need
+another operator, because `✕` fits the bill. If you see linear maps as matrices,
+composition is nothing else but matrix multiplication. This usage of `✕`
+gives rise to associativity law.
+Here are associative law of `✕` together with the laws of usual Haskell
+function application and compositin operators, put together to show relation between them:
+
+~~~ {.haskell}
+(f . g) $ u = f $ (g $ u)
+(f ✕ g) ✕ u = f ✕ (g ✕ u)
+
+(f . g) . h = f . (g . h)
+(f ✕ g) ✕ h = f ✕ (g ✕ h)
+~~~
+
+## PrimFunc
+
+The first ingredient of linear computational graphs is linear functions of a single argument.
 
 ~~~ {.haskell}
 data PrimFunc u du v dv = PrimFunc
@@ -17,7 +161,101 @@ data PrimFunc u du v dv = PrimFunc
   }
 ~~~
 
-`PrimFunc` is a primitive building block of linear expressions. It comes with two parts: $u \rightarrow v$ evaluates this function, while $dv \rightarrow du$ backpropagates gradient.
+`PrimFunc` is a primitive building block of linear expressions. It comes with two parts: `u -> v` evaluates this function, while `dv -> du` backpropagates gradient. Given it's a linear
+map, it should have `TensorMul` instance, but unfortunately we quickly run into
+overlapping instances problem. We resort to newtype wrappers to overcome it.
+
+~~~ {.haskell}
+newtype Vec x = Vec { unVec :: x }
+~~~
+
+This little nuisance is a consequence of overly general `TensorMul` class. The instance
+can now be given:
+
+~~~ {.haskell}
+instance TensorMul (PrimFunc u du v dv) (Vec u) where
+    type (PrimFunc u du v dv) ✕ (Vec u) = Vec v
+    (PrimFunc f _) ✕ Vec v = Vec (f v)
+~~~
+
+Can you guess which operator we're going to use for backpropagation?
+Of course, it has to be `✕`.
+There's one more way to use it -- gradients come on the *left* of the function:
+
+~~~ {.haskell}
+ f ✕ u :: v
+dv ✕ f :: du
+~~~
+
+Bringing matrix analogy, if `f` is a matrix, `u` is a column vector, then `v` is
+a row vector.
+Since we already have newtype wrappers for vectors, we might create a different one for
+gradients.
+
+~~~ {.haskell}
+newtype Cov x = Cov {unCov :: x}
+~~~
+
+`Cov` stands for *covector*. It doesn't have much to do with variance and covariance,
+it just indicates it should be positioned on the left side of the function.
+
+~~~ {.haskell}
+instance TensorMul (Cov dv) (PrimFunc u du v dv) where
+  type (Cov dv) ✕ (PrimFunc u du v dv) = Cov du
+  Cov v ✕ (PrimFunc _ f) = Cov (f v)
+~~~
+
+Function $f$ can be seen as a bilinear function. If Haskell allowed such notation:
+
+~~~ {.haskell}
+(✕ f ✕) :: dv -> u -> R
+~~~~
+
+Associative law comes into play:
+
+~~~ {.haskell}
+dv ✕ (f ✕ u)    =     (dv ✕ f) ✕ u
+dv ✕ fwdFun f u = backFun f dv ✕ u
+~~~
+
+This means `fwdFun` and `backFun` can't be arbitrary linear maps -- above
+equation must hold for all choices of `dv` and `u`. Mathematically, this
+law says that backFun must be *transpose* of fwdFun.
+
+==============
+
+~~~ {.haskell}
+((u ✕ f1) ✕ f2) ✕ f3 :: u -> R
+f ✕ (f1 ✕ (f2 ✕ f3)) :: dv -> du
+~~~
+
+
+
+Choice of operator 
+
+Linear maps form a vector space themselves in straightforward way:
+
+~~~ {.haskell}
+(f ^+^ g) = \x -> f x ^+^ g x
+a *^ f = \x -> a *^ f x
+~~~
+
+Such a definition is fine in math, but here we intend to actually evaluate
+functions on computer and algorithmic complexity must be taken into account.
+There are different ways to represent a linear map and the choice of
+representation depends on situation. Representing them as Haskell functions
+won't allow efficient vector addition -- implementing it as in the snippet above
+will lead to repeated evaluations. Nested repeated evaluations will in turn
+cause exponential slowdown. While gradients are 
+There are other
+ways to represent linear maps. 
+
+
+
+Linear function can be written as a matrix, or, more generally, as a tensor. Function
+application in this case is corresponds to matrix-vector product. We won't enforce
+matrix representation for functions, but we will use multiplication symbol for function
+application:
 
 ~~~ {.haskell}
 class TensorMul u v where
@@ -25,60 +263,63 @@ class TensorMul u v where
   (✕) :: u -> v -> u ✕ v
 ~~~
 
-Operator ✕ stands for application of linear function _and_ composition of linear functions.
-That's not as crazy as it might seem. Linear functions can be represented as matrices. In this
-case function applicatio is matrix-vector product, while function composition is matrix-matrix
-product. Both operations are in principle the same.
-
-TensorMul: tensor product, followed by contraction.
-
-Gradient: gradient of vector $v$ is a function $v \rightarrow \mathbb{R}$.
-
-Say, $u$, $v$ are vectors, $du$, $dv$ are gradients and $f$ is a function $u \leftarrow v$.
-
-First of all, we can use `✕` to evaluate $f$:
+It obeys with a few laws, showing it really behaves like multiplication. Associativity:
 
 ~~~ {.haskell}
-f ✕ u :: v
+(u ✕ v) ✕ w = u ✕ (v ✕ w)
 ~~~
 
-Next, since gradient is a linear function, we can evaluate it, too:
+Distribution over `^+^`:
+
+~~~
+(u ^+^ v) ✕ w = u ✕ w ^+^ v ✕ w
+w ✕ (u ^+^ v) = w ✕ u ^+^ w ✕ v
+~~~
+
+Multiplication by scalar:
+
+~~~
+a *^ (u ✕ v) = (a *^ u) ✕ v = u ✕ (a *^ v)
+~~~
+
+Operators `^+^` and `*^` come from `vector-space` package. 
+
+
+
+
+Let's start with linear functions with single argument.
+
+
+
+Operator ✕ stands for application of linear function _and_ composition of linear functions.
+That's not as crazy as it might seem. Linear functions can be represented as matrices. In this
+case function application is matrix-vector product, while function composition is matrix-matrix
+product. Both operations are in principle the same -- tensor product, followed by contraction.
+
+Given function $f\colon U \to V$ and vector $u \in U$, we can use `✕` to evaluate $f(u)$:
+
+~~~ {.haskell}
+f ✕ u :: V
+~~~
+
+Gradient of variable $v \in V$ is contravariant vector
+$dv \in V^*$, where $V^*$ is the dual space of $V$, that is,
+the vector space of linear functions $V \to \mathbb{R}$.
+Since it is a linear function, we can use `✕` evaluate it, too:
 
 ~~~ {.haskell}
 du ✕ u :: R
 dv ✕ v :: R
 ~~~
 
-Finally, the reason operator `✕` was introduced at all -- gradient can go on
-the left side of the function:
-
-~~~ {.haskell}
-dv ✕ f :: du
-~~~
-
-A law:
-
-`dv ✕ (f ✕ u) == (dv ✕ f) ✕ u`
-
-This law means that backFun must be _transpose_ of fwdFun.
-
-Note that vector `v` can also be seen as a function `(✕ v) :: dv -> R`. Both vector and its
-gradient are duals of each other.
+Finally, gradient can go on the left side of the function:
 
 
-We will also need a wrapper for vectors to avoid overlapping instances and type families:
+Note that vector `v` can also be seen as a function `(✕ v) :: dv -> R`. Vector and 
+covector are duals of each other.
 
-~~~ {.haskell}
-newtype Vec x = Vec { unVec :: x }
-~~~
 
-`PrimFunc` instance:
 
-~~~ {.haskell}
-instance TensorMul (PrimFunc u du v dv) (Vec u) where
-    type (PrimFunc u du v dv) ✕ (Vec u) = Vec v
-    (PrimFunc f _) ✕ Vec v = Vec (f v)
-~~~
 
 ## AST
 
@@ -117,5 +358,45 @@ Thats it! That's all we need to evaluate in reverse mode.
 
 ## Evaluation
 
-## Transpose Expr!
+Evaluating `Expr` directly is inefficient -- we should recover sharing
+information first. Still, it gives `Expr` precise semantics, so let's do it
+anyways.
 
+`Expr a da v dv` represents a function `a -> v`, so it's natural to give it
+a `TensorMul` instance. The code writes itself:
+
+~~~ {.haskell}
+instance TensorMul (Expr a da v dv) (Vec a) where
+    type Expr a da v dv ✕ Vec a = Vec v
+    expr ✕ a = case expr of
+        Var -> a                 -- Var is identity function
+        Func f v -> f ✕ (v ✕ a)  -- Func f v = f ✕ v
+        Sum vs -> sumV [v ✕ a | v <- vs]
+~~~
+
+Reverse mode evaluation is also straightforward:
+
+~~~ {.haskell}
+instance AdditiveGroup da => TensorMul (Vec dv) (Expr a da v dv) where
+    type Vec dv ✕ (Expr a da v dv) = Vec da
+    dv ✕ expr = case expr of
+        Var -> dv
+        Func f v -> (dv ✕ f) ✕ v
+        Sum vs -> sumV [dv ✕ v | v <- vs]
+~~~
+
+## Puzzle for the reader
+
+We're going to build a graph and flip edges later to turn
+reverse mode evaluation into forward mode. As `Expr` is a tree
+can be readily be transposed, too.
+
+~~~ {.haskell}
+transposeExpr :: AdditiveGroup da => Expr a da v dv -> Expr dv v da a
+transposeExpr = _
+~~~
+
+Can you figure this out? This time code won't write itself.
+
+
+[^1]: Conal Elliott. The Simple Essence of Automatic Differentiation. [http://conal.net/papers/essence-of-ad/](http://conal.net/papers/essence-of-ad/)

@@ -1,0 +1,31 @@
+digraph inline_node_fwd {
+    rankdir="TB"
+    nodeMyVector [
+        label = "MyVector a",
+        shape = box
+    ];
+    nodeVector [
+        label = "Vector a",
+        fontname="monospace",
+        shape = box
+    ];
+    nodeItem [
+        label = "a",
+        fontname = "monospace",
+        shape = box
+    ]
+    nodeIndex [
+        label = "(! i)",
+        shape = none,
+        fontname = "monospace",
+    ]
+    nodeUnwrap [
+        label = "unMyVector",
+        shape = none,
+        fontname = "monospace",
+    ]
+
+    nodeVector -> nodeIndex -> nodeItem
+    nodeMyVector -> nodeUnwrap ->  nodeVector
+
+}
