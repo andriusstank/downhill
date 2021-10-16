@@ -76,17 +76,17 @@ class TensorMul u v where
   (✕) :: u -> v -> u ✕ v
 ~~~
 
-If `f` represents linear map $f: U \to V$ and `x :: U`,
-then `f ✕ x :: V` evaluates $f(x)$.
+If `f` represents linear map $U \to V$ and `u :: U`,
+then `f ✕ u :: V` evaluates $f(x)$.
 
 Such a general operator wouldn't be very good for a Haskell library.
 More specific functions
 have better type inference, better error messages and make code easier to read
 and navigate.  Operator `✕` is supposed to mean tensor product followed by contraction,
-but there might be multiple sensible contractions, there might be multiple
-possible representations of result.
+but there might be multiple sensible contractions, with no way to choose the
+right one at each call site.
 Anyway, it is very useful for explaining things and demonstrating that
-quite a few operations are essentially the same.
+quite a few operations are actually the same one.
 
 Laws of linear map can now be translated to Haskell:
 
@@ -95,19 +95,17 @@ f ✕ (u ^+^ v) = f ✕ u ^+^ f ✕ v
 f ✕ (a *^ u) = a *^ (f ✕ u)
 ~~~
 
-Linear maps form a vector space themselves:
+Multiplication `✕` distributes over additin on the other side, too,
+because linear maps form a vector space themselves:
 
 ~~~ {.haskell}
 (f ^+^ g) ✕ u = f ✕ u ^+^ g ✕ u
 (a *^ f) ✕ u = a *^ (f ✕ u)
 ~~~
 
-Those two equation can be seen as definition of vector arithmetic on linear maps.
-Or they could be assumed to be a part of axiomatic definition of `TensorMul`.
-
 A common case in backpropagation is domain of $f$ being scalar. We will name
-it $\mathbb{R}$ to make this text more intuitive, though actual type of it isn't
-really important. Gradient of variable $u \in U$ is a linear map $u^*: U \to \mathbb{R}$.
+it $\mathbb{R}$ to make this text more intuitive, though actual type of the scalar isn't
+really important. Gradient of variable $u \in U$ in this case is a linear map $u^*: U \to \mathbb{R}$.
 Vector space of such linear maps is said to be *dual vector space* of $U$.
 Translating this to Haskell and choosing name `du` for $u^*$ gives
 
@@ -161,7 +159,8 @@ data PrimFunc u du v dv = PrimFunc
   }
 ~~~
 
-`PrimFunc` is a primitive building block of linear expressions. It comes with two parts: `u -> v` evaluates this function, while `dv -> du` backpropagates gradient. Given it's a linear
+`PrimFunc` comes with two parts: `u -> v` evaluates this function,
+while `dv -> du` backpropagates gradient. Given it's a linear
 map, it should have `TensorMul` instance, but unfortunately we quickly run into
 overlapping instances problem. We resort to newtype wrappers to overcome it.
 
@@ -178,17 +177,23 @@ instance TensorMul (PrimFunc u du v dv) (Vec u) where
     (PrimFunc f _) ✕ Vec v = Vec (f v)
 ~~~
 
-Can you guess which operator we're going to use for backpropagation?
+That was forward mode evaluation.
+Can you guess which operator we're going to use for reverse mode?
 Of course, it has to be `✕`.
-There's one more way to use it -- gradients come on the *left* of the function:
+There's one more way to use it -- on the *left* of the function:
 
 ~~~ {.haskell}
  f ✕ u :: v
 dv ✕ f :: du
 ~~~
 
-Bringing matrix analogy, if `f` is a matrix, `u` is a column vector, then `v` is
-a row vector.
+Going back to matrix analogy, if `f` is a matrix, `u` and `v` are a column vectors, then
+`du` and `dv` are row vectors. Also, product of row vector and column vector is a scalar.
+Everything fits well together. Another thing worth mentioning -- there are no transpositions
+of matrices in sight. Matrix transposition assumes Hilbert space, we shouldn't be expecting
+them here.
+
+
 Since we already have newtype wrappers for vectors, we might create a different one for
 gradients.
 
@@ -205,7 +210,7 @@ instance TensorMul (Cov dv) (PrimFunc u du v dv) where
   Cov v ✕ (PrimFunc _ f) = Cov (f v)
 ~~~
 
-Function $f$ can be seen as a bilinear function. If Haskell allowed such notation:
+Function $f$ can be seen as a bilinear form. If Haskell allowed such notation:
 
 ~~~ {.haskell}
 (✕ f ✕) :: dv -> u -> R
@@ -220,13 +225,14 @@ dv ✕ fwdFun f u = backFun f dv ✕ u
 
 This means `fwdFun` and `backFun` can't be arbitrary linear maps -- above
 equation must hold for all choices of `dv` and `u`. Mathematically, this
-law says that backFun must be *transpose* of fwdFun.
+law says that backFun must be *transpose* of fwdFun. That's pretty much the
+definition of tranpose of a linear map.
 
 ==============
 
 ~~~ {.haskell}
-((u ✕ f1) ✕ f2) ✕ f3 :: u -> R
-f ✕ (f1 ✕ (f2 ✕ f3)) :: dv -> du
+     f3 ✕ f2 ✕ f1 ✕ u :: v   -- forward mode
+dv ✕ f3 ✕ f2 ✕ f1     :: du  -- reverse mode
 ~~~
 
 
