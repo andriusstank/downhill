@@ -47,7 +47,6 @@ import Language.Haskell.TH
     Q,
     SourceStrictness (NoSourceStrictness),
     SourceUnpackedness (NoSourceUnpackedness),
-    TyVarBndr (..),
     Type (AppT, ConT, VarT),
     nameBase,
     newName,
@@ -65,6 +64,7 @@ import Language.Haskell.TH.Syntax
     VarBangType,
     mkNameS,
   )
+import Language.Haskell.TH.Datatype.TyVarBndr (TyVarBndrUnit)
 
 data DatatypeFields
   = NormalFields [Type]
@@ -76,7 +76,7 @@ data DownhillRecord = DownhillRecord
     ddtDataConName :: Name,
     ddtFieldTypes :: [Type],
     ddtFieldNames :: Maybe [String],
-    ddtTypeVars :: [TyVarBndr],
+    ddtTypeVars :: [TyVarBndrUnit],
     ddtFieldCount :: Int,
     ddtVariant :: DatatypeVariant
   }
@@ -169,7 +169,7 @@ mkConstructor record =
         type_
       )
 
-parseGradConstructor :: Name -> DatatypeInfo -> ConstructorInfo -> [TyVarBndr] -> Q DownhillRecord
+parseGradConstructor :: Name -> DatatypeInfo -> ConstructorInfo -> [TyVarBndrUnit] -> Q DownhillRecord
 parseGradConstructor tyName dinfo cinfo typevars = do
   let types = constructorFields cinfo
       n = length types
@@ -712,7 +712,7 @@ mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
     Nothing -> return []
     Just names ->
       let info :: Int -> String -> Type -> FieldInfo
-          info index name stype_ = FieldInfo name index stype_
+          info index name = FieldInfo name index
           substitutedFields = constructorFields substitutedCInfo
           fields :: [FieldInfo]
           fields = zipWith3 info [0 ..] names substitutedFields
