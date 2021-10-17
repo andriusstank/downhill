@@ -135,6 +135,7 @@ instance HasGrad a_a6HB => HasField "myA" (BVar r (MyRecord1 a_a6HB)) (BVar r a_
           = Just ((MyRecord1GradDBuilderD dx_da_a6IM) mempty)
 -}
 
+test :: IO [Dec]
 test =
   [d|
     instance s ~ VectorSpace.Scalar (MyRecord1 a) => VectorSpace (MyRecord1 s) where
