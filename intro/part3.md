@@ -211,9 +211,9 @@ type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
 ~~~
 
 It has standard monoid instance. Folding a list of such builders with
-monoid operation will regroup and pack them into a single unit.
+monoid operation will regroup them and pack into a single unit.
 This way gradients are recursively assembled
-into a tree of the same shape as original data,
-making each member access $O(1)$. Assuming records have reasonably small number
+into a tree of the same shape as original data
+and each member access has $O(1)$ cost. Assuming records have reasonably small number
 of direct members, of course.
 
