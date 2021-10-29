@@ -35,7 +35,8 @@ newtype BackGrad a v
       )
 
 -- | Creates a @BackGrad@ that is backed by a real node. Gradient of type @v@ will be computed for this node.
-{-# ANN module "HLint: Avoid labmda using `infix`" #-}
+{-# ANN module "HLint: ignore Avoid lambda using `infix`" #-}
+
 realNode :: Expr a v -> BackGrad a v
 realNode x = BackGrad (\f -> Term f x)
 
@@ -56,7 +57,11 @@ inlineNode f (BackGrad g) = BackGrad go
 
 -- | @BackGrad@ doesn't track the type of the node. Type of @BackGrad@ can be changed freely
 -- as long as @VecBuilder@ stays the same.
-castBackGrad :: forall r v z. (BasicVector v, VecBuilder z ~ VecBuilder v) => BackGrad r v -> BackGrad r z
+castBackGrad ::
+  forall r v z.
+  VecBuilder z ~ VecBuilder v =>
+  BackGrad r v ->
+  BackGrad r z
 castBackGrad (BackGrad g) = BackGrad g
 
 instance (FullVector v) => AdditiveGroup (BackGrad r v) where
