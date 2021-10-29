@@ -19,7 +19,7 @@ import Data.VectorSpace (AdditiveGroup (zeroV, (^+^)), VectorSpace)
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar))
 import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm), GradBuilder)
-import Downhill.Linear.BackGrad
+import Downhill.Linear.BackGrad ( inlineNode )
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), DenseBuilder (DenseBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder), maybeToMonoid)
 import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
 import GHC.Generics (Generic)
@@ -55,7 +55,7 @@ instance HasGrad a => HasGrad (MyWrapper a) where
 unwrapBVar :: forall r a. BasicVector (Grad a) => BVar r (MyWrapper a) -> BVar r a
 unwrapBVar (BVar x dx) = BVar (unMyWrapper x) (inlineNode MyWrapper dx)
 
-wrapBVar :: forall r a. (BasicVector (Grad a)) => BVar r a-> BVar r (MyWrapper a)
+wrapBVar :: forall r a. (BasicVector (Grad a)) => BVar r a -> BVar r (MyWrapper a)
 wrapBVar (BVar a da) = BVar (MyWrapper a) (inlineNode unMyWrapper da)
 
 main :: IO ()
