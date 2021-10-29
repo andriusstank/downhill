@@ -71,11 +71,11 @@ length indexed vectors, but thats a different topic.
 
 ## Better AST
 
-`Expr` type in the library is different in a few ways.
+`Expr` type in the library is different to that in previous part in a few ways.
 
 First of all, it hasn't got
 pairs of vectors and gradients, such as `a da v dv`. Just `a v`. Full set of
-parameters was very useful to explain the idea, but only `da` and `dv` are needed
+parameters was useful to explain the idea, but only `da` and `dv` are needed
 for backpropagation. That's much simpler.
 
 There's also a little problem with our `Expr` type.
@@ -120,7 +120,7 @@ Let's see how gradients propagate when we flip edges:
 ![](./inline_back.dot.svg)
 
 Indexing function `(! i)` produces lightweight gradient builder, as desired.
-Which intermediate node promptly converts into big fat vector, ruining all
+Only for the intermediate node to convert it into big fat vector, undoing all
 optimization!
 
 
@@ -136,7 +136,10 @@ newtype BackGrad a v
       )
 ~~~
 
-`BackGrad` turns linear functions to `Term`s. It generalizes `Expr`:
+`BackGrad` turns linear functions (`x -> VecBuilder v`) to `Term`s.
+Normaly resulting list of `Term`s contains exactly one element
+
+It generalizes `Expr`:
 
 ~~~ {.haskell}
 realNode :: Expr a v -> BackGrad a v
@@ -165,7 +168,7 @@ unary functions `BVar a -> BVar b` only. If we have many variables to differenti
 respect to, we have to pack them together into single tuple or record `BVar a`.
 If we have a complex model, `a` might be a complex structure of nested records.
 
-Constructing real `Expr` nodes is inefficient, because accessing any member with
+Constructing real `Expr` nodes is inefficient, because accessing any member will
 have a cost proportional to the size of the whole structure. Inline nodes is not an
 option, too. Accessing deeply nested members will create a long chain of `inlineNode`s.
 The cost of traversing the whole chain will have to be paid every time the variable

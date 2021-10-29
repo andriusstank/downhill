@@ -1,11 +1,12 @@
 digraph inline_node_back {
     rankdir="BT"
     nodeMyVectorB [
-        label = "... -> Grad (MyVector a)",
+        label = "sumBuilder ::\nGradBuilder (MyVector a) -> Grad (MyVector a)",
+        fontname="monospace",
         shape = box
     ];
     nodeVectorB [
-        label = "sumBuilder ::\nGradBuilder a -> Grad (Vector a)",
+        label = "sumBuilder ::\nGradBuilder (Vector a) -> Grad (Vector a)",
         fontname="monospace",
         fontcolor = red,
         shape = box
@@ -16,7 +17,7 @@ digraph inline_node_back {
         shape = box
     ]
     nodeIndexB [
-        label = "(! i)\n... -> GradBuilder (Vector a)",
+        label = "(! i)",
         shape = none,
         fontname = "monospace",
     ]
