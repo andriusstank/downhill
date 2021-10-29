@@ -112,8 +112,8 @@ instance (HasFullGrad p, HasGradAffine p) => AffineSpace (BVar r p) where
   BVar y0 dy .-. BVar z0 dz = BVar (y0 .-. z0) (dy ^-^ dz)
 
 -- | A variable with derivative of zero.
-constant :: forall r a. a -> BVar r a
-constant x = BVar x (BackGrad (const [])) -- could be zeroV here, but that would require `HasDual a` constraint..
+constant :: forall r a. FullVector (Grad a) => a -> BVar r a
+constant x = BVar x zeroV
 
 -- | A variable with identity derivative.
 var :: a -> BVar (Grad a) a

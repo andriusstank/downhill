@@ -47,7 +47,7 @@ abstractBackprop ::
   (v -> VecBuilder v) ->
   v ->
   a
-abstractBackprop (BackGrad f) builder x = case buildSomeGraph (f builder) of
+abstractBackprop (BackGrad f) builder x = case buildSomeGraph [f builder] of
   SomeGraph g -> evalGraph (transposeGraph flipBackFun g) x
 
 backprop :: forall a v. (BasicVector a, BasicVector v) => BackGrad a v -> VecBuilder v -> a

@@ -31,12 +31,13 @@ newtype BackGrad a v
   = BackGrad
       ( forall x.
         (x -> VecBuilder v) ->
-        [Term a x]
+        Term a x
       )
 
 -- | Creates a @BackGrad@ that is backed by a real node. Gradient of type @v@ will be computed for this node.
+{-# ANN module "HLint: Avoid labmda using `infix`" #-}
 realNode :: Expr a v -> BackGrad a v
-realNode x = BackGrad (\f -> [Term f x])
+realNode x = BackGrad (\f -> Term f x)
 
 -- | @inlineNode f x@ will apply function @f@ to variable @x@ without creating a node. All the gradients
 -- coming to this expression will be forwarded to the parents of @x@. However, if this expression is used
@@ -50,7 +51,7 @@ inlineNode ::
   BackGrad r v
 inlineNode f (BackGrad g) = BackGrad go
   where
-    go :: forall x. (x -> VecBuilder v) -> [Term r x]
+    go :: forall x. (x -> VecBuilder v) -> Term r x
     go h = g (f . h)
 
 -- | @BackGrad@ doesn't track the type of the node. Type of @BackGrad@ can be changed freely
@@ -59,11 +60,11 @@ castBackGrad :: forall r v z. (BasicVector v, VecBuilder z ~ VecBuilder v) => Ba
 castBackGrad (BackGrad g) = BackGrad g
 
 instance (FullVector v) => AdditiveGroup (BackGrad r v) where
-  zeroV = BackGrad (const [])
-  negateV (BackGrad x) = realNode (ExprSum (x negateBuilder))
-  BackGrad x ^+^ BackGrad y = realNode (ExprSum (x identityBuilder <> y identityBuilder))
-  BackGrad x ^-^ BackGrad y = realNode (ExprSum (x identityBuilder <> y negateBuilder))
+  zeroV = realNode (ExprSum [])
+  negateV (BackGrad x) = realNode (ExprSum [x negateBuilder])
+  BackGrad x ^+^ BackGrad y = realNode (ExprSum [x identityBuilder, y identityBuilder])
+  BackGrad x ^-^ BackGrad y = realNode (ExprSum [x identityBuilder, y negateBuilder])
 
 instance FullVector v => VectorSpace (BackGrad r v) where
   type Scalar (BackGrad r v) = Scalar v
-  a *^ BackGrad v = realNode (ExprSum (v (scaleBuilder a)))
+  a *^ BackGrad v = realNode (ExprSum [v (scaleBuilder a)])

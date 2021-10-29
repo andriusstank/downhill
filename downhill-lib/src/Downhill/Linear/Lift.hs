@@ -40,7 +40,7 @@ lift1 ::
   BackGrad r z
 lift1 fa (BackGrad da) = realNode node
   where
-    node = ExprSum (da fa)
+    node = ExprSum [da fa]
 
 lift2 ::
   forall z r a b.
@@ -52,7 +52,7 @@ lift2 ::
   BackGrad r z
 lift2 fa fb (BackGrad da) (BackGrad db) = realNode node
   where
-    node = ExprSum (da fa ++ db fb)
+    node = ExprSum [da fa, db fb]
 
 lift3 ::
   forall z r a b c.
@@ -66,7 +66,7 @@ lift3 ::
   BackGrad r z
 lift3 fa fb fc (BackGrad da) (BackGrad db) (BackGrad dc) = realNode node
   where
-    node = ExprSum (da fa ++ db fb ++ dc fc)
+    node = ExprSum [da fa, db fb, dc fc]
 
 lift1_sparse ::
   forall r a z.
