@@ -32,6 +32,12 @@ executable record
   hs-source-dirs:      .
   default-language:    Haskell2010
 
+executable newtype
+  main-is:             Newtype.hs
+  build-depends:       base, downhill, vector-space
+  hs-source-dirs:      .
+  default-language:    Haskell2010
+
 executable th
   main-is:             TH.hs
   build-depends:       base, downhill, template-haskell, lens, vector-space
