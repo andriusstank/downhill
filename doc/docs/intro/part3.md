@@ -113,14 +113,38 @@ myLookup v i = unMyVector v ! i
 
 `Expr` tree will have three nodes with two edges between them:
 
-![](./inline_fwd.dot.svg)
+``` mermaid
+graph TD
+  nodeMyVector[MyVector a]
+  nodeVector[Vector a]
+  nodeItem[a]
+  nodeVector-- "(! i)" -->nodeItem
+  nodeMyVector-- unMyVector -->nodeVector
+  nodeMore["..."]
+  nodeMyVector-- "..." --> nodeMore
+```
 
 Let's see how gradients propagate when we flip edges:
 
-![](./inline_back.dot.svg)
+``` mermaid
+graph BT
+  nodeMyVectorB["Grad (MyVector a)"]
+  nodeMyVectorB1(["GradBuilder (MyVector a)"])
+  nodeMore["..."]
+  style nodeMyVectorB1 fill:white,stroke-dasharray: 5 5
+  nodeVectorB["<b>Grad (Vector a)</b>"]
+  nodeVectorB1(["GradBuilder (Vector a)"])
+  style nodeVectorB1 fill:white,stroke-dasharray: 5 5
+  nodeItemB["Grad a"]
+  nodeItemB-- "(! i)" -->nodeVectorB1
+  nodeVectorB1-- sumBuilder -->nodeVectorB
+  nodeVectorB-- unMyVector -->nodeMyVectorB1
+  nodeMyVectorB1-- sumBuilder -->nodeMyVectorB
+  nodeMore-- "..." -->nodeMyVectorB1
+```
 
 Indexing function `(! i)` produces lightweight gradient builder, as desired.
-Only for the intermediate node to convert it into big fat vector, undoing all
+Only for the intermediate node to convert it into a big fat vector, undoing all
 optimization!
 
 
@@ -157,6 +181,21 @@ inlineNode f (BackGrad g) = BackGrad go
     go :: forall x. (x -> VecBuilder v) -> [Term r x]
     go h = g (f . h)
 ~~~
+
+``` mermaid
+graph BT
+  nodeMyVectorB["Grad (MyVector a)"]
+  nodeMyVectorB1(["GradBuilder (MyVector a)"])
+  nodeMore["..."]
+  style nodeMyVectorB1 fill:white,stroke-dasharray: 5 5
+  nodeVectorB1(["GradBuilder (Vector a)"])
+  style nodeVectorB1 fill:white,stroke-dasharray: 5 5
+  nodeItemB["Grad a"]
+  nodeItemB-- "(! i)" -->nodeVectorB1
+  nodeVectorB1-- unMyVector -->nodeMyVectorB1
+  nodeMyVectorB1-- sumBuilder -->nodeMyVectorB
+  nodeMore-- "..." -->nodeMyVectorB1
+```
 
 ## Sparse nodes  {#sparse-nodes}
 

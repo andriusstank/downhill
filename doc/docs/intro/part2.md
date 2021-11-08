@@ -47,8 +47,10 @@ addition and scalar-vector multiplication:
 Linear map is a mapping $f: U \to V$, where $U$ and $V$ are vector spaces,
 satisfying the following conditions:
 
-$$f(x+y) = f(x) + f(y)$$
-$$f(a x) = a f(x)$$
+\begin{align}
+f(x+y) & = f(x) + f(y) \\
+f(a x) & = a f(x)
+\end{align}
 
 While linear maps are conceptually just functions, we can't represent
 all of them as Haskell functions, as that would
@@ -236,13 +238,19 @@ data Expr a da v dv where
 ## Linear functions with multiple arguments
 
 There's a difference between linear and bilinear functions. Linear functions with two variables satisfy this equation:
-$$f(x_1+x_2,y_1+y_2) = f(x_1, y_1) + f(x_2, y_2)$$
+$$
+f(x_1+x_2,y_1+y_2) = f(x_1, y_1) + f(x_2, y_2)
+$$
 
 Multiplication, for example, is bilinear, not linear because
-$$(a+b) \cdot (x+y) \ne a \cdot x + b \cdot y$$
+$$
+(a+b) \cdot (x+y) \ne a \cdot x + b \cdot y
+$$
 
 It turns turns out any linear function can be written as a sum of one variable linear functions:
-$$f(x,y) = f_1(x) + f_2(y)$$
+$$
+f(x,y) = f_1(x) + f_2(y)
+$$
 It's easy to see equation holds by plugging $f_1(x)=f(x, 0)$, $f_2(y)=f(0, y)$.
 
 We have all the pieces to finish AST definition:

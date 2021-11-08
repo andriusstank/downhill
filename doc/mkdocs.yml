@@ -1,0 +1,36 @@
+site_name: Downhill
+site_url: http://localhost:8000/
+theme:
+    name: material
+    features:
+        - navigation.indexes
+
+plugins:
+    - search
+    - mermaid2:
+        arguments:
+          securityLevel: 'loose'
+          theme: 'material'
+          themeVariables:
+              fontFamily: monospace
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - footnotes
+ 
+extra_javascript:
+  - js/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+extra_css:
+  - js/style.css
+
+nav:
+    - Home: index.md
+    - Intro:
+        - 'intro/index.md'
+        - 'Type of the Gradient': 'intro/part1.md'
+        - 'Linear Graph': 'intro/part2.md'
+        - 'Important Details': 'intro/part3.md'
