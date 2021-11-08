@@ -61,12 +61,9 @@ evalGraph :: forall s x z. Graph s FwdFun z x -> z -> x
 evalGraph (Graph nodes finalNode) dz = evalNode finalNode
   where
     evalParent :: forall v. Endpoint (NodeKey s) z v -> v
-    evalParent tail = goTail tail
-      where
-        goTail :: forall x'. Endpoint (NodeKey s) z x' -> x'
-        goTail = \case
-          SourceNode -> dz
-          InnerNode nodeName -> runIdentity (NodeMap.lookup innerValues nodeName)
+    evalParent = \case
+      SourceNode -> dz
+      InnerNode nodeName -> runIdentity (NodeMap.lookup innerValues nodeName)
     evalEdge :: Edge (NodeKey s) FwdFun z v -> VecBuilder v
     evalEdge (Edge f tail) = unFwdFun f $ evalParent tail
     evalNode :: Node (NodeKey s) FwdFun z v -> v
