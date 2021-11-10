@@ -197,10 +197,11 @@ graph BT
   nodeMore-- "..." -->nodeMyVectorB1
 ```
 
-## Sparse nodes  {#sparse-nodes}
+## Sparse nodes
 
 Inline nodes are still not enough. There's still no good way to access members
-of tuples, or other product types for that matter. This library differentiates
+of tuples, or other product types for that matter. They are important,
+because this library differentiates
 unary functions `BVar a -> BVar b` only. If we have many variables to differentiate with
 respect to, we have to pack them together into single tuple or record `BVar a`.
 If we have a complex model, `a` might be a complex structure of nested records.
@@ -212,7 +213,7 @@ The cost of traversing the whole chain will have to be paid every time the varia
 is used. That's fine for newtypes, as wrapping is zero cost and compiler can inline it.
 Wrapping gradient builders in structs with `mempty` siblings, however, isn't free.
 Lists can be seen as recursively nested pairs. All this makes complexity of iterating
-over the list will be $O(n^2)$. That's unacceptable.
+over the list will be $O(n^2)$. Unacceptable.
 
 Luckily, the type of the node doesn't really matter.
 Have a look at `BackGrad` definition -- there's

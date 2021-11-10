@@ -2,8 +2,6 @@ site_name: Downhill
 site_url: http://localhost:8000/
 theme:
     name: material
-    features:
-        - navigation.indexes
 
 plugins:
     - search
@@ -30,7 +28,6 @@ extra_css:
 nav:
     - Home: index.md
     - Intro:
-        - 'intro/index.md'
         - 'Type of the Gradient': 'intro/part1.md'
         - 'Linear Graph': 'intro/part2.md'
         - 'Important Details': 'intro/part3.md'

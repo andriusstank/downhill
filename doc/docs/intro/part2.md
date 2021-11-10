@@ -209,7 +209,7 @@ Function $f$ can be seen as a bilinear form. If Haskell allowed such notation:
 
 ~~~ {.haskell}
 (✕ f ✕) :: dv -> u -> R
-~~~~
+~~~
 
 Associative law comes into play again:
 
@@ -304,109 +304,7 @@ transposeExpr :: AdditiveGroup da => Expr a da v dv -> Expr dv v da a
 transposeExpr = _
 ~~~
 
-Can you figure this out? This time code won't write itself.
+Can you figure this out? This time code doesn't write itself.
 
 
 [^1]: Conal Elliott. The Simple Essence of Automatic Differentiation. [http://conal.net/papers/essence-of-ad/](http://conal.net/papers/essence-of-ad/)
-
-
-
-
-==============
-
-~~~ {.haskell}
-     f3 ✕ f2 ✕ f1 ✕ u :: v   -- forward mode
-dv ✕ f3 ✕ f2 ✕ f1     :: du  -- reverse mode
-~~~
-
-
-
-Choice of operator 
-
-Linear maps form a vector space themselves in straightforward way:
-
-~~~ {.haskell}
-(f ^+^ g) = \x -> f x ^+^ g x
-a *^ f = \x -> a *^ f x
-~~~
-
-Such a definition is fine in math, but here we intend to actually evaluate
-functions on computer and algorithmic complexity must be taken into account.
-There are different ways to represent a linear map and the choice of
-representation depends on situation. Representing them as Haskell functions
-won't allow efficient vector addition -- implementing it as in the snippet above
-will lead to repeated evaluations. Nested repeated evaluations will in turn
-cause exponential slowdown. While gradients are 
-There are other
-ways to represent linear maps. 
-
-
-
-Linear function can be written as a matrix, or, more generally, as a tensor. Function
-application in this case is corresponds to matrix-vector product. We won't enforce
-matrix representation for functions, but we will use multiplication symbol for function
-application:
-
-~~~ {.haskell}
-class TensorMul u v where
-  type u ✕ v :: Type
-  (✕) :: u -> v -> u ✕ v
-~~~
-
-It obeys with a few laws, showing it really behaves like multiplication. Associativity:
-
-~~~ {.haskell}
-(u ✕ v) ✕ w = u ✕ (v ✕ w)
-~~~
-
-Distribution over `^+^`:
-
-~~~
-(u ^+^ v) ✕ w = u ✕ w ^+^ v ✕ w
-w ✕ (u ^+^ v) = w ✕ u ^+^ w ✕ v
-~~~
-
-Multiplication by scalar:
-
-~~~
-a *^ (u ✕ v) = (a *^ u) ✕ v = u ✕ (a *^ v)
-~~~
-
-Operators `^+^` and `*^` come from `vector-space` package. 
-
-
-
-
-Let's start with linear functions with single argument.
-
-
-
-Operator ✕ stands for application of linear function _and_ composition of linear functions.
-That's not as crazy as it might seem. Linear functions can be represented as matrices. In this
-case function application is matrix-vector product, while function composition is matrix-matrix
-product. Both operations are in principle the same -- tensor product, followed by contraction.
-
-Given function $f\colon U \to V$ and vector $u \in U$, we can use `✕` to evaluate $f(u)$:
-
-~~~ {.haskell}
-f ✕ u :: V
-~~~
-
-Gradient of variable $v \in V$ is contravariant vector
-$dv \in V^*$, where $V^*$ is the dual space of $V$, that is,
-the vector space of linear functions $V \to \mathbb{R}$.
-Since it is a linear function, we can use `✕` evaluate it, too:
-
-~~~ {.haskell}
-du ✕ u :: R
-dv ✕ v :: R
-~~~
-
-Finally, gradient can go on the left side of the function:
-
-
-Note that vector `v` can also be seen as a function `(✕ v) :: dv -> R`. Vector and 
-covector are duals of each other.
-
-
-
