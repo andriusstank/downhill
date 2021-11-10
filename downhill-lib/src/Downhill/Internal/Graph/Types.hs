@@ -31,7 +31,8 @@ data Endpoint p a v where
 data Edge p e a v where
     Edge :: e u v -> Endpoint p a u -> Edge p e a v
 
-{-| Inner node. This does not include initial node. -}
+{-| Inner node. This does not include initial node. Contains a list
+of ingoing edges. -}
 data Node p e a v = BasicVector v => Node [Edge p e a v]
 
 

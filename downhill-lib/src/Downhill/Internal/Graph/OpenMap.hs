@@ -12,6 +12,7 @@ module Downhill.Internal.Graph.OpenMap
     mapMaybe,
     lookup,
     toList,
+    elems,
     empty,
     insert,
     adjust,
@@ -20,6 +21,7 @@ module Downhill.Internal.Graph.OpenMap
   )
 where
 
+import Control.Applicative (Const (Const))
 import Control.Exception (evaluate)
 import Data.HashMap.Lazy (HashMap)
 import qualified Data.HashMap.Lazy as HashMap
@@ -35,10 +37,10 @@ data SomeExpr f = forall v. SomeExpr (f v)
 -- | A key of @OpenMap@.
 newtype OpenKey x = OpenKey (StableName Any)
 
-{- | Heterogeneous map with 'StableName' as a key. -}
+-- | Heterogeneous map with 'StableName' as a key.
 newtype OpenMap (f :: Type -> Type) = OpenMap {unOpenMap :: HashMap (StableName Any) (SomeExpr f)}
 
-{-| Key and value. -}
+-- | Key and value.
 data SomeOpenItem f = forall x. SomeOpenItem (OpenKey x) (f x)
 
 empty :: OpenMap f
@@ -70,6 +72,12 @@ toList = fmap wrap . HashMap.toList . unOpenMap
     wrap :: (StableName Any, SomeExpr f) -> SomeOpenItem f
     wrap (key, x) = case x of
       SomeExpr x' -> SomeOpenItem (OpenKey key) x'
+
+elems :: OpenMap (Const b) -> [b]
+elems = fmap unSomeExpr . HashMap.elems . unOpenMap
+  where
+    unSomeExpr :: SomeExpr (Const r) -> r
+    unSomeExpr (SomeExpr (Const x)) = x
 
 unsafeCastTypeSomeExpr :: SomeExpr f -> f v
 unsafeCastTypeSomeExpr = \case
