@@ -17,7 +17,7 @@ module Downhill.BVar
   ( BVar (..),
     var,
     constant,
-    backprop, backprop'
+    backprop,
   )
 where
 
@@ -29,14 +29,18 @@ import Data.VectorSpace
     VectorSpace ((*^)),
   )
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.Grad (Dual (evalGrad), HasGrad (Tang, Grad, MScalar), GradBuilder,
- HasGradAffine, HasFullGrad)
+import Downhill.Grad
+  ( Dual (evalGrad),
+    HasFullGrad,
+    HasGrad (Grad, MScalar, Tang),
+    HasGradAffine,
+  )
 import Downhill.Linear.BackGrad
   ( BackGrad (..),
     realNode,
   )
-import Downhill.Linear.Expr (Expr (ExprVar), FullVector, BasicVector)
 import qualified Downhill.Linear.Backprop as BP
+import Downhill.Linear.Expr (BasicVector, Expr (ExprVar), FullVector)
 import Downhill.Linear.Lift (lift2_dense)
 import Prelude hiding (id, (.))
 
@@ -119,10 +123,9 @@ constant x = BVar x zeroV
 var :: a -> BVar (Grad a) a
 var x = BVar x (realNode ExprVar)
 
--- | Backpropagation.
-backprop :: forall a p. (HasGrad p, BasicVector a) => BVar a p -> GradBuilder p -> a
-backprop (BVar _y0 x) = BP.backprop x
+--backprop :: forall a p. (HasGrad p, BasicVector a) => BVar a p -> GradBuilder p -> a
+--backprop (BVar _y0 x) = BP.backprop x
 
--- | Like @backprop@, but takes @Grad p@  instead of @GradBuilder p@.
-backprop' :: forall a p. (HasGrad p, FullVector (Grad p), BasicVector a) => BVar a p -> Grad p -> a
-backprop' (BVar _y0 x) = BP.backprop' x
+-- | Backpropagation
+backprop :: forall a p. (HasGrad p, FullVector (Grad p), BasicVector a) => BVar a p -> Grad p -> a
+backprop (BVar _y0 x) = BP.backprop x

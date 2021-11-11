@@ -34,10 +34,9 @@ import qualified Data.IntMap as IntMap
 import Data.Maybe (fromMaybe)
 import Data.VectorSpace (AdditiveGroup (negateV, zeroV, (^+^), (^-^)), VectorSpace (Scalar, (*^)))
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.BVar (BVar (BVar), backprop, var)
+import Downhill.BVar (BVar (BVar, bvarValue, bvarGrad), backprop, var)
 import Downhill.Grad
   ( Dual (evalGrad),
-    GradBuilder,
     HasGrad (Grad, MScalar, Metric, Tang),
     MetricTensor
       ( MtCovector,
@@ -45,9 +44,11 @@ import Downhill.Grad
         evalMetric
       ),
   )
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
+import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FullVector, Term (Term), Expr (ExprSum))
 import Downhill.Linear.Lift (lift1_sparse)
 import GHC.Generics (Generic)
+import Downhill.Linear.BackGrad (BackGrad(BackGrad), realNode)
+import Data.Foldable (toList)
 
 newtype TraversableVar f a = TraversableVar {unTraversableVar :: f a}
   deriving stock (Functor, Foldable, Traversable)
@@ -139,8 +140,6 @@ splitTraversable (BVar xs dxs) = vars
           mkBuilder dx = IntmapVector (IntMap.singleton index dx)
        in BVar x (lift1_sparse mkBuilder dxs)
 
--- splitTraversable' x = unTraversableVar (splitTraversable (TraversableVar x))
-
 -- | @backpropTraversable one combine fun@
 --
 -- @one@ is a value to be backpropagated. In case of @p@ being scalar, set @one@
@@ -155,9 +154,10 @@ backpropTraversable ::
   ( Traversable f,
     Grad (f a) ~ Grad (TraversableVar f a),
     HasGrad a,
-    HasGrad p
+    HasGrad p,
+    FullVector (Grad p)
   ) =>
-  GradBuilder p ->
+  Grad p ->
   (a -> Grad a -> b) ->
   (forall r. f (BVar r a) -> BVar r p) ->
   f a ->

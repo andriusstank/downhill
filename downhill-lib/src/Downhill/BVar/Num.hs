@@ -21,7 +21,7 @@ import Data.AffineSpace (AffineSpace (..))
 import Data.Semigroup (Sum (Sum, getSum))
 import Data.Tagged (Tagged (..))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..), zeroV)
-import Downhill.BVar (BVar (bvarValue), backprop')
+import Downhill.BVar (BVar (bvarValue), backprop)
 import qualified Downhill.BVar as BVar
 import Downhill.Grad
   ( Dual (evalGrad),
@@ -95,7 +95,7 @@ var :: Num a => a -> NumBVar a
 var = BVar.var . AsNum
 
 backpropNum :: forall a. Num a => NumBVar a -> a
-backpropNum x = unAsNum $ backprop' @(AsNum a) @(AsNum a) x (AsNum 1)
+backpropNum x = unAsNum $ backprop @(AsNum a) @(AsNum a) x (AsNum 1)
 
 numbvarValue :: NumBVar a -> a
 numbvarValue = unAsNum . bvarValue

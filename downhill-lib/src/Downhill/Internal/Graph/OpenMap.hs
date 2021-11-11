@@ -4,20 +4,24 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Downhill.Internal.Graph.OpenMap
-  ( OpenMap,
+  ( -- * OpenMap
+    OpenMap,
     OpenKey,
     SomeOpenItem (SomeOpenItem),
-    map,
-    mapWithKey,
-    mapMaybe,
+    -- * Construction
+    makeOpenKey,
+    empty,
+    insert,
+    -- * Query
     lookup,
     toList,
     elems,
-    empty,
-    insert,
+    -- * Modify
+    map,
+    mapWithKey,
+    mapMaybe,
     adjust,
     intersectionWith,
-    makeOpenKey,
   )
 where
 
@@ -46,12 +50,12 @@ data SomeOpenItem f = forall x. SomeOpenItem (OpenKey x) (f x)
 empty :: OpenMap f
 empty = OpenMap HashMap.empty
 
-map :: forall f g. (forall dv. f dv -> g dv) -> OpenMap f -> OpenMap g
+map :: forall f g. (forall x. f x -> g x) -> OpenMap f -> OpenMap g
 map f = OpenMap . fmap go . unOpenMap
   where
     go (SomeExpr y) = SomeExpr (f y)
 
-mapMaybe :: forall f g. (forall dv. f dv -> Maybe (g dv)) -> OpenMap f -> OpenMap g
+mapMaybe :: forall f g. (forall x. f x -> Maybe (g x)) -> OpenMap f -> OpenMap g
 mapMaybe f = OpenMap . HashMap.mapMaybe go . unOpenMap
   where
     go (SomeExpr y) = case f y of
@@ -83,7 +87,7 @@ unsafeCastTypeSomeExpr :: SomeExpr f -> f v
 unsafeCastTypeSomeExpr = \case
   SomeExpr x -> unsafeCoerce x
 
-intersectionWith :: forall f g h. (forall dx. f dx -> g dx -> h dx) -> OpenMap f -> OpenMap g -> OpenMap h
+intersectionWith :: forall f g h. (forall x. f x -> g x -> h x) -> OpenMap f -> OpenMap g -> OpenMap h
 intersectionWith f (OpenMap x) (OpenMap y) = OpenMap (HashMap.intersectionWith f' x y)
   where
     f' (SomeExpr x') sy = SomeExpr (f x' y')
@@ -93,7 +97,7 @@ intersectionWith f (OpenMap x) (OpenMap y) = OpenMap (HashMap.intersectionWith f
 insert :: forall f dx. OpenKey dx -> f dx -> OpenMap f -> OpenMap f
 insert (OpenKey k) x (OpenMap m) = OpenMap (HashMap.insert k (SomeExpr x) m)
 
-adjust :: forall f dx. (f dx -> f dx) -> OpenKey dx -> OpenMap f -> OpenMap f
+adjust :: forall f x. (f x -> f x) -> OpenKey x -> OpenMap f -> OpenMap f
 adjust f (OpenKey key) (OpenMap m) = OpenMap m'
   where
     m' = HashMap.adjust f' key m

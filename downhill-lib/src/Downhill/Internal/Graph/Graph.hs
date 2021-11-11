@@ -26,7 +26,7 @@ import Downhill.Internal.Graph.NodeMap
   ( IsNodeSet,
     NodeKey,
     NodeMap,
-    SomeItem (SomeItem),
+    KeyAndValue (KeyAndValue),
     SomeNodeMap (SomeNodeMap),
   )
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
@@ -91,10 +91,10 @@ allGraphEdges (Graph innerNodes (Node es)) = finalEdges ++ innerEdges
 sortByTail ::
   forall s f da dz.
   AnyEdge s f da dz ->
-  Either (Edge (NodeKey s) f da dz) (SomeItem s (Edge (NodeKey s) f da))
+  Either (Edge (NodeKey s) f da dz) (KeyAndValue s (Edge (NodeKey s) f da))
 sortByTail (AnyEdge tail f head) = case tail of
   SourceNode -> Left (Edge f head)
-  InnerNode x -> Right (SomeItem x (Edge f head))
+  InnerNode x -> Right (KeyAndValue x (Edge f head))
 
 flipAnyEdge :: (forall u v. f u v -> g v u) -> AnyEdge s f a z -> AnyEdge s g z a
 flipAnyEdge flipF (AnyEdge tail f head) = AnyEdge head (flipF f) tail
@@ -120,10 +120,10 @@ edgeListToGraph ::
 edgeListToGraph nodes flippedEdges = Graph innerNodes (Node initialEdges)
   where
     initialEdges :: [Edge (NodeKey s) e z a]
-    innerEdges :: [SomeItem s (Edge (NodeKey s) e z)]
+    innerEdges :: [KeyAndValue s (Edge (NodeKey s) e z)]
     (initialEdges, innerEdges) = partitionEithers (sortByTail <$> flippedEdges)
-    prependToMap :: SomeItem s (Edge (NodeKey s) e z) -> NodeMap s (Node (NodeKey s) e z) -> NodeMap s (Node (NodeKey s) e z)
-    prependToMap (SomeItem key edge) = NodeMap.adjust prependToNode key
+    prependToMap :: KeyAndValue s (Edge (NodeKey s) e z) -> NodeMap s (Node (NodeKey s) e z) -> NodeMap s (Node (NodeKey s) e z)
+    prependToMap (KeyAndValue key edge) = NodeMap.adjust prependToNode key
       where
         prependToNode (Node edges) = Node (edge : edges)
     innerNodes = foldr prependToMap (emptyNodeMap nodes) innerEdges
