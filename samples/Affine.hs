@@ -140,7 +140,7 @@ affineStep ::
   ,  HasGrad z
   ) =>
   (p -> BVar (Grad p) z) ->
-  GradBuilder z ->
+  Grad z ->
   MScalar p ->
   g ->
   p ->
@@ -164,7 +164,7 @@ affineIterate ::
     HasGrad z
   ) =>
   (p -> BVar (Grad p) z) ->
-  GradBuilder z ->
+  Grad z ->
   MScalar p ->
   Metric p ->
   p ->
