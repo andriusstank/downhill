@@ -68,6 +68,7 @@ lift3 fa fb fc (BackGrad da) (BackGrad db) (BackGrad dc) = realNode node
   where
     node = ExprSum [da fa, db fb, dc fc]
 
+-- | Same as 'sparseNode', included here for completeness.
 lift1_sparse ::
   forall r a z.
   BasicVector z =>

@@ -29,12 +29,13 @@ where
 
 import Control.Monad.Trans.State.Strict (State, evalState, get, put)
 import Data.AdditiveGroup (AdditiveGroup, sumV)
+import Data.Foldable (toList)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
 import Data.Maybe (fromMaybe)
 import Data.VectorSpace (AdditiveGroup (negateV, zeroV, (^+^), (^-^)), VectorSpace (Scalar, (*^)))
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.BVar (BVar (BVar, bvarValue, bvarGrad), backprop, var)
+import Downhill.BVar (BVar (BVar, bvarGrad, bvarValue), backprop, var)
 import Downhill.Grad
   ( Dual (evalGrad),
     HasGrad (Grad, MScalar, Metric, Tang),
@@ -44,11 +45,16 @@ import Downhill.Grad
         evalMetric
       ),
   )
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FullVector, Term (Term), Expr (ExprSum))
+import Downhill.Linear.BackGrad (BackGrad (BackGrad), castBackGrad, realNode)
+import Downhill.Linear.Expr
+  ( BasicVector (VecBuilder, sumBuilder),
+    Expr (ExprSum),
+    FullVector,
+    SparseVector (unSparseVector),
+    Term,
+  )
 import Downhill.Linear.Lift (lift1_sparse)
 import GHC.Generics (Generic)
-import Downhill.Linear.BackGrad (BackGrad(BackGrad), realNode)
-import Data.Foldable (toList)
 
 newtype TraversableVar f a = TraversableVar {unTraversableVar :: f a}
   deriving stock (Functor, Foldable, Traversable)
@@ -139,6 +145,41 @@ splitTraversable (BVar xs dxs) = vars
       let mkBuilder :: VecBuilder (Grad a) -> IntmapVector f (VecBuilder (Grad a))
           mkBuilder dx = IntmapVector (IntMap.singleton index dx)
        in BVar x (lift1_sparse mkBuilder dxs)
+
+lift1_sparseT ::
+  forall r a z.
+  BasicVector z =>
+  (VecBuilder z -> VecBuilder a) ->
+  BackGrad r a ->
+  Term r (SparseVector z)
+lift1_sparseT fa (BackGrad f) = f (fa . unSparseVector)
+
+-- Not exported, because it is untested and hardly useful.
+_joinTraversable ::
+  forall f r a.
+  ( Traversable f,
+    Grad (f a) ~ Grad (TraversableVar f a),
+    HasGrad a,
+    FullVector (Grad a)
+  ) =>
+  f (BVar r a) ->
+  BVar r (f a)
+_joinTraversable x = BVar values (castBackGrad node)
+  where
+    values :: f a
+    values = bvarValue <$> x
+    grads :: f (BackGrad r (Grad a))
+    grads = bvarGrad <$> x
+    terms :: [Term r (SparseVector (IntmapVector f (Grad a)))]
+    terms = toList (imap mkTerm grads)
+    mkTerm :: Int -> BackGrad r (Grad a) -> Term r (SparseVector (IntmapVector f (Grad a)))
+    mkTerm index = lift1_sparseT (lookupIntMap index)
+    lookupIntMap :: Int -> IntmapVector f x -> x
+    lookupIntMap key (IntmapVector intmap) = case IntMap.lookup key intmap of
+      Nothing -> error "Downhill BUG: Bad index in joinTraversable"
+      Just value -> value
+    node :: BackGrad r (SparseVector (IntmapVector f (Grad a)))
+    node = realNode (ExprSum terms)
 
 -- | @backpropTraversable one combine fun@
 --
