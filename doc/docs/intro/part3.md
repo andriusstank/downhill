@@ -4,7 +4,8 @@ It's easy to run into quadratic complexity.
 
 Gradients are often sparse. Consider backpropagating over `fst :: (a, b) -> a`.
 If gradient of `a` is `da`, then gradient of `(a, b)` is `(da, zeroV)`. The second
-element might be a large nested record of big arrays, all full of zeros! Extreme
+element is just a zero, but it might be a very fat zero -- maybe
+a large nested record of big arrays, all full of zeros! Extreme
 case of gradient sparsity appears in indexing a vector. All but one elements of
 gradient are zero. Constructing such a vector makes indexing $O(n)$ operation.
 
@@ -13,9 +14,9 @@ gradient are zero. Constructing such a vector makes indexing $O(n)$ operation.
 Imperative implementations of backpropagation dodge this problem by updating
 gradients in-place. While that's possible to do in Haskell, there's a better way --
 builders. Builder is data type for efficient representation of sparse gradients.
-Or it might be a `ST` action that bumps the gradient in-place.
+Or it might be a `ST` action that bumps the gradient in-place if you wish.
 
-`Downhill` library has a class for all this builder stuff:
+`Downhill` library has a class for builders:
 
 ~~~ {.haskell}
 class Monoid (VecBuilder v) => BasicVector v where
@@ -23,8 +24,10 @@ class Monoid (VecBuilder v) => BasicVector v where
     sumBuilder :: VecBuilder v -> v
 ~~~
 
-Functions on graph edges produce `VecBuilder`s. Nodes then `mconcat` them and
-call `sumBuilder`.
+`BasicVector` is absolutely minimal requirement for a type to be eligible
+to automatic differentiation.
+Functions on graph edges produce builders. Nodes then `mconcat` them and
+pass to `sumBuilder`.
 
 For example, builder for pairs looks like this:
 
@@ -32,42 +35,8 @@ For example, builder for pairs looks like this:
 type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
 ~~~
 
-`Nothing` stands for zero vector. `Maybe` is important here. Data types can be nested and `Maybe`
-allows to cut whole subtrees of zeros.
-
-<!---
-
-Vector builder type might be:
-
-~~~ {.haskell}
-data VecBuilder a
-  = SingletonVector Int a
-  | DenseVector (Vector a)
-  | ...
-~~~
-
-`SingletonVector n x` encodes a vector that contains `x` in position `n` and
-zero everywhere else. `DenseVector` is an efficient way to store gradients of
-dense operations while `SingletonVector` handles indexing.
-Support for efficient slicing would be nice, too, but let's
-keep things simple here.
-
-
-TODO: explain why Monoid, not sumBuilder :: [VecBuilder v] -> v
-
-~~~ {.haskell}
-instance BasicVector (Vector a) where
-  type VecBuilder (Vector a) = DList (VecBuilder a)
-  sumBuilder = runST $ ...
-~~~
-
-`DList` provides `Monoid` instance. Plain Haskell list are not good here,
-because left associated concatenation of many lists has quadratic complexity.
-
-There's a little problem: `sumBuilder` needs to produce a vector, but it has
-no way to know its length -- the list of builders might be even empty. We need
-length indexed vectors, but thats a different topic.
--->
+`Nothing` stands for zero vector. `Maybe` is important here,
+`mempty` wouldn't be cheap for deeply nested pairs otherwise.
 
 ## Better AST
 
@@ -76,14 +45,15 @@ length indexed vectors, but thats a different topic.
 First of all, it hasn't got
 pairs of vectors and gradients, such as `a da v dv`. Just `a v`. Full set of
 parameters was useful to explain the idea, but only `da` and `dv` are needed
-for backpropagation. That's much simpler.
+for backpropagation.
 
 There's also a little problem with our `Expr` type.
 As we're going to convert it to a graph, we
-need a clear separation of nodes and edges.
+need a clear separation between nodes and edges.
 `Func` is definetely an edge. `Sum` itself is a
 node, but it contains a mixed bag of adjacent edges _and nodes_.
-We disallow this situation by splitting AST into terms and expressions:
+We disallow this situation of nodes adjacent to nodes by
+splitting AST into terms and expressions:
 
 ~~~ {.haskell}
 data Term a v where
@@ -101,7 +71,7 @@ in `ExprSum`.
 
 ## Inline nodes
 
-Builders are not enough. Say we have a simple newtype wrapper for vector.
+Builders are not enough. Say, we have a simple newtype wrapper for vector.
 Let's have a closer look at what happens when we attempt to index it:
 
 ~~~ {.haskell}
@@ -111,7 +81,8 @@ myLookup :: MyVector a -> Int -> a
 myLookup v i = unMyVector v ! i
 ~~~
 
-`Expr` tree will have three nodes with two edges between them:
+If this code would be bluntly adapted to work on `Expr`, the
+tree would have three nodes with two edges between them:
 
 ``` mermaid
 graph TD
@@ -121,6 +92,7 @@ graph TD
   nodeVector-- "(! i)" -->nodeItem
   nodeMyVector-- unMyVector -->nodeVector
   nodeMore["..."]
+  style nodeMore stroke:none,fill:none
   nodeMyVector-- "..." --> nodeMore
 ```
 
@@ -130,8 +102,9 @@ Let's see how gradients propagate when we flip edges:
 graph BT
   nodeMyVectorB["Grad (MyVector a)"]
   nodeMyVectorB1(["GradBuilder (MyVector a)"])
-  nodeMore["..."]
   style nodeMyVectorB1 fill:white,stroke-dasharray: 5 5
+  nodeMore["..."]
+  style nodeMore stroke:none,fill:none
   nodeVectorB["<b>Grad (Vector a)</b>"]
   nodeVectorB1(["GradBuilder (Vector a)"])
   style nodeVectorB1 fill:white,stroke-dasharray: 5 5
@@ -144,12 +117,11 @@ graph BT
 ```
 
 Indexing function `(! i)` produces lightweight gradient builder, as desired.
-Only for the intermediate node to convert it into a big fat vector, undoing all
+Only for the intermediate node (labeled in bold font) to convert it into a big fat vector, undoing all
 optimization!
 
 
-We need a data type with ability to relay gradients without summing them.
-That's what `BackGrad` is for:
+We need a data type with ability to relay gradients without summing them. `BackGrad`:
 
 ~~~ {.haskell}
 newtype BackGrad a v
@@ -161,7 +133,8 @@ newtype BackGrad a v
 ~~~
 
 `BackGrad` turns linear functions (`x -> VecBuilder v`) to `Term`s.
-It generalizes `Expr`:
+Alternatively, you could see it as a `Term` data constructor with a hole in
+place of `Expr` argument. It generalizes `Expr`:
 
 ~~~ {.haskell}
 realNode :: Expr a v -> BackGrad a v
@@ -187,6 +160,7 @@ graph BT
   nodeMyVectorB["Grad (MyVector a)"]
   nodeMyVectorB1(["GradBuilder (MyVector a)"])
   nodeMore["..."]
+  style nodeMore fill:none,stroke:none
   style nodeMyVectorB1 fill:white,stroke-dasharray: 5 5
   nodeVectorB1(["GradBuilder (Vector a)"])
   style nodeVectorB1 fill:white,stroke-dasharray: 5 5
@@ -197,25 +171,32 @@ graph BT
   nodeMore-- "..." -->nodeMyVectorB1
 ```
 
+<!--
+Note that `ExprSum` data constructors will turn into nodes, `Term`s will turn
+into edges and everything else will be evaluated directly.
+-->
+
 ## Sparse nodes
 
-Inline nodes are still not enough. There's still no good way to access members
+Inline nodes are still not enough. There's no good way to access members
 of tuples, or other product types for that matter. They are important,
 because this library differentiates
 unary functions `BVar a -> BVar b` only. If we have many variables to differentiate with
 respect to, we have to pack them together into single tuple or record `BVar a`.
-If we have a complex model, `a` might be a complex structure of nested records.
+For a complex model `a` might be a big structure of nested records.
+Automatic differentiation starts with a single big variable containing all the data
+and there has to be an efficient way to access all parts of it.
 
-Constructing real `Expr` nodes is inefficient, because accessing any member will
-have a cost proportional to the size of the whole structure. Inline nodes is not an
-option, too. Accessing deeply nested members will create a long chain of `inlineNode`s.
+Constructing real `Expr` nodes won't cut, because they lose sparsity and
+make the cost of accessing any member proportional to the size of the whole structure.
+Inline nodes are not an
+option, too. Accessing deeply nested members would create a long chain of `inlineNode`s.
 The cost of traversing the whole chain will have to be paid every time the variable
-is used. That's fine for newtypes, as wrapping is zero cost and compiler can inline it.
-Wrapping gradient builders in structs with `mempty` siblings, however, isn't free.
-Lists can be seen as recursively nested pairs. All this makes complexity of iterating
-over the list will be $O(n^2)$. Unacceptable.
+is used. Inline nodes will turn simple traversing of a list into
+a Schlemiel the painter's algorithm!
 
-Luckily, the type of the node doesn't really matter.
+The solution is to store sparse gradients in graph nodes for this use case.
+Luckily, we need no new machinery here.
 Have a look at `BackGrad` definition -- there's
 no `v`, only `VecBuilder`. This means we can choose a different type of node to
 store gradient and hide it under `BackGrad` as if nothing happened. No one can
@@ -229,8 +210,9 @@ castBackGrad ::
 castBackGrad (BackGrad g) = BackGrad g
 ~~~
 
-Best way to store
-gradients for member access is simply store the builder, without summing it.
+Sparse gradients are wrapped in  `SparseVector` newtype for storage in graph.
+Otherwise we would need to deal with `VecBuilder (VecBuilder v)` somehow if we
+were to store naked `VecBuilder v`.
 
 ~~~ {.haskell}
 newtype SparseVector v = SparseVector
@@ -240,20 +222,9 @@ newtype SparseVector v = SparseVector
 `sumBuilder :: VecBuilder v -> SparseVector v` doesn't really sum anything,
 it just stores unevaluated builders.
 
-It might seem such sparse nodes don't do anything apart from forwarding builders,
-just like `inlineNode` does,
-but there's an important difference: sparse node
-folds gradients from all successor nodes with `mconcat` before passing them to parent node.
-Have a look at builder type of a pair:
-
-~~~ {.haskell}
-type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
-~~~
-
-It has standard monoid instance. Folding a list of such builders with
-monoid operation will regroup them and pack into a single unit.
-This way gradients are recursively assembled
-into a tree of the same shape as original data
-and each member access has $O(1)$ cost. Assuming records have reasonably small number
-of direct members, of course.
-
+How does it differ from inline nodes? Turns out monoid operation of builders
+of product types plays a key role in intermediate nodes.
+It collects gradients from all successor nodes and packs into single
+tuple/record before passing them to parent node as a single unit.
+This way gradients are assembled bottom up
+into a tree of the same shape as original data.
