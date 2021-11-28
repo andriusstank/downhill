@@ -16,8 +16,7 @@ where
 
 import Downhill.Internal.Graph.Graph
   ( SomeGraph (..),
-    evalGraph,
-    transposeGraph,
+    evalGraph, transposeBackGraph
   )
 import qualified Downhill.Internal.Graph.Graph as Graph
 import Downhill.Internal.Graph.OpenGraph (recoverSharing)
@@ -29,7 +28,7 @@ import Downhill.Linear.Expr
     Term,
   )
 import GHC.IO.Unsafe (unsafePerformIO)
-import Downhill.Internal.Graph.Types ( BackFun, flipBackFun )
+import Downhill.Internal.Graph.Types ( BackFun )
 
 buildGraph ::
   forall a v.
@@ -48,7 +47,7 @@ abstractBackprop ::
   v ->
   a
 abstractBackprop (BackGrad f) builder x = case buildGraph [f builder] of
-  SomeGraph g -> evalGraph (transposeGraph flipBackFun g) x
+  SomeGraph g -> evalGraph (transposeBackGraph g) x
 
 _backprop :: forall a v. (BasicVector a, BasicVector v) => BackGrad a v -> VecBuilder v -> a
 _backprop dvar x = abstractBackprop sparseDVar unSparseVector (SparseVector x)

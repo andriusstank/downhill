@@ -84,18 +84,13 @@ distance x y = sqrt $ sqrNormBp (x .-. y)
 class HilbertSpace dv v where
   riesz :: dv -> v
 
---coriesz :: v -> dv
-
 instance HilbertSpace Gradient Vector where
   riesz (Gradient x y) = Vector x y
-
---coriesz (Vector x y) = Gradient x y
 
 newtype L2 v dv = L2 (Scalar v)
   deriving Generic
 
 deriving via (AsNum (Scalar v)) instance Num (Scalar v) =>  AdditiveGroup (L2 v dv)
-
 
 instance (Num (Scalar v), VectorSpace v) => VectorSpace (L2 v dv) where
   type Scalar (L2 v dv) = Scalar v

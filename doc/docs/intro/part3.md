@@ -121,7 +121,7 @@ Only for the intermediate node (labeled in bold font) to convert it into a big f
 optimization!
 
 
-We need a data type with ability to relay gradients without summing them. `BackGrad`:
+`BackGrad` has the ability to relay gradients without summing them:
 
 ~~~ {.haskell}
 newtype BackGrad a v
@@ -151,7 +151,7 @@ inlineNode ::
   BackGrad r v
 inlineNode f (BackGrad g) = BackGrad go
   where
-    go :: forall x. (x -> VecBuilder v) -> [Term r x]
+    go :: forall x. (x -> VecBuilder v) -> Term r x
     go h = g (f . h)
 ~~~
 
@@ -170,6 +170,9 @@ graph BT
   nodeMyVectorB1-- sumBuilder -->nodeMyVectorB
   nodeMore-- "..." -->nodeMyVectorB1
 ```
+
+Node that `Expr` is a node, `Term` is an edge. No `Expr` -- no node.
+
 
 <!--
 Note that `ExprSum` data constructors will turn into nodes, `Term`s will turn
@@ -192,7 +195,7 @@ make the cost of accessing any member proportional to the size of the whole stru
 Inline nodes are not an
 option, too. Accessing deeply nested members would create a long chain of `inlineNode`s.
 The cost of traversing the whole chain will have to be paid every time the variable
-is used. Inline nodes will turn simple traversing of a list into
+is used. This way a simple traversal of a list will turn into into
 a Schlemiel the painter's algorithm!
 
 The solution is to store sparse gradients in graph nodes for this use case.
@@ -211,8 +214,8 @@ castBackGrad (BackGrad g) = BackGrad g
 ~~~
 
 Sparse gradients are wrapped in  `SparseVector` newtype for storage in graph.
-Otherwise we would need to deal with `VecBuilder (VecBuilder v)` somehow if we
-were to store naked `VecBuilder v`.
+Storing naked `VecBuilder v` runs into a little problem -- what's
+ `VecBuilder (VecBuilder v)`?
 
 ~~~ {.haskell}
 newtype SparseVector v = SparseVector
@@ -224,7 +227,8 @@ it just stores unevaluated builders.
 
 How does it differ from inline nodes? Turns out monoid operation of builders
 of product types plays a key role in intermediate nodes.
-It collects gradients from all successor nodes and packs into single
+It collects gradients from all successor nodes and packs them into a
 tuple/record before passing them to parent node as a single unit.
 This way gradients are assembled bottom up
-into a tree of the same shape as original data.
+into a tree of the same shape as original data. Inline nodes would propagate
+gradients form each leaf node all the way to the root individually.

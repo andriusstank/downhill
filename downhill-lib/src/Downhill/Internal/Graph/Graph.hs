@@ -12,10 +12,16 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Downhill.Internal.Graph.Graph
-  ( Graph (..),
+  (  -- * Graph type
+    Graph (..),
     SomeGraph (..),
+    -- * Evaluate
     evalGraph,
+    -- * Transpose
     transposeGraph,
+    transposeFwdGraph,
+    transposeBackGraph,
+    -- * Construct
     fromOpenGraph,
   )
 where
@@ -32,7 +38,7 @@ import Downhill.Internal.Graph.NodeMap
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import Downhill.Internal.Graph.OpenGraph (OpenExpr, OpenGraph (OpenGraph))
 import Downhill.Internal.Graph.OpenMap (OpenKey)
-import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), FwdFun (FwdFun), Node (Node))
+import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), FwdFun (FwdFun), Node (Node), flipFwdFun, BackFun, flipBackFun)
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Prelude hiding (head, tail)
 
@@ -129,15 +135,15 @@ edgeListToGraph nodes flippedEdges = Graph innerNodes (Node initialEdges)
     innerNodes = foldr prependToMap (emptyNodeMap nodes) innerEdges
 
 backFromEdges ::
-  forall s f g da dz.
-  (IsNodeSet s, BasicVector da, BasicVector dz) =>
+  forall s f g a z.
+  (IsNodeSet s, BasicVector a, BasicVector z) =>
   (forall u v. f u v -> g v u) ->
   NodeMap s NodeDict ->
-  [AnyEdge s f da dz] ->
-  Graph s g dz da
+  [AnyEdge s f a z] ->
+  Graph s g z a
 backFromEdges flipFunc dictmap edges = edgeListToGraph dictmap flippedEdges
   where
-    flippedEdges :: [AnyEdge s g dz da]
+    flippedEdges :: [AnyEdge s g z a]
     flippedEdges = flipAnyEdge flipFunc <$> edges
 
 graphNodes :: Graph s f da dz -> NodeMap s NodeDict
@@ -147,9 +153,15 @@ graphNodes (Graph env _) = NodeMap.map go env
     go = \case
       Node _ -> NodeDict
 
--- | Reverse edges. Turns reverse mode evaluation into forward mode. |
+-- | Reverse edges. Turns reverse mode evaluation into forward mode.
 transposeGraph :: IsNodeSet s => (forall u v. f u v -> g v u) -> Graph s f a z -> Graph s g z a
 transposeGraph flipEdge g@(Graph _ (Node _)) = backFromEdges flipEdge (graphNodes g) (allGraphEdges g)
+
+transposeFwdGraph :: IsNodeSet s => Graph s FwdFun a z -> Graph s BackFun z a
+transposeFwdGraph = transposeGraph flipFwdFun
+
+transposeBackGraph :: IsNodeSet s => Graph s BackFun a z -> Graph s FwdFun z a
+transposeBackGraph = transposeGraph flipBackFun
 
 _mapEdges :: forall s f g da dz. (forall u v. f u v -> g u v) -> Graph s f da dz -> Graph s g da dz
 _mapEdges f (Graph inner final) = Graph (NodeMap.map go inner) (go final)
@@ -159,8 +171,8 @@ _mapEdges f (Graph inner final) = Graph (NodeMap.map go inner) (go final)
     goEdge :: Edge p f da dx -> Edge p g da dx
     goEdge (Edge e x) = Edge (f e) x
 
-cvthelper :: forall s e a v. (IsNodeSet s, BasicVector a) => NodeMap s (OpenExpr e a) -> Node OpenKey e a v -> SomeGraph e a v
-cvthelper m x = SomeGraph (Graph (NodeMap.map cvtexpr m) (cvtexpr x))
+constructGraph :: forall s e a v. (IsNodeSet s, BasicVector a) => NodeMap s (OpenExpr e a) -> Node OpenKey e a v -> Graph s e a v
+constructGraph m x = Graph (NodeMap.map cvtexpr m) (cvtexpr x)
   where
     cvtexpr :: forall x. OpenExpr e a x -> Node (NodeKey s) e a x
     cvtexpr = \case
@@ -178,4 +190,4 @@ cvthelper m x = SomeGraph (Graph (NodeMap.map cvtexpr m) (cvtexpr x))
 fromOpenGraph :: BasicVector a => OpenGraph e a v -> SomeGraph e a v
 fromOpenGraph (OpenGraph x m) =
   case NodeMap.fromOpenMap m of
-    SomeNodeMap m' -> cvthelper m' x
+    SomeNodeMap m' -> SomeGraph (constructGraph m' x)

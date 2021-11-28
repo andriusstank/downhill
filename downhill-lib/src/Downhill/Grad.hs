@@ -63,6 +63,9 @@ class
   sqrNorm g x = innerProduct g x x
 
 -- | Full pack of types and constraints for differentiation.
+
+-- TODO: FullVector or not?
+-- TODO: Metric or not?
 class
   ( Dual (MScalar p) (Tang p) (Grad p),
     MetricTensor (MScalar p) (Metric p),
