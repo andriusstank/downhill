@@ -13,7 +13,7 @@ where
 import Downhill.Linear.Expr(Expr(ExprSum, ExprVar), Term(..), BasicVector)
 import Prelude hiding (lookup)
 import Downhill.Internal.Graph.OpenMap (OpenMap, OpenKey)
-import Downhill.Internal.Graph.Types (Node(Node), Endpoint (SourceNode, InnerNode), Edge(Edge), BackFun (BackFun))
+import Downhill.Internal.Graph.Types (OpenNode(OpenNode), OpenEndpoint (OpenSourceNode, OpenInnerNode), OpenEdge(OpenEdge), BackFun (BackFun))
 import Control.Monad.Trans.State.Strict ( StateT(..), get, modify )
 import Control.Monad.Trans.Class(lift)
 import qualified Downhill.Internal.Graph.OpenMap as OpenMap
@@ -44,32 +44,32 @@ buildExpr action key = do
 runTreeBuilder :: forall e a g dv. TreeBuilder e a (g dv) -> IO (g dv, OpenMap (OpenExpr e a))
 runTreeBuilder rs_x = runStateT (unTreeCache rs_x) OpenMap.empty
 
-type OpenArg = Endpoint OpenKey
-type OpenTerm e = Edge OpenKey e
-type OpenExpr e da = Node OpenKey e da
+type OpenArg = OpenEndpoint OpenKey
+type OpenTerm e = OpenEdge OpenKey e
+type OpenExpr e da = OpenNode OpenKey e da
 
 -- | Computational graph under construction. "Open" refers to the set of the nodes – new nodes can be
 -- added to this graph. Once the graph is complete the set of nodes will be frozen
 -- and the type of the graph will become 'Graph' ("Downhill.Internal.Graph" module).
-data OpenGraph e a z = OpenGraph (Node OpenKey e a z) (OpenMap (OpenExpr e a))
+data OpenGraph e a z = OpenGraph (OpenNode OpenKey e a z) (OpenMap (OpenExpr e a))
 
-goEdges :: BasicVector v => [Term a v] -> TreeBuilder BackFun a (Node OpenKey BackFun a v)
+goEdges :: BasicVector v => [Term a v] -> TreeBuilder BackFun a (OpenNode OpenKey BackFun a v)
 goEdges xs = do
     xs' <- traverse goSharing4term xs
-    return $ Node xs'
+    return $ OpenNode xs'
 
 goSharing4arg :: forall a v. Expr a v -> TreeBuilder BackFun a (OpenArg a v)
 goSharing4arg key = case key of
-    ExprVar -> return SourceNode
+    ExprVar -> return OpenSourceNode
     ExprSum xs -> do
         (gRef, _) <- buildExpr (goEdges xs) key
-        return (InnerNode gRef)
+        return (OpenInnerNode gRef)
 
 goSharing4term :: forall a v. Term a v -> TreeBuilder BackFun a (OpenTerm BackFun a v)
 goSharing4term = \case
     Term f arg -> do
         arg' <- goSharing4arg arg
-        return (Edge (BackFun f) arg')
+        return (OpenEdge (BackFun f) arg')
 
 -- | Collects duplicate nodes in 'Expr' tree and converts it to a graph.
 recoverSharing :: forall a z. BasicVector z => [Term a z] -> IO (OpenGraph BackFun a z)

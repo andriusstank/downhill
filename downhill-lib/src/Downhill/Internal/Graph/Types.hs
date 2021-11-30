@@ -16,6 +16,7 @@ module Downhill.Internal.Graph.Types
 (
   -- * Graph parts
   Edge(..), Endpoint(..), Node(..),
+  OpenEdge(..), OpenEndpoint(..), OpenNode(..),
   -- * Linear functions
   BackFun(..), FwdFun(..),
   flipBackFun, flipFwdFun
@@ -23,6 +24,15 @@ module Downhill.Internal.Graph.Types
  where
 
 import Downhill.Linear.Expr (BasicVector (VecBuilder))
+
+data OpenEndpoint p a v where
+    OpenSourceNode :: OpenEndpoint p a a
+    OpenInnerNode :: p v -> OpenEndpoint p a v
+
+data OpenEdge p e a v where
+    OpenEdge :: e u v -> OpenEndpoint p a u -> OpenEdge p e a v
+
+data OpenNode p e a v = BasicVector v => OpenNode [OpenEdge p e a v]
 
 data Endpoint p a v where
     SourceNode :: Endpoint p a a

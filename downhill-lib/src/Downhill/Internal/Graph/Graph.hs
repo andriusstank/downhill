@@ -38,7 +38,7 @@ import Downhill.Internal.Graph.NodeMap
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import Downhill.Internal.Graph.OpenGraph (OpenExpr, OpenGraph (OpenGraph))
 import Downhill.Internal.Graph.OpenMap (OpenKey)
-import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), FwdFun (FwdFun), Node (Node))
+import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), FwdFun (FwdFun), Node (Node), OpenNode (OpenNode), OpenEdge (OpenEdge), OpenEndpoint (OpenSourceNode, OpenInnerNode))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Prelude hiding (head, tail)
 
@@ -162,19 +162,19 @@ _mapEdges f (Graph inner final) = Graph (NodeMap.map go inner) (go final)
     goEdge :: Edge p f a x -> Edge p g a x
     goEdge (Edge e x) = Edge (f e) x
 
-constructGraph :: forall s e a v. (IsNodeSet s, BasicVector a) => NodeMap s (OpenExpr e a) -> Node OpenKey e a v -> Graph s e a v
+constructGraph :: forall s e a v. (IsNodeSet s, BasicVector a) => NodeMap s (OpenExpr e a) -> OpenNode OpenKey e a v -> Graph s e a v
 constructGraph m x = Graph (NodeMap.map mkExpr m) (mkExpr x)
   where
     mkExpr :: forall x. OpenExpr e a x -> Node (NodeKey s) e a x
     mkExpr = \case
-      Node terms -> Node (mkTerm <$> terms)
-    mkTerm :: forall x. Edge OpenKey e a x -> Edge (NodeKey s) e a x
+      OpenNode terms -> Node (mkTerm <$> terms)
+    mkTerm :: forall x. OpenEdge OpenKey e a x -> Edge (NodeKey s) e a x
     mkTerm = \case
-      Edge f x' -> Edge f (mkArg x')
-    mkArg :: forall u. Endpoint OpenKey a u -> Endpoint (NodeKey s) a u
+      OpenEdge f x' -> Edge f (mkArg x')
+    mkArg :: forall u. OpenEndpoint OpenKey a u -> Endpoint (NodeKey s) a u
     mkArg = \case
-      SourceNode -> SourceNode
-      InnerNode key -> case NodeMap.tryLookup m key of
+      OpenSourceNode -> SourceNode
+      OpenInnerNode key -> case NodeMap.tryLookup m key of
         Just (key', _value) -> InnerNode key'
         Nothing -> error "constructGraph "
 
