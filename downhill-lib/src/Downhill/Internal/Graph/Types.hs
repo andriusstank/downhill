@@ -32,7 +32,7 @@ data OpenEndpoint p a v where
 data OpenEdge p e a v where
     OpenEdge :: e u v -> OpenEndpoint p a u -> OpenEdge p e a v
 
-data OpenNode p e a v = BasicVector v => OpenNode [OpenEdge p e a v]
+data OpenNode OpenKey e a v = BasicVector v => OpenNode [OpenEdge p e a v]
 
 data Endpoint p a v where
     SourceNode :: Endpoint p a a

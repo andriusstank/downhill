@@ -36,9 +36,8 @@ import Downhill.Internal.Graph.NodeMap
     SomeNodeMap (SomeNodeMap),
   )
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
-import Downhill.Internal.Graph.OpenGraph (OpenExpr, OpenGraph (OpenGraph))
-import Downhill.Internal.Graph.OpenMap (OpenKey)
-import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), FwdFun (FwdFun), Node (Node), OpenNode (OpenNode), OpenEdge (OpenEdge), OpenEndpoint (OpenSourceNode, OpenInnerNode))
+import Downhill.Internal.Graph.OpenGraph (OpenGraph (OpenGraph), OpenNode (OpenNode), OpenEdge (OpenEdge), OpenEndpoint (OpenSourceNode, OpenInnerNode))
+import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), FwdFun (FwdFun), Node (Node))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Prelude hiding (head, tail)
 
@@ -162,16 +161,16 @@ _mapEdges f (Graph inner final) = Graph (NodeMap.map go inner) (go final)
     goEdge :: Edge p f a x -> Edge p g a x
     goEdge (Edge e x) = Edge (f e) x
 
-constructGraph :: forall s e a v. (IsNodeSet s, BasicVector a) => NodeMap s (OpenExpr e a) -> OpenNode OpenKey e a v -> Graph s e a v
+constructGraph :: forall s e a v. (IsNodeSet s, BasicVector a) => NodeMap s (OpenNode e a) -> OpenNode e a v -> Graph s e a v
 constructGraph m x = Graph (NodeMap.map mkExpr m) (mkExpr x)
   where
-    mkExpr :: forall x. OpenExpr e a x -> Node (NodeKey s) e a x
+    mkExpr :: forall x. OpenNode e a x -> Node (NodeKey s) e a x
     mkExpr = \case
       OpenNode terms -> Node (mkTerm <$> terms)
-    mkTerm :: forall x. OpenEdge OpenKey e a x -> Edge (NodeKey s) e a x
+    mkTerm :: forall x. OpenEdge e a x -> Edge (NodeKey s) e a x
     mkTerm = \case
       OpenEdge f x' -> Edge f (mkArg x')
-    mkArg :: forall u. OpenEndpoint OpenKey a u -> Endpoint (NodeKey s) a u
+    mkArg :: forall u. OpenEndpoint a u -> Endpoint (NodeKey s) a u
     mkArg = \case
       OpenSourceNode -> SourceNode
       OpenInnerNode key -> case NodeMap.tryLookup m key of
