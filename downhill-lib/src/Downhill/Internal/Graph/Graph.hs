@@ -19,10 +19,10 @@ module Downhill.Internal.Graph.Graph
     evalGraph,
     -- * Transpose
     transposeGraph,
-    transposeFwdGraph,
-    transposeBackGraph,
+    --transposeFwdGraph,
+    --transposeBackGraph,
     -- * Construct
-    fromOpenGraph,
+    unsafeFromOpenGraph,
   )
 where
 
@@ -38,13 +38,10 @@ import Downhill.Internal.Graph.NodeMap
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import Downhill.Internal.Graph.OpenGraph (OpenExpr, OpenGraph (OpenGraph))
 import Downhill.Internal.Graph.OpenMap (OpenKey)
-import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), FwdFun (FwdFun), Node (Node), flipFwdFun, BackFun, flipBackFun)
+import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), FwdFun (FwdFun), Node (Node))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Prelude hiding (head, tail)
 
--- | A set of inner nodes plus a final node.
--- Initial node is special – it has no incoming edges. Final node becomes initial node
--- when the edges are flipped, hence it's also special and needs to be stored separately.
 data Graph s e a z = BasicVector a =>
   Graph
   { graphInnerNodes :: NodeMap s (Node (NodeKey s) e a),
@@ -157,37 +154,32 @@ graphNodes (Graph env _) = NodeMap.map go env
 transposeGraph :: IsNodeSet s => (forall u v. f u v -> g v u) -> Graph s f a z -> Graph s g z a
 transposeGraph flipEdge g@(Graph _ (Node _)) = backFromEdges flipEdge (graphNodes g) (allGraphEdges g)
 
-transposeFwdGraph :: IsNodeSet s => Graph s FwdFun a z -> Graph s BackFun z a
-transposeFwdGraph = transposeGraph flipFwdFun
-
-transposeBackGraph :: IsNodeSet s => Graph s BackFun a z -> Graph s FwdFun z a
-transposeBackGraph = transposeGraph flipBackFun
-
-_mapEdges :: forall s f g da dz. (forall u v. f u v -> g u v) -> Graph s f da dz -> Graph s g da dz
+_mapEdges :: forall s f g a z. (forall u v. f u v -> g u v) -> Graph s f a z -> Graph s g a z
 _mapEdges f (Graph inner final) = Graph (NodeMap.map go inner) (go final)
   where
-    go :: Node (NodeKey s) f da dv -> Node (NodeKey s) g da dv
+    go :: Node (NodeKey s) f a v -> Node (NodeKey s) g a v
     go (Node xs) = Node [goEdge x | x <- xs]
-    goEdge :: Edge p f da dx -> Edge p g da dx
+    goEdge :: Edge p f a x -> Edge p g a x
     goEdge (Edge e x) = Edge (f e) x
 
 constructGraph :: forall s e a v. (IsNodeSet s, BasicVector a) => NodeMap s (OpenExpr e a) -> Node OpenKey e a v -> Graph s e a v
-constructGraph m x = Graph (NodeMap.map cvtexpr m) (cvtexpr x)
+constructGraph m x = Graph (NodeMap.map mkExpr m) (mkExpr x)
   where
-    cvtexpr :: forall x. OpenExpr e a x -> Node (NodeKey s) e a x
-    cvtexpr = \case
-      Node terms -> Node (cvtterm <$> terms)
-    cvtterm :: forall x. Edge OpenKey e a x -> Edge (NodeKey s) e a x
-    cvtterm = \case
-      Edge f x' -> Edge f (cvtarg x')
-    cvtarg :: forall u. Endpoint OpenKey a u -> Endpoint (NodeKey s) a u
-    cvtarg = \case
+    mkExpr :: forall x. OpenExpr e a x -> Node (NodeKey s) e a x
+    mkExpr = \case
+      Node terms -> Node (mkTerm <$> terms)
+    mkTerm :: forall x. Edge OpenKey e a x -> Edge (NodeKey s) e a x
+    mkTerm = \case
+      Edge f x' -> Edge f (mkArg x')
+    mkArg :: forall u. Endpoint OpenKey a u -> Endpoint (NodeKey s) a u
+    mkArg = \case
       SourceNode -> SourceNode
       InnerNode key -> case NodeMap.tryLookup m key of
         Just (key', _value) -> InnerNode key'
-        Nothing -> error "oh fuck"
+        Nothing -> error "constructGraph "
 
-fromOpenGraph :: BasicVector a => OpenGraph e a v -> SomeGraph e a v
-fromOpenGraph (OpenGraph x m) =
+-- | 
+unsafeFromOpenGraph :: BasicVector a => OpenGraph e a v -> SomeGraph e a v
+unsafeFromOpenGraph (OpenGraph x m) =
   case NodeMap.fromOpenMap m of
     SomeNodeMap m' -> SomeGraph (constructGraph m' x)
