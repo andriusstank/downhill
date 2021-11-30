@@ -37,14 +37,25 @@ import Downhill.Internal.Graph.NodeMap
   )
 import qualified Downhill.Internal.Graph.NodeMap as NodeMap
 import Downhill.Internal.Graph.OpenGraph (OpenGraph (OpenGraph), OpenNode (OpenNode), OpenEdge (OpenEdge), OpenEndpoint (OpenSourceNode, OpenInnerNode))
-import Downhill.Internal.Graph.Types (Edge (..), Endpoint (InnerNode, SourceNode), FwdFun (FwdFun), Node (Node))
+import Downhill.Internal.Graph.Types (FwdFun (FwdFun))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Prelude hiding (head, tail)
 
+data Endpoint s a v where
+    SourceNode :: Endpoint s a a
+    InnerNode :: NodeKey s v -> Endpoint s a v
+
+data Edge s e a v where
+    Edge :: e u v -> Endpoint s a u -> Edge s e a v
+
+{-| Inner node. This does not include initial node. Contains a list
+of ingoing edges. -}
+data Node s e a v = BasicVector v => Node [Edge s e a v]
+
 data Graph s e a z = BasicVector a =>
   Graph
-  { graphInnerNodes :: NodeMap s (Node (NodeKey s) e a),
-    graphFinalNode :: Node (NodeKey s) e a z
+  { graphInnerNodes :: NodeMap s (Node s e a),
+    graphFinalNode :: Node s e a z
   }
 
 data SomeGraph e a z where
@@ -53,30 +64,30 @@ data SomeGraph e a z where
 {- `Edge` stores head endpoint only. `AnyEdge` stores both endpoints. -}
 data AnyEdge s e a z = forall u v.
   AnyEdge
-  { _edgeTail :: Endpoint (NodeKey s) z v,
+  { _edgeTail :: Endpoint s z v,
     _edgeLabel :: e u v,
-    _edgeHead :: Endpoint (NodeKey s) a u
+    _edgeHead :: Endpoint s a u
   }
 
 -- | Forward mode evaluation
 evalGraph :: forall s x z. Graph s FwdFun z x -> z -> x
 evalGraph (Graph nodes finalNode) dz = evalNode finalNode
   where
-    evalParent :: forall v. Endpoint (NodeKey s) z v -> v
+    evalParent :: forall v. Endpoint s z v -> v
     evalParent = \case
       SourceNode -> dz
       InnerNode nodeName -> runIdentity (NodeMap.lookup innerValues nodeName)
-    evalEdge :: Edge (NodeKey s) FwdFun z v -> VecBuilder v
+    evalEdge :: Edge s FwdFun z v -> VecBuilder v
     evalEdge (Edge (FwdFun f) tail) = f $ evalParent tail
-    evalNode :: Node (NodeKey s) FwdFun z v -> v
+    evalNode :: Node s FwdFun z v -> v
     evalNode (Node xs) = sumBuilder (mconcat [evalEdge x | x <- xs])
     innerValues :: NodeMap s Identity
     innerValues = NodeMap.map (Identity . evalNode) nodes
 
-nodeEdges :: forall s f a z x. NodeKey s x -> Node (NodeKey s) f a x -> [AnyEdge s f a z]
+nodeEdges :: forall s f a z x. NodeKey s x -> Node s f a x -> [AnyEdge s f a z]
 nodeEdges name (Node xs) = go <$> xs
   where
-    go :: Edge (NodeKey s) f a x -> AnyEdge s f a z
+    go :: Edge s f a x -> AnyEdge s f a z
     go (Edge f head) = AnyEdge (InnerNode name) f head
 
 allGraphEdges :: forall s f a z. Graph s f a z -> [AnyEdge s f a z]
@@ -87,13 +98,13 @@ allGraphEdges (Graph innerNodes (Node es)) = finalEdges ++ innerEdges
     finalEdges :: [AnyEdge s f a z]
     finalEdges = wrapFinalEdge <$> es
       where
-        wrapFinalEdge :: Edge (NodeKey s) f a z -> AnyEdge s f a z
+        wrapFinalEdge :: Edge s f a z -> AnyEdge s f a z
         wrapFinalEdge (Edge f head) = AnyEdge SourceNode f head
 
 sortByTail ::
   forall s f da dz.
   AnyEdge s f da dz ->
-  Either (Edge (NodeKey s) f da dz) (KeyAndValue s (Edge (NodeKey s) f da))
+  Either (Edge s f da dz) (KeyAndValue s (Edge s f da))
 sortByTail (AnyEdge tail f head) = case tail of
   SourceNode -> Left (Edge f head)
   InnerNode x -> Right (KeyAndValue x (Edge f head))
@@ -106,10 +117,10 @@ flipAnyEdge flipF (AnyEdge tail f head) = AnyEdge head (flipF f) tail
 -}
 data NodeDict x = BasicVector x => NodeDict
 
-emptyNodeMap :: forall s e z. NodeMap s NodeDict -> NodeMap s (Node (NodeKey s) e z)
+emptyNodeMap :: forall s e z. NodeMap s NodeDict -> NodeMap s (Node s e z)
 emptyNodeMap = NodeMap.map emptyNode
   where
-    emptyNode :: forall x. NodeDict x -> Node (NodeKey s) e z x
+    emptyNode :: forall x. NodeDict x -> Node s e z x
     emptyNode = \case
       NodeDict -> Node []
 
@@ -121,10 +132,10 @@ edgeListToGraph ::
   Graph s e z a
 edgeListToGraph nodes flippedEdges = Graph innerNodes (Node initialEdges)
   where
-    initialEdges :: [Edge (NodeKey s) e z a]
-    innerEdges :: [KeyAndValue s (Edge (NodeKey s) e z)]
+    initialEdges :: [Edge s e z a]
+    innerEdges :: [KeyAndValue s (Edge s e z)]
     (initialEdges, innerEdges) = partitionEithers (sortByTail <$> flippedEdges)
-    prependToMap :: KeyAndValue s (Edge (NodeKey s) e z) -> NodeMap s (Node (NodeKey s) e z) -> NodeMap s (Node (NodeKey s) e z)
+    prependToMap :: KeyAndValue s (Edge s e z) -> NodeMap s (Node s e z) -> NodeMap s (Node s e z)
     prependToMap (KeyAndValue key edge) = NodeMap.adjust prependToNode key
       where
         prependToNode (Node edges) = Node (edge : edges)
@@ -145,7 +156,7 @@ backFromEdges flipFunc dictmap edges = edgeListToGraph dictmap flippedEdges
 graphNodes :: Graph s f da dz -> NodeMap s NodeDict
 graphNodes (Graph env _) = NodeMap.map go env
   where
-    go :: Node (NodeKey s) f da dv -> NodeDict dv
+    go :: Node s f da dv -> NodeDict dv
     go = \case
       Node _ -> NodeDict
 
@@ -156,7 +167,7 @@ transposeGraph flipEdge g@(Graph _ (Node _)) = backFromEdges flipEdge (graphNode
 _mapEdges :: forall s f g a z. (forall u v. f u v -> g u v) -> Graph s f a z -> Graph s g a z
 _mapEdges f (Graph inner final) = Graph (NodeMap.map go inner) (go final)
   where
-    go :: Node (NodeKey s) f a v -> Node (NodeKey s) g a v
+    go :: Node s f a v -> Node s g a v
     go (Node xs) = Node [goEdge x | x <- xs]
     goEdge :: Edge p f a x -> Edge p g a x
     goEdge (Edge e x) = Edge (f e) x
@@ -164,13 +175,13 @@ _mapEdges f (Graph inner final) = Graph (NodeMap.map go inner) (go final)
 constructGraph :: forall s e a v. (IsNodeSet s, BasicVector a) => NodeMap s (OpenNode e a) -> OpenNode e a v -> Graph s e a v
 constructGraph m x = Graph (NodeMap.map mkExpr m) (mkExpr x)
   where
-    mkExpr :: forall x. OpenNode e a x -> Node (NodeKey s) e a x
+    mkExpr :: forall x. OpenNode e a x -> Node s e a x
     mkExpr = \case
       OpenNode terms -> Node (mkTerm <$> terms)
-    mkTerm :: forall x. OpenEdge e a x -> Edge (NodeKey s) e a x
+    mkTerm :: forall x. OpenEdge e a x -> Edge s e a x
     mkTerm = \case
       OpenEdge f x' -> Edge f (mkArg x')
-    mkArg :: forall u. OpenEndpoint a u -> Endpoint (NodeKey s) a u
+    mkArg :: forall u. OpenEndpoint a u -> Endpoint s a u
     mkArg = \case
       OpenSourceNode -> SourceNode
       OpenInnerNode key -> case NodeMap.tryLookup m key of
