@@ -40,6 +40,7 @@ import Downhill.Internal.Graph.OpenGraph (OpenGraph (OpenGraph), OpenNode (OpenN
 import Downhill.Internal.Graph.Types (FwdFun (FwdFun), BackFun)
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Prelude hiding (head, tail)
+import GHC.Stack (callStack, prettyCallStack, HasCallStack)
 
 data Endpoint s a v where
     SourceNode :: Endpoint s a a
@@ -140,19 +141,7 @@ edgeListToGraph nodes flippedEdges = Graph innerNodes (Node initialEdges)
       where
         prependToNode (Node edges) = Node (edge : edges)
     innerNodes = foldr prependToMap (emptyNodeMap nodes) innerEdges
-
-backFromEdges ::
-  forall s f g a z.
-  (IsNodeSet s, BasicVector a, BasicVector z) =>
-  (forall u v. f u v -> g v u) ->
-  NodeMap s NodeDict ->
-  [AnyEdge s f a z] ->
-  Graph s g z a
-backFromEdges flipFunc dictmap edges = edgeListToGraph dictmap flippedEdges
-  where
-    flippedEdges :: [AnyEdge s g z a]
-    flippedEdges = flipAnyEdge flipFunc <$> edges
-
+  
 graphNodes :: Graph s f da dz -> NodeMap s NodeDict
 graphNodes (Graph env _) = NodeMap.map go env
   where
@@ -161,8 +150,12 @@ graphNodes (Graph env _) = NodeMap.map go env
       Node _ -> NodeDict
 
 -- | Reverse edges. Turns reverse mode evaluation into forward mode.
-transposeGraph :: IsNodeSet s => (forall u v. f u v -> g v u) -> Graph s f a z -> Graph s g z a
-transposeGraph flipEdge g@(Graph _ (Node _)) = backFromEdges flipEdge (graphNodes g) (allGraphEdges g)
+transposeGraph :: forall s f g a z. IsNodeSet s => (forall u v. f u v -> g v u) -> Graph s f a z -> Graph s g z a
+transposeGraph flipEdge g@(Graph _ (Node _)) = edgeListToGraph (graphNodes g) flippedEdges
+  where edges :: [AnyEdge s f a z]
+        edges = allGraphEdges g
+        flippedEdges :: [AnyEdge s g z a]
+        flippedEdges = flipAnyEdge flipEdge <$> edges
 
 _mapEdges :: forall s f g a z. (forall u v. f u v -> g u v) -> Graph s f a z -> Graph s g a z
 _mapEdges f (Graph inner final) = Graph (NodeMap.map go inner) (go final)
@@ -172,8 +165,8 @@ _mapEdges f (Graph inner final) = Graph (NodeMap.map go inner) (go final)
     goEdge :: Edge p f a x -> Edge p g a x
     goEdge (Edge e x) = Edge (f e) x
 
-constructGraph :: forall s a v. (IsNodeSet s, BasicVector a) => NodeMap s (OpenNode a) -> OpenNode a v -> Graph s BackFun a v
-constructGraph m x = Graph (NodeMap.map mkExpr m) (mkExpr x)
+unsafeConstructGraph :: forall s a v. (IsNodeSet s, BasicVector a, HasCallStack) => NodeMap s (OpenNode a) -> OpenNode a v -> Graph s BackFun a v
+unsafeConstructGraph m x = Graph (NodeMap.map mkExpr m) (mkExpr x)
   where
     mkExpr :: forall x. OpenNode a x -> Node s BackFun a x
     mkExpr = \case
@@ -186,10 +179,10 @@ constructGraph m x = Graph (NodeMap.map mkExpr m) (mkExpr x)
       OpenSourceNode -> SourceNode
       OpenInnerNode key -> case NodeMap.tryLookup m key of
         Just (key', _value) -> InnerNode key'
-        Nothing -> error "constructGraph "
+        Nothing -> error ("Downhill: invalid key in constructGraph\n" ++ prettyCallStack callStack)
 
--- | 
-unsafeFromOpenGraph :: BasicVector a => OpenGraph a v -> SomeGraph BackFun a v
+-- | Will crash if graph has invalid keys
+unsafeFromOpenGraph :: (BasicVector a, HasCallStack) => OpenGraph a v -> SomeGraph BackFun a v
 unsafeFromOpenGraph (OpenGraph x m) =
   case NodeMap.fromOpenMap m of
-    SomeNodeMap m' -> SomeGraph (constructGraph m' x)
+    SomeNodeMap m' -> SomeGraph (unsafeConstructGraph m' x)
