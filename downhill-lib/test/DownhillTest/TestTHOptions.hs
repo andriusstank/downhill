@@ -1,4 +1,4 @@
-module TestTHOptions(defaultDVarOptions) where
+module DownhillTest.TestTHOptions(defaultDVarOptions) where
 import Downhill.TH ( mkDVarC, RecordNamer(..), DVarOptions(..), AffineSpaceOptions (AutoAffineSpace))
 
 defaultTangRecordNamer :: RecordNamer

@@ -6,13 +6,13 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeApplications #-}
 
-module TH (thTest) where
+module DownhillTest.TH (thTest) where
 
 import Data.AffineSpace (AffineSpace (..))
 import Downhill.Grad (HasGrad (MScalar, Tang))
 import Downhill.TH (DVarOptions (..), RecordNamer (..), mkDVarC)
 import Test.Tasty (TestTree, testGroup)
-import TestTHOptions (defaultDVarOptions)
+import DownhillTest.TestTHOptions (defaultDVarOptions)
 
 {-# ANN module "HLint: ignore Use newtype instead of data" #-}
 newtype MyRecord1 = MyRecord1 Float

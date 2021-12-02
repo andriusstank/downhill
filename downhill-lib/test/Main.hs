@@ -4,8 +4,8 @@ import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 
 import qualified Test.Tasty as Tasty
 import Downhill.BVar.Num (NumBVar(..), backpropNum, constant, var, numbvarValue, AsNum)
-import Record(recordTest)
-import TH (thTest)
+import DownhillTest.Traversable(recordTest)
+import DownhillTest.TH (thTest)
 
 basicTests = testGroup "Basic tests"
   [ testCase "Derivative of constant == 0" testConstant

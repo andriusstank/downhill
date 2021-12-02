@@ -189,7 +189,7 @@ _joinTraversable x = BVar values (castBackGrad node)
 -- @combine@ is given value of a parameter and its gradient to construct result,
 -- just like @zipWith@.
 --
--- @f@ is a function to be differentiated.
+-- @fun@ is the function to be differentiated.
 backpropTraversable ::
   forall f a b p.
   ( Traversable f,

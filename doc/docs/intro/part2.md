@@ -264,6 +264,8 @@ data Expr a da v dv where
 
 Thats it! That's all we need to evaluate in reverse mode.
 
+## Discussion
+
 ## Evaluation
 
 Evaluating `Expr` directly is inefficient -- we should recover sharing
