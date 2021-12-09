@@ -105,5 +105,4 @@ It also plays the role of preconditioner.
 There are infinitely  many choices of metric tensor. Demanding `V` to be
 a Hilbert space means choosing a canonical one.
 But differentiation, unlike gradient descent, does not depend on the
-choice of metric in any way! Use of arbitrary metric brings nothing
-but opportunities for bugs.
+choice of metric in any way.

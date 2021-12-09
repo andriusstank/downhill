@@ -6,6 +6,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module Downhill.Grad
   ( Dual (..),
@@ -19,9 +20,10 @@ where
 
 import Data.AffineSpace (AffineSpace (Diff))
 import Data.Kind (Type)
-import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace (Scalar))
+import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace (Scalar, (*^)), InnerSpace ((<.>)))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.Linear.Expr (BasicVector (VecBuilder), FullVector)
+import GHC.Generics (Generic)
 
 {-| Dual of a vector @v@ is a linear map @v -> Scalar v@. -}
 class
@@ -36,7 +38,6 @@ class
   -- if evalGrad goes to HasGrad class, parameter p is ambiguous
   evalGrad :: dv -> v -> s
 
--- TODO: add (VectorSpace m) constraint
 {-| The job of a metric tensor is to convert gradients to vectors. Actually,
 it's /inverse/ of a metric tensor, but that's what we need for gradient descent.
 -}
@@ -184,3 +185,19 @@ instance HasGrad Double where
   type Grad Double = Double
   type Tang Double = Double
   type Metric Double = Double
+
+newtype L2 v = L2 (Scalar v)
+  deriving Generic
+
+instance AdditiveGroup (Scalar v) => AdditiveGroup (L2 v)
+
+instance (AdditiveGroup (Scalar v), Num (Scalar v)) => VectorSpace (L2 v) where
+  type Scalar (L2 v) = Scalar v
+  x *^ L2 y = L2 (x * y)
+
+instance (AdditiveGroup a, Num a, a ~ Scalar v, Dual a v v) => MetricTensor a (L2 v) where
+  type MtVector (L2 v) = v
+  type MtCovector (L2 v) = v
+  evalMetric (L2 a) u = a *^ u
+  innerProduct (L2 a) x y = a * evalGrad x y
+  sqrNorm g x = innerProduct g x x

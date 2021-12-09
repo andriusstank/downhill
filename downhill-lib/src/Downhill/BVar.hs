@@ -45,9 +45,9 @@ import Downhill.Linear.Lift (lift2_dense)
 import Prelude hiding (id, (.))
 
 -- | Variable is a value paired with derivative.
-data BVar r p = BVar
-  { bvarValue :: p,
-    bvarGrad :: BackGrad r (Grad p)
+data BVar r a = BVar
+  { bvarValue :: a,
+    bvarGrad :: BackGrad r (Grad a)
   }
 
 instance (AdditiveGroup b, HasFullGrad b) => AdditiveGroup (BVar r b) where
@@ -126,6 +126,8 @@ var x = BVar x (realNode ExprVar)
 --backprop :: forall a p. (HasGrad p, BasicVector a) => BVar a p -> GradBuilder p -> a
 --backprop (BVar _y0 x) = BP.backprop x
 
--- | Backpropagation
-backprop :: forall a p. (HasGrad p, FullVector (Grad p), BasicVector a) => BVar a p -> Grad p -> a
+-- | Reverse mode differentiation.
+--
+-- 
+backprop :: forall r a. (HasGrad a, FullVector (Grad a), BasicVector r) => BVar r a -> Grad a -> r
 backprop (BVar _y0 x) = BP.backprop x

@@ -8,6 +8,7 @@
 module Downhill.Linear.Backprop
   ( -- * Backpropagation
     backprop,
+
     -- * Graph
     buildGraph,
     --abstractBackprop,
@@ -16,10 +17,12 @@ where
 
 import Downhill.Internal.Graph.Graph
   ( SomeGraph (..),
-    evalGraph, transposeGraph
+    evalGraph,
+    transposeGraph,
   )
 import qualified Downhill.Internal.Graph.Graph as Graph
 import Downhill.Internal.Graph.OpenGraph (recoverSharing)
+import Downhill.Internal.Graph.Types (BackFun, flipBackFun)
 import Downhill.Linear.BackGrad (BackGrad (..), castBackGrad)
 import Downhill.Linear.Expr
   ( BasicVector (VecBuilder),
@@ -28,7 +31,6 @@ import Downhill.Linear.Expr
     Term,
   )
 import GHC.IO.Unsafe (unsafePerformIO)
-import Downhill.Internal.Graph.Types ( BackFun, flipBackFun )
 
 buildGraph ::
   forall a v.
@@ -40,17 +42,21 @@ buildGraph fidentityBuilder = unsafePerformIO $ do
   return (Graph.unsafeFromOpenGraph og)
 
 abstractBackprop ::
-  forall a v.
-  (BasicVector a, BasicVector v) =>
-  BackGrad a v ->
-  (v -> VecBuilder v) ->
+  forall a u v.
+  (BasicVector a, BasicVector u, BasicVector v) =>
+  BackGrad a u ->
+  (v -> VecBuilder u) ->
   v ->
   a
 abstractBackprop (BackGrad f) builder x = case buildGraph [f builder] of
   SomeGraph g -> evalGraph (transposeGraph flipBackFun g) x
 
 _backprop :: forall a v. (BasicVector a, BasicVector v) => BackGrad a v -> VecBuilder v -> a
-_backprop dvar x = abstractBackprop sparseDVar unSparseVector (SparseVector x)
+_backprop dvar x =
+  abstractBackprop @a @(SparseVector v) @(SparseVector v)
+    sparseDVar
+    unSparseVector
+    (SparseVector x)
   where
     sparseDVar :: BackGrad a (SparseVector v)
     sparseDVar = castBackGrad dvar
