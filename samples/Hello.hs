@@ -1,8 +1,8 @@
 {- Very simple example that computes value and
    derivative of function f(x) = x*exp(x) at point x=1.5
 -}
-module Main where
-import Downhill.BVar (BVar(BVar, bvarValue), var, backprop)
+module Main(main) where
+import Downhill.BVar (BVar(bvarValue), var, backprop)
 
 f :: Floating a => a -> a
 f x = x * exp x

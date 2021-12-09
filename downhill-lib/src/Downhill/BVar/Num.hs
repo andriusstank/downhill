@@ -29,7 +29,7 @@ import Downhill.Grad
   )
 import Downhill.Linear.Expr (BasicVector (..), FullVector (identityBuilder, negateBuilder, scaleBuilder))
 
--- | Use @Num a@ instance to provide @VectorSpace@ and its friends.
+-- | @AsNum a@ implements many instances in terms of @Num a@ instance.
 newtype AsNum a = AsNum {unAsNum :: a}
   deriving (Show)
   deriving (Num) via a

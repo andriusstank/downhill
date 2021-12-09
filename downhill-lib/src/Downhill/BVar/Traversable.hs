@@ -34,18 +34,19 @@
 -- }
 -- @
 --
--- and @MyPoint (Grad a)@ can't be made @VectorSpace@. Actual type is a newtype wrapper over @IntMap@
--- and is not exported.
+-- and @MyPoint (Grad a)@ can't be made @VectorSpace@. Gradient type @Grad (MyRecord a)@
+-- is a newtype wrapper over @IntMap@
+-- that is not exported.
 --
 
 module Downhill.BVar.Traversable
-  ( -- * Split
-    splitTraversable,
-
-    -- * Backpropagate
+  ( -- * Backpropagate
     backpropTraversable,
     backpropTraversable_GradOnly,
     backpropTraversable_ValueAndGrad,
+
+     -- * Split
+    splitTraversable,
 
     -- * TraversableVar
     TraversableVar (..),
@@ -154,6 +155,8 @@ imap mkBVar' xs' = evalState (traverse getmkvar xs') 0
       put (index + 1)
       return (mkBVar' index x)
 
+-- | Note that @splitTraversable@ won't be useful
+-- for top level @BVar@, because the type @Grad (f a)@ is not exposed. 
 splitTraversable ::
   forall f r a.
   ( Traversable f,

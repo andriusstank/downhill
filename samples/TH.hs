@@ -16,27 +16,15 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# OPTIONS_GHC -Wno-unused-top-binds #-}
+
 -- Uncomment this line to see generated code
 -- {-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
-module Main where
+module Main(main) where
 
-import Control.Lens.Tuple (_16')
-import Data.AdditiveGroup (AdditiveGroup (..))
-import Data.AffineSpace (AffineSpace (..))
-import Data.Kind (Constraint, Type)
-import Data.Monoid (Sum)
-import Data.VectorSpace (VectorSpace (Scalar, (*^)))
-import qualified Data.VectorSpace as VectorSpace
-import Downhill.BVar (BVar (BVar))
-import Downhill.Grad (Dual (..), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (..))
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
-import Downhill.Linear.Lift (lift1_sparse)
+import Downhill.Grad (HasGrad (MScalar))
 import Downhill.TH (BVarOptions (..), defaultBVarOptions, mkHasGradInstances)
-import GHC.Generics (Generic)
-import GHC.Records (HasField (getField))
-import Language.Haskell.TH (Dec, Exp, Pat (ConP), Q, runQ, stringE)
-import qualified Language.Haskell.TH as TH
 
 newtype MyNewtype = MyNewtype Float
 

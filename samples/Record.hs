@@ -17,14 +17,13 @@ how it's done.
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Main where
+module Main(main, splitRecord, joinRecord) where
 
-import Data.VectorSpace (AdditiveGroup (zeroV, (^+^)), VectorSpace)
+import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar))
 import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm), GradBuilder)
-import Downhill.Linear.BackGrad
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), DenseBuilder (DenseBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder), maybeToMonoid)
+import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder), maybeToMonoid)
 import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
 import GHC.Generics (Generic)
 import GHC.Records (HasField (getField))

@@ -14,17 +14,13 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeApplications #-}
 
-module Main where
+module Main(main, unwrapBVar, wrapBVar) where
 
-import Data.VectorSpace (AdditiveGroup (zeroV, (^+^)), VectorSpace)
-import qualified Data.VectorSpace as VectorSpace
+import Data.VectorSpace (AdditiveGroup, VectorSpace)
 import Downhill.BVar (BVar (BVar))
-import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm), GradBuilder)
+import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm))
 import Downhill.Linear.BackGrad ( inlineNode )
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), DenseBuilder (DenseBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder), maybeToMonoid)
-import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
-import GHC.Generics (Generic)
-import GHC.Records (HasField (getField))
+import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder))
 
 newtype MyWrapper a = MyWrapper { unMyWrapper :: a }
     deriving (Semigroup, Monoid, AdditiveGroup, VectorSpace) via a

@@ -21,19 +21,16 @@ vertex.
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Main where
+module Main (main) where
 
 import Data.AffineSpace (AffineSpace ((.+^), (.-.)), (.-^))
 import qualified Data.AffineSpace as AffineSpace
 import Data.Foldable (traverse_)
-import Data.VectorSpace (AdditiveGroup (negateV, (^+^)), Scalar, VectorSpace ((*^)))
-import qualified Data.VectorSpace as VectorSpace
+import Data.VectorSpace (AdditiveGroup, Scalar, VectorSpace ((*^)))
 import Downhill.BVar (BVar (BVar, bvarValue), backprop, constant, var)
-import Downhill.BVar.Num (AsNum (AsNum))
-import Downhill.Grad (Dual (evalGrad), GradBuilder, HasGrad (Grad, MScalar, Metric, Tang), HasGradAffine, MetricTensor (..))
-import Downhill.Linear.BackGrad (BackGrad (BackGrad), realNode)
-import Downhill.Linear.Expr (BasicVector (VecBuilder), DenseBuilder (DenseBuilder), DenseVector (DenseVector), Expr (ExprSum), FullVector (identityBuilder), toDenseBuilder)
-import Downhill.Linear.Lift (lift1, lift1_dense)
+import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), HasGradAffine, MetricTensor (..))
+import Downhill.Linear.Expr (BasicVector, DenseVector (DenseVector), FullVector)
+import Downhill.Linear.Lift (lift1_dense)
 import GHC.Generics (Generic)
 
 data Point = Point Double Double
@@ -74,12 +71,6 @@ instance HasGrad Point where
   type Tang Point = Vector
   type Grad Point = Gradient
   type Metric Point = L2
-
-constPoint :: Point -> BVar r Point
-constPoint = constant
-
-varPoint :: Point -> BVar Gradient Point
-varPoint = var
 
 sqrNormBp :: BVar r Vector -> BVar r Double
 sqrNormBp (BVar (Vector x y) dv) = BVar normValue (lift1_dense bp dv)
