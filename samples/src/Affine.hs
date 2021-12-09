@@ -92,7 +92,7 @@ instance VectorSpace L2 where
   type Scalar L2 = Double
   x *^ L2 y = L2 (x * y)
 
-instance MetricTensor Double L2 where
+instance MetricTensor L2 where
   type MtVector L2 = Vector
   type MtCovector L2 = Gradient
   evalMetric (L2 a) (Gradient x y) = a *^ Vector x y

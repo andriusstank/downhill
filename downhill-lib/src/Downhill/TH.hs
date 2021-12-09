@@ -473,7 +473,7 @@ mkMetricInstance metricRecord tangRecord gradRecord scalarType cxt instVars = do
               AppT (AppT EqualityT scalarVar) scalarType
             ]
           -- MetricTensor s (RecordMetric a1 … an)
-          ihead = ConT ''MetricTensor `AppT` scalarVar `AppT` metricType
+          ihead = ConT ''MetricTensor `AppT` metricType
       evalMetricDec <- mkEvalMetric
       sqrNormDec <- mkSqrNorm
       return

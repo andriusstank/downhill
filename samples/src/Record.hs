@@ -6,23 +6,23 @@ how it's done.
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 
-module Main(main, splitRecord, joinRecord) where
+module Main (main, splitRecord, joinRecord) where
 
-import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
+import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace (Scalar))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar))
-import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm), GradBuilder)
+import Downhill.Grad (Dual (evalGrad), GradBuilder, HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder), maybeToMonoid)
 import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
 import GHC.Generics (Generic)
@@ -56,7 +56,13 @@ instance (FullVector a, FullVector b, VectorSpace.Scalar a ~ VectorSpace.Scalar 
   negateBuilder (MyRecord a b) = Just (MyRecord (negateBuilder a) (negateBuilder b))
   scaleBuilder x (MyRecord a b) = Just (MyRecord (scaleBuilder x a) (scaleBuilder x b))
 
-instance (MetricTensor s a, MetricTensor s b) => MetricTensor s (MyRecord a b) where
+instance
+  ( MetricTensor a,
+    MetricTensor b,
+    Scalar a ~ Scalar b
+  ) =>
+  MetricTensor (MyRecord a b)
+  where
   type MtVector (MyRecord a b) = MyRecord (MtVector a) (MtVector b)
   type MtCovector (MyRecord a b) = MyRecord (MtCovector a) (MtCovector b)
   evalMetric (MyRecord m1 m2) (MyRecord x1 x2) = MyRecord (evalMetric m1 x1) (evalMetric m2 x2)

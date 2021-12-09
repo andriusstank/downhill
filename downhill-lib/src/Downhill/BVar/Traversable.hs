@@ -95,12 +95,12 @@ instance VectorSpace (Metric a) => VectorSpace (TraversableMetric f a) where
   type Scalar (TraversableMetric f a) = Scalar (Metric a)
 
 instance
-  ( MetricTensor s (Metric a),
+  ( MetricTensor (Metric a),
     MtVector (Metric a) ~ Tang a,
     MtCovector (Metric a) ~ Grad a,
     Dual s (Tang a) (Grad a)
   ) =>
-  MetricTensor s (TraversableMetric f a)
+  MetricTensor (TraversableMetric f a)
   where
   type MtVector (TraversableMetric f a) = IntmapVector f (Tang a)
   type MtCovector (TraversableMetric f a) = IntmapVector f (Grad a)

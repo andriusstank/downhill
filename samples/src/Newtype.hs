@@ -37,7 +37,7 @@ instance FullVector a => FullVector (MyWrapper a) where
   negateBuilder (MyWrapper a) = MyWrapper (negateBuilder a)
   scaleBuilder x (MyWrapper a) = MyWrapper (scaleBuilder x a)
 
-instance MetricTensor s a => MetricTensor s (MyWrapper a) where
+instance MetricTensor a => MetricTensor (MyWrapper a) where
   type MtVector (MyWrapper a) = MyWrapper (MtVector a)
   type MtCovector (MyWrapper a) = MyWrapper (MtCovector a)
   evalMetric (MyWrapper m) (MyWrapper x) = MyWrapper (evalMetric m x)
