@@ -5,29 +5,38 @@ is to create a DSL for differentiable functions and use `StableName`s to recover
 sharing information and construct computational graph.
 We adopt this approach, but with a twist.
 
+## Source code
+
+Full source code of linear AST as explained in this section
+can be found [here](Intro.hs).
+
 ## The twist
 
-There's no need to construct a graph for the whole function to be differentiated.
-Graph for local linear approximation of the function is enough.
+Derivative of function $f$ is a linear function $f'$,
+which is the best local linear approximation of $f$ at some
+point $x_0$.
+
+There's no need to construct a graph for the whole function $f$.
+Graph for $f'$ is enough.
+
 Linear functions are much simpler than more
 general differentiable functions and lend much better to the Haskell type system, as
 we will see later.
 
-This insight comes from Conal Elliott's paper *The simple essence of automatic differentiation* [^1],
-where he explains how gradient is nothing else but the best local linear approximation.
-
-The idea is to start with forward mode automatic differentiation, but construct an AST
-for gradient instead of computing it immediately. Forward mode is easy:
+The idea is to start like in forward mode differentiation:
 
 ~~~ {.haskell}
-data DVar a = DVar
-  { dvarValue :: a
-  , dvarGrad :: Expr a
+data BVar a = BVar
+  { bvarValue :: a
+  , bvarGrad :: Expr a
   }
 ~~~
 
-Gradient is a linear function, thus `dvarGrad` is a linear expression, by construction.
-Building the graph for `dvarGrad` only greatly reduces then scope
+Except that `bvarGrad` is not the value of the gradient, but an
+abstract syntax tree of gradient's computation.
+This way `bvarGrad` is a *linear* expression, by construction.
+Building the graph for `bvarGrad` only (as opposed to `bvarValue`) greatly
+reduces the scope
 and complexity of the otherwise tricky "reverse" part of differentiation algorithm.
 
 ## Linear maps
@@ -264,13 +273,10 @@ data Expr a da v dv where
 
 Thats it! That's all we need to evaluate in reverse mode.
 
-## Discussion
-
 ## Evaluation
 
 Evaluating `Expr` directly is inefficient -- we should recover sharing
-information first. Still, it gives `Expr` precise semantics, so let's do it
-anyways.
+information first. Anyways, let's see what needs to be evaluated first.
 
 `Expr a da v dv` represents a function `a -> v`, so it's natural to give it
 a `TensorMul` instance. The code writes itself:
@@ -295,18 +301,18 @@ instance AdditiveGroup da => TensorMul (Vec dv) (Expr a da v dv) where
         Sum vs -> sumV [dv ✕ v | v <- vs]
 ~~~
 
-## Puzzle for the reader
+## Transposition
 
-We're going to build a graph and flip edges later to turn
-reverse mode evaluation into forward mode. As `Expr` is a tree
-can be readily be transposed, too.
+While evaluation code is mechanical and boring, it gets more interesting
+with transposition. In order not to spoil the fun, it's left as
+a puzzle for the reader.
 
 ~~~ {.haskell}
 transposeExpr :: AdditiveGroup da => Expr a da v dv -> Expr dv v da a
 transposeExpr = _
 ~~~
 
-Can you figure this out? This time code doesn't write itself.
-
-
-[^1]: Conal Elliott. The Simple Essence of Automatic Differentiation. [http://conal.net/papers/essence-of-ad/](http://conal.net/papers/essence-of-ad/)
+Can you fill in the hole? This time code doesn't write itself. At first
+I attacked this problem using type tetris approach myself, but that
+proved too hard and I had to reach for a pen and paper. You can
+see my solution [here](Solution.hs)

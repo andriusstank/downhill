@@ -10,7 +10,7 @@ module DownhillTest.TH (thTest) where
 
 import Data.AffineSpace (AffineSpace (..))
 import Downhill.Grad (HasGrad (MScalar, Tang))
-import Downhill.TH (DVarOptions (..), RecordNamer (..), mkDVarC)
+import Downhill.TH (BVarOptions (..), RecordNamer (..), mkHasGradInstances)
 import Test.Tasty (TestTree, testGroup)
 import DownhillTest.TestTHOptions (defaultDVarOptions)
 
@@ -19,14 +19,14 @@ newtype MyRecord1 = MyRecord1 Float
 
 data MyRecord2 = MyRecord2 Float
 
-mkDVarC
+mkHasGradInstances
   defaultDVarOptions
   [d|
     instance HasGrad MyRecord1 where
       type MScalar MyRecord1 = Float
     |]
 
-mkDVarC
+mkHasGradInstances
   defaultDVarOptions
   [d|
     instance HasGrad MyRecord2 where
@@ -35,7 +35,7 @@ mkDVarC
 
 data MyRecord3 = MyRecord3
 
-mkDVarC
+mkHasGradInstances
   defaultDVarOptions
   [d|
     instance HasGrad MyRecord3 where
@@ -44,7 +44,7 @@ mkDVarC
 
 data MyRecord4 a = MyRecord4 a
 
-mkDVarC
+mkHasGradInstances
   defaultDVarOptions
   [d|
     instance (AffineSpace a, HasGrad a, Diff a ~ Tang a) => HasGrad (MyRecord4 a) where
@@ -53,7 +53,7 @@ mkDVarC
 
 data MyRecord5 a b = MyRecord5 a b
 
-mkDVarC
+mkHasGradInstances
   defaultDVarOptions
   [d|
     instance
@@ -72,7 +72,7 @@ mkDVarC
 
 data MyRecord6 a b = MyRecord6 a b
 
-mkDVarC
+mkHasGradInstances
   defaultDVarOptions
   [d|
     instance
@@ -91,7 +91,7 @@ data MyRecord7 a = MyRecord7
   , myLabel7 :: String
   }
 
-mkDVarC
+mkHasGradInstances
   defaultDVarOptions {optExcludeFields = ["myLabel7"]}
   [d|
     instance HasGrad a => HasGrad (MyRecord7 a) where
@@ -99,4 +99,4 @@ mkDVarC
     |]
 
 thTest :: TestTree
-thTest = testGroup "Template Haskell" []
+thTest = testGroup "Template Haskell" [] -- just test if it compiles...

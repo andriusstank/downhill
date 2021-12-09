@@ -1,3 +1,4 @@
+{- How to use Template Haskell to generate all that boilerplate for records, product types and newtypes -}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -15,6 +16,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- Uncomment this line to see generated code
 -- {-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Main where
@@ -30,7 +32,7 @@ import Downhill.BVar (BVar (BVar))
 import Downhill.Grad (Dual (..), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (..))
 import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
 import Downhill.Linear.Lift (lift1_sparse)
-import Downhill.TH (DVarOptions (..), defaultDVarOptions, mkDVarC)
+import Downhill.TH (BVarOptions (..), defaultBVarOptions, mkHasGradInstances)
 import GHC.Generics (Generic)
 import GHC.Records (HasField (getField))
 import Language.Haskell.TH (Dec, Exp, Pat (ConP), Q, runQ, stringE)
@@ -53,22 +55,22 @@ data MyRecord4 a = MyRecord4
     myLabel4 :: String
   }
 
-mkDVarC
-  defaultDVarOptions
+mkHasGradInstances
+  defaultBVarOptions
   [d|
     instance HasGrad (MyRecord2 Float) where
       type MScalar (MyRecord2 Float) = MScalar Float
     |]
 
-mkDVarC
-  defaultDVarOptions
+mkHasGradInstances
+  defaultBVarOptions
   [d|
     instance HasGrad MyNewtype where
       type MScalar MyNewtype = Float
     |]
 
-mkDVarC
-  defaultDVarOptions {optExcludeFields = ["myLabel4"]}
+mkHasGradInstances
+  defaultBVarOptions {optExcludeFields = ["myLabel4"]}
   [d|
     instance HasGrad a => HasGrad (MyRecord4 a) where
       type MScalar (MyRecord4 a) = MScalar a

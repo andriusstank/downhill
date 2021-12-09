@@ -37,7 +37,6 @@ library
                        containers, unordered-containers,
                        transformers,
                        reflection,
-                       manifolds-core,
                        tagged,
                        template-haskell,
                        th-abstraction,

@@ -96,11 +96,11 @@ $$
 We need a _metric tensor_ to relate gradients and variables here.
 It's logical when you think about it -- gradient descent moves in the
 direction of the steepest
-descent. Talking about steepness makes no sense without ability to
-measure distances.
+descent. Ability to measure distances is needed to make any sense
+of steepness.
 
-Metric tensor brings different units into commensurable quantities
-and plays the role of preconditioner.
+Metric tensor brings different units into commensurable quantities.
+It also plays the role of preconditioner.
 
 There are infinitely  many choices of metric tensor. Demanding `V` to be
 a Hilbert space means choosing a canonical one.

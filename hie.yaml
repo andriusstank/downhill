@@ -18,5 +18,5 @@ cradle:
       component: "downhill-samples:affine"
     - path: "./samples/Higher.hs"
       component: "downhill-samples:higher"
-    - path: "./intro"
+    - path: "./doc/docs/intro"
       component: "lib:downhill"

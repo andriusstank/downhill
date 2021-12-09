@@ -95,6 +95,7 @@ type HasGradAffine p =
     HasGrad p,
     HasGrad (Tang p),
     Tang p ~ Diff p,
+    Tang (Tang p) ~ Tang p,
     Grad (Tang p) ~ Grad p
   )
 

@@ -1,3 +1,13 @@
+{-
+Points don't make a vector space. We can add vectors, add vector to a
+point, subtract points, but adding two points make no sense. Yet we can
+differentiate functions defined over points.
+
+This sample uses gradient descent to find Fermat point of a triangle ABC.
+It's a point X that minizes the sum of distances from X to each triangle
+vertex.
+
+-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
@@ -13,18 +23,18 @@
 
 module Main where
 
-import Data.AffineSpace (AffineSpace ((.+^), (.-.)))
+import Data.AffineSpace (AffineSpace ((.+^), (.-.)), (.-^))
 import qualified Data.AffineSpace as AffineSpace
 import Data.Foldable (traverse_)
-import Data.VectorSpace (AdditiveGroup (negateV, (^+^)), VectorSpace ((*^)), Scalar)
+import Data.VectorSpace (AdditiveGroup (negateV, (^+^)), Scalar, VectorSpace ((*^)))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar, bvarValue), backprop, constant, var)
-import Downhill.Grad (Dual (evalGrad), HasGrad (Tang, Grad, MScalar, Metric), GradBuilder, MetricTensor(..), HasGradAffine)
+import Downhill.BVar.Num (AsNum (AsNum))
+import Downhill.Grad (Dual (evalGrad), GradBuilder, HasGrad (Grad, MScalar, Metric, Tang), HasGradAffine, MetricTensor (..))
 import Downhill.Linear.BackGrad (BackGrad (BackGrad), realNode)
 import Downhill.Linear.Expr (BasicVector (VecBuilder), DenseBuilder (DenseBuilder), DenseVector (DenseVector), Expr (ExprSum), FullVector (identityBuilder), toDenseBuilder)
 import Downhill.Linear.Lift (lift1, lift1_dense)
 import GHC.Generics (Generic)
-import Downhill.BVar.Num (AsNum(AsNum))
 
 data Point = Point Double Double
   deriving (Generic, Show)
@@ -57,13 +67,13 @@ instance HasGrad Vector where
   type MScalar Vector = Double
   type Tang Vector = Vector
   type Grad Vector = Gradient
-  type Metric Vector = L2 Vector Gradient
+  type Metric Vector = L2
 
 instance HasGrad Point where
   type MScalar Point = Double
   type Tang Point = Vector
   type Grad Point = Gradient
-  type Metric Point = L2 Vector Gradient
+  type Metric Point = L2
 
 constPoint :: Point -> BVar r Point
 constPoint = constant
@@ -81,37 +91,24 @@ sqrNormBp (BVar (Vector x y) dv) = BVar normValue (lift1_dense bp dv)
 distance :: BVar r Point -> BVar r Point -> BVar r Double
 distance x y = sqrt $ sqrNormBp (x .-. y)
 
-class HilbertSpace dv v where
-  riesz :: dv -> v
+-- (L2 a) is L2 norm of a vector, scaled by factor a.
+newtype L2 = L2 Double
+  deriving (Generic)
 
-instance HilbertSpace Gradient Vector where
-  riesz (Gradient x y) = Vector x y
+instance AdditiveGroup L2
 
-newtype L2 v dv = L2 (Scalar v)
-  deriving Generic
+instance VectorSpace L2 where
+  type Scalar L2 = Double
+  x *^ L2 y = L2 (x * y)
 
-deriving via (AsNum (Scalar v)) instance Num (Scalar v) =>  AdditiveGroup (L2 v dv)
-
-instance (Num (Scalar v), VectorSpace v) => VectorSpace (L2 v dv) where
-  type Scalar (L2 v dv) = Scalar v
-  x *^ L2 y = L2 (x*y)
-
-instance (HilbertSpace dv v, Dual s v dv, Num s, Scalar v ~ s) => MetricTensor s (L2 v dv) where
-  type MtVector (L2 v dv) = v
-  type MtCovector (L2 v dv) = dv
-  evalMetric (L2 x) = (x *^) . riesz
-
-type HilbertManifold p = (HasGrad p, MScalar p ~ Double)
-
-updateStep :: forall g p. (HasGradAffine p, g ~ Metric p) => g -> MScalar p -> Grad p -> p -> p
-updateStep metric lr grad x = x .+^ step
-  where
-    dir :: Tang p
-    dir = evalMetric metric grad
-    step = lr *^ dir
+instance MetricTensor Double L2 where
+  type MtVector L2 = Vector
+  type MtCovector L2 = Gradient
+  evalMetric (L2 a) (Gradient x y) = a *^ Vector x y
 
 data Triangle = Triangle Point Point Point
 
+-- Objective function  to minimize
 totalDistance :: forall r. Triangle -> BVar r Point -> BVar r Double
 totalDistance (Triangle p1 p2 p3) x = d1 + d2 + d3
   where
@@ -121,55 +118,59 @@ totalDistance (Triangle p1 p2 p3) x = d1 + d2 + d3
     d3 = distance x (constant p3)
 
 data Iterate p z = Iterate
-  { itSolution :: p,
-    itDistance :: z,
-    itGradNorm :: MScalar p
+  { itPoint :: p,
+    itValue :: z, -- value of objective at itPoint
+    itGradNorm :: MScalar p -- gradient of objective function at itPoint, hopefully converging to zero
   }
 
 deriving instance (Show p, Show z, Show (MScalar p)) => Show (Iterate p z)
 
+type PlainScalar z =
+  ( Tang z ~ z,
+    Grad z ~ z,
+    FullVector z,
+    Num z,
+    HasGrad z
+  )
+
 affineStep ::
-  forall g p z.
-  ( HasGradAffine p, g ~ Metric p
-  , FullVector (Grad z) -- TODO: Move FullVector constraint to HasGrad? Or not?
-  ,  HasGrad z
+  forall p z.
+  ( HasGradAffine p,
+    PlainScalar z
   ) =>
   (p -> BVar (Grad p) z) ->
-  Grad z ->
   MScalar p ->
-  g ->
+  Metric p ->
   p ->
   Iterate p z
-affineStep objectiveFunc one stepSize metric = nextIter
+affineStep objectiveFunc stepSize metric = nextIter
   where
     nextIter :: p -> Iterate p z
-    nextIter x = Iterate (x .+^ (stepSize *^ step)) (bvarValue dist) (evalGrad grad step)
+    nextIter x = Iterate (x .-^ (stepSize *^ step)) (bvarValue dist) (evalGrad grad step)
       where
         dist :: BVar (Grad p) z
         dist = objectiveFunc x
         grad :: Grad p
-        grad = backprop dist one
+        grad = backprop dist 1
         step :: Tang p
         step = evalMetric metric grad
 
 affineIterate ::
   forall p z.
-  ( HasGradAffine p
-  , FullVector (Grad z),
-    HasGrad z
+  ( HasGradAffine p,
+    PlainScalar z
   ) =>
   (p -> BVar (Grad p) z) ->
-  Grad z ->
   MScalar p ->
   Metric p ->
   p ->
   [Iterate p z]
-affineIterate objectiveFunc one stepSize metric x0 = iterate (step . itSolution) (step x0)
+affineIterate objectiveFunc stepSize metric x0 = iterate (step . itPoint) (step x0)
   where
-    step = affineStep objectiveFunc one stepSize metric
+    step = affineStep objectiveFunc stepSize metric
 
-solveFermatPoint :: Triangle -> L2 Vector Gradient -> Point -> [Iterate Point Double]
-solveFermatPoint triangle = affineIterate distF 1 0.1
+solveFermatPoint :: Triangle -> L2 -> Point -> [Iterate Point Double]
+solveFermatPoint triangle = affineIterate distF 0.1
   where
     distF :: Point -> BVar Gradient Double
     distF x = totalDistance triangle (var x)

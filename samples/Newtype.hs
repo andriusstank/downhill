@@ -1,3 +1,4 @@
+{- Manually wrapping and unwrapping newtypes inside BVar. -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}

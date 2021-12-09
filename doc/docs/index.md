@@ -1,21 +1,40 @@
-# Welcome to MkDocs
-Foo
+# Downhill
 
-For full documentation visit [mkdocs.org](https://www.mkdocs.org).
+Reverse mode automatic differentiation in Haskell style.
 
-## Intro
-[Link](intro/index.html)
+---
 
-## Commands
+## Overview
 
-* `mkdocs new [dir-name]` - Create a new project.
-* `mkdocs serve` - Start the live-reloading docs server.
-* `mkdocs build` - Build the documentation site.
-* `mkdocs -h` - Print help message and exit.
+*Downhill* library proposes an approach to automatic differentiation
+that is both well typed and simple.
 
-## Project layout
+Like [Backprop](https://backprop.jle.im/), it allows variables
+to have different types.
+Traditionally reverse mode automatic differentiation
+works by constructing computational graph or Wengert list.
+However, faithfully representing heterogeneous
+graph in Haskell would result in horrid types.
 
-    mkdocs.yml    # The configuration file.
-    docs/
-        index.md  # The documentation homepage.
-        ...       # Other markdown pages, images and other files.
+This library exploits linearity of derivative and constructs *linear*
+computational graph to keep everything simple. Bringing heterogeneity
+to linear graphs don't make them more complicated. In fact, it makes
+working with them much easier, thanks to parametric polymorphism.
+
+## Related work
+
+### Backprop
+
+[Backprop](https://backprop.jle.im/) introduced heterogeneous
+reverse mode differentiation as a useable library. It has a
+well typed and nice interface, but it relies on rather complicated
+machinery under the hood. *Downhill* library explores alternative ways
+to implement automatic differentiation.
+
+### Conal Elliott's paper
+
+[*The Simple Essence of Automatic Differentiation*](http://conal.net/papers/essence-of-ad/)
+by Conal Elliott
+explains how gradient is a linear map and all chain rules is just
+compositions of linear maps. The idea of linear graphs was inspired
+by this paper.

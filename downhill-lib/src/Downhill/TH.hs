@@ -10,13 +10,31 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+-- | Use like this:
+--
+-- @
+-- mkHasGradInstances
+--   defaultBVarOptions
+--   [d|
+--     instance HasGrad MyRecord where
+--       type MScalar MyRecord = Float
+--     |]
+-- @
+--
+-- Instance declaration passed to @mkHasGradInstances@ gives two important bits of information:
+--
+--   * Type variables for @MyRecord@, which can be concrete types (such as @instance HasGrad (MyRecord Float)@)
+--     or regular type variables (@instance HasGrad (MyRecord a)@)
+--
+--   * Scalar type.
+--
 module Downhill.TH
-  ( --mkDVar,
-    mkDVarC,
-    AffineSpaceOptions(..),
+  (
+    mkHasGradInstances,
+    AffineSpaceOptions (..),
     RecordNamer (..),
-    DVarOptions (..),
-    defaultDVarOptions,
+    BVarOptions (..),
+    defaultBVarOptions,
   )
 where
 
@@ -52,6 +70,7 @@ import Language.Haskell.TH
     newName,
   )
 import Language.Haskell.TH.Datatype (ConstructorInfo (constructorFields, constructorName, constructorVariant), ConstructorVariant (InfixConstructor, NormalConstructor, RecordConstructor), DatatypeInfo (datatypeCons, datatypeInstTypes, datatypeName, datatypeVariant, datatypeVars), DatatypeVariant (Newtype), TypeSubstitution (applySubstitution), reifyDatatype)
+import Language.Haskell.TH.Datatype.TyVarBndr (TyVarBndrUnit)
 import Language.Haskell.TH.Syntax
   ( BangType,
     Body (NormalB),
@@ -64,7 +83,6 @@ import Language.Haskell.TH.Syntax
     VarBangType,
     mkNameS,
   )
-import Language.Haskell.TH.Datatype.TyVarBndr (TyVarBndrUnit)
 
 data DatatypeFields
   = NormalFields [Type]
@@ -91,16 +109,20 @@ data RecordNamer = RecordNamer
 data RecordTranstorm = RecordTranstorm RecordNamer (Type -> Type)
 
 data AffineSpaceOptions
-  = MakeAffineSpace -- ^ Generate AffineSpace instance
-  | NoAffineSpace  -- ^ Don't generate AffineSpace instance
-  | AutoAffineSpace  -- ^ Generate AffineSpace instance if @optExcludeFields@ is empty
+  = -- | Generate AffineSpace instance
+    MakeAffineSpace
+  | -- | Don't generate AffineSpace instance
+    NoAffineSpace
+  | -- | Generate AffineSpace instance if @optExcludeFields@ is empty
+    AutoAffineSpace
 
-data DVarOptions = DVarOptions
+data BVarOptions = BVarOptions
   { optTangNamer :: RecordNamer,
     optGradNamer :: RecordNamer,
     optMetricNamer :: RecordNamer,
     optBuilderNamer :: RecordNamer,
     optAffineSpace :: AffineSpaceOptions,
+     -- | List of fields that take no part in differentiation
     optExcludeFields :: [String]
   }
 
@@ -136,9 +158,9 @@ defaultBuilderRecordNamer =
       fieldNamer = id
     }
 
-defaultDVarOptions :: DVarOptions
-defaultDVarOptions =
-  DVarOptions
+defaultBVarOptions :: BVarOptions
+defaultBVarOptions =
+  BVarOptions
     { optTangNamer = defaultTangRecordNamer,
       optGradNamer = defaultGradRecordNamer,
       optMetricNamer = defaultMetricRecordNamer,
@@ -325,7 +347,7 @@ mkVectorSpaceInstance record scalarType cxt instVars = do
       decs = [scalarTypeDec, vmulDec]
   mkClassInstance ''VectorSpace cxt record instVars decs
 
-mkBasicVectorInstance :: DownhillRecord -> DVarOptions -> Cxt -> [Type] -> Q [Dec]
+mkBasicVectorInstance :: DownhillRecord -> BVarOptions -> Cxt -> [Type] -> Q [Dec]
 mkBasicVectorInstance vectorRecord options cxt instVars = do
   sumBuilderDec <- mkSumBuilder
   mkClassInstance ''BasicVector cxt vectorRecord instVars [vecbuilderDec, sumBuilderDec]
@@ -645,19 +667,19 @@ renameDownhillRecord (RecordTranstorm namer typeFun) record =
       ddtVariant = ddtVariant record
     }
 
-builderTransform :: DVarOptions -> RecordTranstorm
+builderTransform :: BVarOptions -> RecordTranstorm
 builderTransform options = RecordTranstorm (optBuilderNamer options) (AppT (ConT ''VecBuilder))
 
-tangTransform :: DVarOptions -> RecordTranstorm
+tangTransform :: BVarOptions -> RecordTranstorm
 tangTransform options = RecordTranstorm (optTangNamer options) (AppT (ConT ''Tang))
 
-gradTransform :: DVarOptions -> RecordTranstorm
+gradTransform :: BVarOptions -> RecordTranstorm
 gradTransform options = RecordTranstorm (optGradNamer options) (AppT (ConT ''Grad))
 
-metricTransform :: DVarOptions -> RecordTranstorm
+metricTransform :: BVarOptions -> RecordTranstorm
 metricTransform options = RecordTranstorm (optMetricNamer options) (AppT (ConT ''Metric))
 
-mkVec :: Cxt -> [Type] -> Type -> DownhillRecord -> DVarOptions -> Q [Dec]
+mkVec :: Cxt -> [Type] -> Type -> DownhillRecord -> BVarOptions -> Q [Dec]
 mkVec cxt instVars scalarType vectorType options = do
   let builderType = renameDownhillRecord (builderTransform options) vectorType
   tangDec <- mkRecord vectorType
@@ -680,7 +702,7 @@ mkVec cxt instVars scalarType vectorType options = do
 mkDVar'' ::
   Cxt ->
   DownhillRecord ->
-  DVarOptions ->
+  BVarOptions ->
   Type ->
   [Type] ->
   ConstructorInfo ->
@@ -766,7 +788,7 @@ mkAffineSpaceInstance cxt recordPoint recordTang instVars = do
         ]
   mkClassInstance ''AffineSpace cxt recordPoint instVars decs
 
-filterFields :: forall m. MonadFail m => DVarOptions -> DownhillRecord -> m DownhillRecord
+filterFields :: forall m. MonadFail m => BVarOptions -> DownhillRecord -> m DownhillRecord
 filterFields options record =
   case optExcludeFields options of
     [] -> return record
@@ -801,7 +823,7 @@ filterFields options record =
         goN :: Int -> Int
         goN n = length . go $ replicate n ()
 
-mkDVarC1 :: DVarOptions -> Dec -> Q [Dec]
+mkDVarC1 :: BVarOptions -> Dec -> Q [Dec]
 mkDVarC1 options = \case
   InstanceD mayOverlap cxt type_ decs -> do
     case mayOverlap of
@@ -879,5 +901,7 @@ mkDVarC1 options = \case
       _ -> fail "Instance head is not a constraint"
   _ -> fail "Expected instance declaration"
 
-mkDVarC :: DVarOptions -> Q [Dec] -> Q [Dec]
-mkDVarC options decs = concat <$> (traverse (mkDVarC1 options) =<< decs)
+-- | Generates @HasGrad@ instance, along with @Tang@ and @Grad@ types,
+-- @VecBuilder@ types and all other instances needed for @HasGrad@.
+mkHasGradInstances :: BVarOptions -> Q [Dec] -> Q [Dec]
+mkHasGradInstances options decs = concat <$> (traverse (mkDVarC1 options) =<< decs)

@@ -1,3 +1,7 @@
+{- Manually accessing members of a record. Lot's of boilerplate, which
+can be generated with Template Haskell from Downhill. This sample demonstrates
+how it's done.
+-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE DerivingStrategies #-}

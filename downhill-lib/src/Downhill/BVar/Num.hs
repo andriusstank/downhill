@@ -19,7 +19,6 @@ where
 
 import Data.AffineSpace (AffineSpace (..))
 import Data.Semigroup (Sum (Sum, getSum))
-import Data.Tagged (Tagged (..))
 import Data.VectorSpace (AdditiveGroup (..), VectorSpace (..), zeroV)
 import Downhill.BVar (BVar (bvarValue), backprop)
 import qualified Downhill.BVar as BVar
@@ -29,7 +28,6 @@ import Downhill.Grad
     MetricTensor (MtCovector, MtVector, evalMetric),
   )
 import Downhill.Linear.Expr (BasicVector (..), FullVector (identityBuilder, negateBuilder, scaleBuilder))
-import Math.Manifold.Core.PseudoAffine (BoundarylessWitness (BoundarylessWitness), Semimanifold (..), SemimanifoldWitness (SemimanifoldWitness))
 
 -- | Use @Num a@ instance to provide @VectorSpace@ and its friends.
 newtype AsNum a = AsNum {unAsNum :: a}
@@ -75,16 +73,6 @@ instance Num a => AffineSpace (AsNum a) where
   type Diff (AsNum a) = AsNum a
   AsNum x .-. AsNum y = AsNum (x - y)
   AsNum x .+^ AsNum y = AsNum (x + y)
-
-instance Num a => Semimanifold (AsNum a) where
-  type Needle (AsNum a) = AsNum a
-  type Interior (AsNum a) = AsNum a
-  (.+~^) = (+)
-  fromInterior = id
-  toInterior = Just
-  translateP = Tagged (+)
-  (.-~^) = (-)
-  semimanifoldWitness = SemimanifoldWitness BoundarylessWitness
 
 type NumBVar a = BVar (AsNum a) (AsNum a)
 

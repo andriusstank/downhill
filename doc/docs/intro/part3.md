@@ -1,4 +1,4 @@
-# Important details
+# Sparsity
 
 It's easy to run into quadratic complexity.
 
@@ -43,9 +43,10 @@ type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
 `Expr` type in the library is different to that in previous part in a few ways.
 
 First of all, it hasn't got
-pairs of vectors and gradients, such as `a da v dv`. Just `a v`. Full set of
-parameters was useful to explain the idea, but only `da` and `dv` are needed
-for backpropagation.
+pairs of vectors and gradients, such as `a da v dv`. Just `a v`. Two
+sets of parameters allows both forward and reverse mode evaluation,
+but we do reverse mode only here. Those would be `da dv` for reverse
+mode. We drop superfluous "d" and call them `a` anv `v`.
 
 There's also a little problem with our `Expr` type.
 As we're going to convert it to a graph, we
@@ -64,8 +65,9 @@ data Expr a v where
   ExprSum :: BasicVector v => [Term a v] -> Expr a v
 ~~~
 
-In order to allow sparse gradients we use `v -> VecBuilder u` instead
-of plain `dv -> du` as in previous part. `BasicVector` replaces `AdditiveGroup`
+There's `v -> VecBuilder u` in place of `PrimFunc`, which adds
+support for sparse gradients and drops forward mode evaluation.
+Also `BasicVector` replaces `AdditiveGroup`
 in `ExprSum`.
 
 
@@ -199,7 +201,7 @@ is used. This way a simple traversal of a list will turn into into
 a Schlemiel the painter's algorithm!
 
 The solution is to store sparse gradients in graph nodes for this use case.
-Luckily, we need no new machinery here.
+Luckily, there's no need for new types of node here.
 Have a look at `BackGrad` definition -- there's
 no `v`, only `VecBuilder`. This means we can choose a different type of node to
 store gradient and hide it under `BackGrad` as if nothing happened. No one can

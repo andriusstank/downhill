@@ -1,5 +1,8 @@
 site_name: Downhill
 site_url: http://localhost:8000/
+repo_url: https://github.com/andriusstank/downhill
+site_author: Andrius Stankevičius
+
 theme:
     name: material
 
@@ -28,7 +31,9 @@ extra_css:
 
 nav:
     - Home: index.md
-    - Intro:
-        - 'Type of the Gradient': 'intro/part1.md'
+    - Design:
+        - 'Gradient Type': 'intro/part1.md'
         - 'Linear Graph': 'intro/part2.md'
-        - 'Important Details': 'intro/part3.md'
+        - 'Sparsity': 'intro/part3.md'
+
+copyright: "&copy; 2021 Andrius Stankevičius"

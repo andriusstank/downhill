@@ -16,13 +16,38 @@
 --
 -- @
 -- data MyRecord a = ...
---  deriving (Functor, Foldable, Traversable)
+--   deriving (Functor, Foldable, Traversable)
 --
 -- deriving via (TraversableVar MyRecord a) instance HasGrad a => HasGrad (MyRecord a)
 -- @
+-- 
+-- = Gradient type
+-- One might excect gradient type to be @type Grad (MyRecord a) = MyRecord (Grad a)@, but it's not
+-- the case, because record could contain additional members apart from @a@s, for example:
+--
+-- @
+-- data MyPoint a = MyPoint
+-- {
+-- ,  pointLabel :: String
+-- ,  pointX :: a
+-- ,  pointY :: a
+-- }
+-- @
+--
+-- and @MyPoint (Grad a)@ can't be made @VectorSpace@. Actual type is a newtype wrapper over @IntMap@
+-- and is not exported.
+--
+
 module Downhill.BVar.Traversable
-  ( backpropTraversable,
+  ( -- * Split
     splitTraversable,
+
+    -- * Backpropagate
+    backpropTraversable,
+    backpropTraversable_GradOnly,
+    backpropTraversable_ValueAndGrad,
+
+    -- * TraversableVar
     TraversableVar (..),
   )
 where
@@ -56,6 +81,7 @@ import Downhill.Linear.Expr
 import Downhill.Linear.Lift (lift1_sparse)
 import GHC.Generics (Generic)
 
+-- | Provides HasGrad instance for use in deriving via
 newtype TraversableVar f a = TraversableVar {unTraversableVar :: f a}
   deriving stock (Functor, Foldable, Traversable)
 
@@ -218,3 +244,38 @@ backpropTraversable one combine fun x = imap makeResult x
 
     makeResult :: Int -> a -> b
     makeResult i x' = combine x' (lookupGrad i)
+
+{-# ANN backpropTraversable_GradOnly "HLint: ignore Use camelCase" #-}
+
+-- | Like 'backpropTraversable', but returns gradient only.
+backpropTraversable_GradOnly ::
+  forall f a p.
+  ( Traversable f,
+    Grad (f a) ~ Grad (TraversableVar f a),
+    HasGrad a,
+    HasGrad p,
+    FullVector (Grad p)
+  ) =>
+  Grad p ->
+  (forall r. f (BVar r a) -> BVar r p) ->
+  f a ->
+  f (Grad a)
+backpropTraversable_GradOnly one = backpropTraversable one gradOnly
+  where
+    gradOnly _value grad = grad
+
+-- | 'backpropTraversable' specialized to return a pair of value and gradient.
+{-# ANN backpropTraversable_ValueAndGrad "HLint: ignore Use camelCase" #-}
+backpropTraversable_ValueAndGrad ::
+  forall f a p.
+  ( Traversable f,
+    Grad (f a) ~ Grad (TraversableVar f a),
+    HasGrad a,
+    HasGrad p,
+    FullVector (Grad p)
+  ) =>
+  Grad p ->
+  (forall r. f (BVar r a) -> BVar r p) ->
+  f a ->
+  f (a, Grad a)
+backpropTraversable_ValueAndGrad one = backpropTraversable one (,)
