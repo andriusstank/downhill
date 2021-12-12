@@ -1,0 +1,561 @@
+
+<!DOCTYPE html>
+
+<html class="no-js" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<meta content="Andrius Stankevičius" name="author"/>
+<link href="http://localhost:8000/intro/part2/" rel="canonical"/>
+<link href="../../assets/images/favicon.png" rel="icon"/>
+<meta content="mkdocs-1.2.3, mkdocs-material-7.3.5" name="generator"/>
+<title>Linear Graph - Downhill</title>
+<link href="../../assets/stylesheets/main.cdeb8541.min.css" rel="stylesheet"/>
+<link href="../../assets/stylesheets/palette.3f5d1f46.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font-family:"Roboto";--md-code-font-family:"Roboto Mono"}</style>
+<link href="../../js/style.css" rel="stylesheet"/>
+</head>
+<body data-md-color-accent="none" data-md-color-primary="none" data-md-color-scheme="" dir="ltr">
+<script>function __prefix(e){return new URL("../..",location).pathname+"."+e}function __get(e,t=localStorage){return JSON.parse(t.getItem(__prefix(e)))}</script>
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#linear-computational-graph">
+          Skip to content
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<header class="md-header" data-md-component="header">
+<nav aria-label="Header" class="md-header__inner md-grid">
+<a aria-label="Downhill" class="md-header__button md-logo" data-md-component="logo" href="../.." title="Downhill">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"></path></svg>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            Downhill
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              Linear Graph
+            
+          </span>
+</div>
+</div>
+</div>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Search" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Search" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"></path></svg>
+</label>
+<nav aria-label="Search" class="md-search__options">
+<button aria-label="Clear" class="md-search__icon md-icon" tabindex="-1" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"></path></svg>
+</button>
+</nav>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Initializing search
+          </div>
+<ol class="md-search-result__list"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md-header__source">
+<a class="md-source" data-md-component="source" href="https://github.com/andriusstank/downhill/" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"></path></svg>
+</div>
+<div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Navigation" class="md-nav md-nav--primary" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="Downhill" class="md-nav__button md-logo" data-md-component="logo" href="../.." title="Downhill">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"></path></svg>
+</a>
+    Downhill
+  </label>
+<div class="md-nav__source">
+<a class="md-source" data-md-component="source" href="https://github.com/andriusstank/downhill/" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"></path></svg>
+</div>
+<div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+</div>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../..">
+        Home
+      </a>
+</li>
+<li class="md-nav__item md-nav__item--active md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" id="__nav_2" type="checkbox"/>
+<label class="md-nav__link" for="__nav_2">
+          Design
+          <span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-label="Design" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_2">
+<span class="md-nav__icon md-icon"></span>
+          Design
+        </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../part1/">
+        Gradient Type
+      </a>
+</li>
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" data-md-toggle="toc" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+          Linear Graph
+          <span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
+        Linear Graph
+      </a>
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#source-code">
+    Source code
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#the-twist">
+    The twist
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#linear-maps">
+    Linear maps
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#primfunc">
+    PrimFunc
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#ast">
+    AST
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#linear-functions-with-multiple-arguments">
+    Linear functions with multiple arguments
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#evaluation">
+    Evaluation
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#transposition">
+    Transposition
+  </a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../part3/">
+        Sparsity
+      </a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../getstart/">
+        Get Started
+      </a>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#source-code">
+    Source code
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#the-twist">
+    The twist
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#linear-maps">
+    Linear maps
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#primfunc">
+    PrimFunc
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#ast">
+    AST
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#linear-functions-with-multiple-arguments">
+    Linear functions with multiple arguments
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#evaluation">
+    Evaluation
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#transposition">
+    Transposition
+  </a>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<a class="md-content__button md-icon" href="https://github.com/andriusstank/downhill/edit/master/docs/intro/part2.md" title="Edit this page">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"></path></svg>
+</a>
+<h1 id="linear-computational-graph">Linear computational graph</h1>
+<p>One way to do reverse mode automatic differentiation
+is to create a DSL for differentiable functions and use <code>StableName</code>s to recover
+sharing information and construct computational graph.
+We adopt this approach, but with a twist.</p>
+<h2 id="source-code">Source code</h2>
+<p>Full source code of linear AST as explained in this section
+can be found <a href="../Intro.hs">here</a>.</p>
+<h2 id="the-twist">The twist</h2>
+<p>Derivative of function <span class="arithmatex">\(f\)</span> is a linear function <span class="arithmatex">\(f'\)</span>,
+which is the best local linear approximation of <span class="arithmatex">\(f\)</span> at some
+point <span class="arithmatex">\(x_0\)</span>.</p>
+<p>There’s no need to construct a graph for the whole function <span class="arithmatex">\(f\)</span>.
+Graph for <span class="arithmatex">\(f'\)</span> is enough.</p>
+<p>Linear functions are much simpler than more
+general differentiable functions and lend much better to the Haskell type system, as
+we will see later.</p>
+<p>The idea is to start like in forward mode differentiation:</p>
+<pre><code class="language-haskell">data BVar a = BVar
+  { bvarValue :: a
+  , bvarGrad :: Expr a
+  }
+</code></pre>
+<p>Except that <code>bvarGrad</code> is not the value of the gradient, it’s an
+abstract syntax tree of gradient’s computation instead.
+This way <code>bvarGrad</code> is a <em>linear</em> expression, by construction.
+Building the graph for <code>bvarGrad</code> only (as opposed to <code>bvarValue</code>) greatly
+reduces the scope
+and complexity of the otherwise tricky “reverse” part of differentiation algorithm.</p>
+<h2 id="linear-maps">Linear maps</h2>
+<p>Automatic differentiation is all about vector spaces and linear maps. Let me quickly
+introduce them.</p>
+<p>Vector spaces are covered by <code>vector-space</code> package.
+Two most relevant operations are vector
+addition and scalar-vector multiplication:</p>
+<pre><code class="language-haskell">(^+^) :: v -&gt; v -&gt; v
+(*^) :: Scalar v -&gt; v -&gt; v
+</code></pre>
+<p>Linear map is a mapping <span class="arithmatex">\(f: U \to V\)</span>, where <span class="arithmatex">\(U\)</span> and <span class="arithmatex">\(V\)</span> are vector spaces,
+satisfying the following conditions:</p>
+<div class="arithmatex">\[\begin{align}
+f(x+y) &amp; = f(x) + f(y) \\
+f(a x) &amp; = a f(x)
+\end{align}\]</div>
+<p>While linear maps are conceptually just functions, we can’t represent
+all of them as Haskell functions, as that would
+lead to terrible algorithmic complexity.</p>
+<p>The best way to represent a linear map depends on the vector
+spaces in question and on the nature of linear map itself. Threfore
+we introduce a class for linear maps with an operator to evaluate them.
+The choice of operator comes
+from the fact that
+linear maps can be represented as matrices (or, more generally, tensors)
+and evaluation corresponds to matrix-vector product.</p>
+<pre><code class="language-haskell">class TensorMul u v where
+  type u ✕ v :: Type
+  (✕) :: u -&gt; v -&gt; u ✕ v
+</code></pre>
+<p>If <code>f</code> represents linear map <span class="arithmatex">\(U \to V\)</span> and <code>u :: U</code>,
+then <code>f ✕ u :: V</code> evaluates <span class="arithmatex">\(f(u)\)</span>.</p>
+<p>Such a general operator wouldn’t be very good for a Haskell library.
+More specific functions
+have better type inference, better error messages and make code easier to read
+and navigate.  Operator <code>✕</code> is supposed to mean tensor product followed by contraction,
+but there might be multiple sensible contractions, with no way to choose the
+right one at each call site.
+Anyway, it is very useful for explaining things and demonstrating that
+quite a few operations are actually the same.</p>
+<p>Laws of linear map can now be translated to Haskell:</p>
+<pre><code class="language-haskell">f ✕ (u ^+^ v) = f ✕ u ^+^ f ✕ v
+f ✕ (a *^ u) = a *^ (f ✕ u)
+</code></pre>
+<p>Multiplication <code>✕</code> distributes over addition on the other side, too,
+because linear maps form a vector space themselves:</p>
+<pre><code class="language-haskell">(f ^+^ g) ✕ u = f ✕ u ^+^ g ✕ u
+(a *^ f) ✕ u = a *^ (f ✕ u)
+</code></pre>
+<p>A common case in backpropagation is domain of <span class="arithmatex">\(f\)</span> being scalar. We will name
+it <span class="arithmatex">\(\mathbb{R}\)</span> to make this text more intuitive, though actual type of the scalar isn’t
+really important. Gradient of variable <span class="arithmatex">\(u \in U\)</span> in this case is a linear map <span class="arithmatex">\(u^*: U \to \mathbb{R}\)</span>.
+Vector space of such linear maps is said to be <em>dual vector space</em> of <span class="arithmatex">\(U\)</span>.
+Translating this to Haskell and choosing name <code>du</code> for <span class="arithmatex">\(u^*\)</span> gives</p>
+<pre><code class="language-haskell">u  :: u
+du :: du
+du ✕ u :: R
+</code></pre>
+<p>We use lowercase type variables <code>u</code> and <code>du</code>, because all automatic differentiation
+code will be polymorphic – <code>u</code> and <code>du</code> are type variables.
+Going back to matrix analogy, if <code>u</code> is a column vectors, then
+<code>du</code> is a row vector and their product is a scalar.</p>
+<p>Here <code>du</code> can be seen not only as a (row) vector, but also as a function:</p>
+<pre><code class="language-haskell">(du ✕) :: u -&gt; R
+</code></pre>
+<p>Vector <code>u</code> can be seen as a function, too:</p>
+<pre><code class="language-haskell">(✕ u) :: du -&gt; R
+</code></pre>
+<p>There’s a nice symmetry between <code>u</code> and <code>du</code> – both have data representation,
+both have function representation and both are duals of each other.</p>
+<p>Another important operation besides evaluation is composition. We don’t need
+another operator, because <code>✕</code> fits the bill. If you see linear maps as matrices,
+composition is matrix multiplication. This usage of <code>✕</code>
+gives rise to associativity law.
+Here are associative law of <code>✕</code> together with the laws of usual Haskell
+function application and composition operators, put together to show relation between them:</p>
+<pre><code class="language-haskell">(f . g) $ u = f $ (g $ u)
+(f ✕ g) ✕ u = f ✕ (g ✕ u)
+
+(f . g) . h = f . (g . h)
+(f ✕ g) ✕ h = f ✕ (g ✕ h)
+</code></pre>
+<h2 id="primfunc">PrimFunc</h2>
+<p>The first ingredient of linear computational graphs is linear functions of a single argument.</p>
+<pre><code class="language-haskell">data PrimFunc u du v dv = PrimFunc
+  { fwdFun :: u -&gt; v
+  , backFun :: dv -&gt; du
+  }
+</code></pre>
+<p><code>PrimFunc</code> is made of two parts: <code>u -&gt; v</code> evaluates this function,
+while <code>dv -&gt; du</code> backpropagates gradient. Given it’s a linear
+map, it should have <code>TensorMul</code> instance, but unfortunately we quickly run into
+overlapping instances problem. We resort to newtype wrappers to overcome it.</p>
+<pre><code class="language-haskell">newtype Vec x = Vec { unVec :: x }
+</code></pre>
+<p>This little nuisance is a consequence of overly general <code>TensorMul</code> class. The instance
+can now be given:</p>
+<pre><code class="language-haskell">instance TensorMul (PrimFunc u du v dv) (Vec u) where
+    type (PrimFunc u du v dv) ✕ (Vec u) = Vec v
+    (PrimFunc f _) ✕ Vec v = Vec (f v)
+</code></pre>
+<p>That was forward mode evaluation.
+Can you guess which operator we’re going to use for reverse mode?
+Of course, it has to be <code>✕</code>.
+There’s one more way to use it – on the <em>left</em> of the function:</p>
+<pre><code class="language-haskell"> f ✕ u :: v
+dv ✕ f :: du
+</code></pre>
+<p>Matrix analogy goes a long way here – if <code>u</code> and <code>v</code> are a column vectors,
+<code>du</code> and <code>dv</code> are row vectors, then <code>f</code> is a matrix and <code>✕</code> is matrix-vector
+or vector-matrix multiplication. Another thing worth mentioning – there are no transpositions
+of matrices in sight. Matrix transposition assumes Hilbert space, we shouldn’t be expecting
+them here.</p>
+<p>Since we already have newtype wrappers for vectors, we might create a different one for
+gradients.</p>
+<pre><code class="language-haskell">newtype Cov x = Cov {unCov :: x}
+</code></pre>
+<p><code>Cov</code> stands for <em>covector</em>. It doesn’t have much to do with variance and covariance,
+it just indicates that the variable should be positioned on the left side of the function.</p>
+<pre><code class="language-haskell">instance TensorMul (Cov dv) (PrimFunc u du v dv) where
+  type (Cov dv) ✕ (PrimFunc u du v dv) = Cov du
+  Cov v ✕ (PrimFunc _ f) = Cov (f v)
+</code></pre>
+<p>Function <span class="arithmatex">\(f\)</span> can be seen as a bilinear form. If Haskell allowed such notation:</p>
+<pre><code class="language-haskell">(✕ f ✕) :: dv -&gt; u -&gt; R
+</code></pre>
+<p>Associative law comes into play again:</p>
+<pre><code class="language-haskell">dv ✕ (f ✕ u)    =     (dv ✕ f) ✕ u
+dv ✕ fwdFun f u = backFun f dv ✕ u
+</code></pre>
+<p>This means <code>fwdFun</code> and <code>backFun</code> can’t be arbitrary linear maps – above
+equation must hold for all choices of <code>dv</code> and <code>u</code>. Mathematically, this
+law says that backFun must be <em>transpose</em> of fwdFun. That’s pretty much the
+definition of tranpose of a linear map.</p>
+<h2 id="ast">AST</h2>
+<p>We are ready to start building our AST:</p>
+<pre><code class="language-haskell">data Expr a da v dv where
+    Var :: Expr a da a da
+    Func :: PrimFunc u du v dv -&gt; Expr a da u du -&gt; Expr a da v dv
+</code></pre>
+<p><code>Expr a da v dv</code> is a linear expression of type <code>v</code> with one free variable of type <code>a</code>.</p>
+<h2 id="linear-functions-with-multiple-arguments">Linear functions with multiple arguments</h2>
+<p>There’s a difference between linear and bilinear (or multilinear) functions.
+Linear functions with two variables satisfy this equation:
+$$
+f(x_1+x_2,y_1+y_2) = f(x_1, y_1) + f(x_2, y_2)
+$$</p>
+<p>Multiplication, for example, is bilinear, not linear because
+$$
+(a+b) \cdot (x+y) \ne a \cdot x + b \cdot y
+$$</p>
+<p>Linearity is a much stronger restriction than multilinearity.
+It turns turns out any linear function can be written as a sum of one variable linear functions:
+$$
+f(x_1, x_2, …, x_n) = f_1(x_1) + f_2(x_2) + \cdots + f_n(x_n)
+$$
+for some <span class="arithmatex">\(f_1\)</span>, <span class="arithmatex">\(f_2\)</span>, …, <span class="arithmatex">\(f_n\)</span>.</p>
+<p>We have all the pieces to finish AST definition:</p>
+<pre><code class="language-haskell">data Expr a da v dv where
+    Var :: Expr a da a da
+    Func :: PrimFunc u du v dv -&gt; Expr a da u du -&gt; Expr a da v dv
+    Sum :: AdditiveGroup v =&gt; [Expr a da v dv] -&gt; Expr a da v dv
+</code></pre>
+<p>Thats it! That’s all we need to evaluate in reverse mode.</p>
+<h2 id="evaluation">Evaluation</h2>
+<p>Evaluating <code>Expr</code> directly is inefficient – we should recover sharing
+information first. Anyways, let’s see what needs to be evaluated first.</p>
+<p><code>Expr a da v dv</code> represents a function <code>a -&gt; v</code>, so it’s natural to give it
+a <code>TensorMul</code> instance. The code writes itself:</p>
+<pre><code class="language-haskell">instance TensorMul (Expr a da v dv) (Vec a) where
+    type Expr a da v dv ✕ Vec a = Vec v
+    expr ✕ a = case expr of
+        Var -&gt; a                 -- Var is identity function
+        Func f v -&gt; f ✕ (v ✕ a)  -- Func f v = f ✕ v
+        Sum vs -&gt; sumV [v ✕ a | v &lt;- vs]
+</code></pre>
+<p>Reverse mode evaluation is also straightforward:</p>
+<pre><code class="language-haskell">instance AdditiveGroup da =&gt; TensorMul (Vec dv) (Expr a da v dv) where
+    type Vec dv ✕ (Expr a da v dv) = Vec da
+    dv ✕ expr = case expr of
+        Var -&gt; dv
+        Func f v -&gt; (dv ✕ f) ✕ v
+        Sum vs -&gt; sumV [dv ✕ v | v &lt;- vs]
+</code></pre>
+<h2 id="transposition">Transposition</h2>
+<p>While evaluation code is mechanical and boring, it gets more interesting
+with transposition. In order not to spoil the fun, it’s left as
+a puzzle for the reader.</p>
+<pre><code class="language-haskell">transposeExpr :: AdditiveGroup da =&gt; Expr a da v dv -&gt; Expr dv v da a
+transposeExpr = _
+</code></pre>
+<p>Can you fill in the hole? This time code doesn’t write itself. At first
+I attacked this problem using type tetris approach myself, but that
+proved too hard and I had to reach for a pen and paper. You can
+see my solution <a href="../Solution.hs">here</a></p>
+</article>
+</div>
+</div>
+</main>
+<footer class="md-footer">
+<nav aria-label="Footer" class="md-footer__inner md-grid">
+<a aria-label="Previous: Gradient Type" class="md-footer__link md-footer__link--prev" href="../part1/" rel="prev">
+<div class="md-footer__button md-icon">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"></path></svg>
+</div>
+<div class="md-footer__title">
+<div class="md-ellipsis">
+<span class="md-footer__direction">
+                Previous
+              </span>
+              Gradient Type
+            </div>
+</div>
+</a>
+<a aria-label="Next: Sparsity" class="md-footer__link md-footer__link--next" href="../part3/" rel="next">
+<div class="md-footer__title">
+<div class="md-ellipsis">
+<span class="md-footer__direction">
+                Next
+              </span>
+              Sparsity
+            </div>
+</div>
+<div class="md-footer__button md-icon">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"></path></svg>
+</div>
+</a>
+</nav>
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-footer-copyright">
+<div class="md-footer-copyright__highlight">
+            © 2021 Andrius Stankevičius
+          </div>
+        
+        
+          Made with
+          <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+            Material for MkDocs
+          </a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"base": "../..", "features": [], "translations": {"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "search": "../../assets/javascripts/workers/search.8397ff9e.min.js", "version": null}</script>
+<script src="../../assets/javascripts/bundle.1e84347e.min.js"></script>
+<script src="../../js/mathjax.js"></script>
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</body>
+</html>

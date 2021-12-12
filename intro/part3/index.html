@@ -1,0 +1,483 @@
+
+<!DOCTYPE html>
+
+<html class="no-js" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<meta content="Andrius Stankevičius" name="author"/>
+<link href="http://localhost:8000/intro/part3/" rel="canonical"/>
+<link href="../../assets/images/favicon.png" rel="icon"/>
+<meta content="mkdocs-1.2.3, mkdocs-material-7.3.5" name="generator"/>
+<title>Sparsity - Downhill</title>
+<link href="../../assets/stylesheets/main.cdeb8541.min.css" rel="stylesheet"/>
+<link href="../../assets/stylesheets/palette.3f5d1f46.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font-family:"Roboto";--md-code-font-family:"Roboto Mono"}</style>
+<link href="../../js/style.css" rel="stylesheet"/>
+</head>
+<body data-md-color-accent="none" data-md-color-primary="none" data-md-color-scheme="" dir="ltr">
+<script>function __prefix(e){return new URL("../..",location).pathname+"."+e}function __get(e,t=localStorage){return JSON.parse(t.getItem(__prefix(e)))}</script>
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#sparsity">
+          Skip to content
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<header class="md-header" data-md-component="header">
+<nav aria-label="Header" class="md-header__inner md-grid">
+<a aria-label="Downhill" class="md-header__button md-logo" data-md-component="logo" href="../.." title="Downhill">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"></path></svg>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            Downhill
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              Sparsity
+            
+          </span>
+</div>
+</div>
+</div>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Search" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Search" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5z"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"></path></svg>
+</label>
+<nav aria-label="Search" class="md-search__options">
+<button aria-label="Clear" class="md-search__icon md-icon" tabindex="-1" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"></path></svg>
+</button>
+</nav>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Initializing search
+          </div>
+<ol class="md-search-result__list"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="md-header__source">
+<a class="md-source" data-md-component="source" href="https://github.com/andriusstank/downhill/" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"></path></svg>
+</div>
+<div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Navigation" class="md-nav md-nav--primary" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="Downhill" class="md-nav__button md-logo" data-md-component="logo" href="../.." title="Downhill">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54z"></path></svg>
+</a>
+    Downhill
+  </label>
+<div class="md-nav__source">
+<a class="md-source" data-md-component="source" href="https://github.com/andriusstank/downhill/" title="Go to repository">
+<div class="md-source__icon md-icon">
+<svg viewbox="0 0 448 512" xmlns="http://www.w3.org/2000/svg"><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"></path></svg>
+</div>
+<div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+</div>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../..">
+        Home
+      </a>
+</li>
+<li class="md-nav__item md-nav__item--active md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" data-md-toggle="__nav_2" id="__nav_2" type="checkbox"/>
+<label class="md-nav__link" for="__nav_2">
+          Design
+          <span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-label="Design" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_2">
+<span class="md-nav__icon md-icon"></span>
+          Design
+        </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../part1/">
+        Gradient Type
+      </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../part2/">
+        Linear Graph
+      </a>
+</li>
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" data-md-toggle="toc" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+          Sparsity
+          <span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
+        Sparsity
+      </a>
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#sparse-gradients">
+    Sparse gradients
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#better-ast">
+    Better AST
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#inline-nodes">
+    Inline nodes
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#sparse-nodes">
+    Sparse nodes
+  </a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../getstart/">
+        Get Started
+      </a>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#sparse-gradients">
+    Sparse gradients
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#better-ast">
+    Better AST
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#inline-nodes">
+    Inline nodes
+  </a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#sparse-nodes">
+    Sparse nodes
+  </a>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<a class="md-content__button md-icon" href="https://github.com/andriusstank/downhill/edit/master/docs/intro/part3.md" title="Edit this page">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"></path></svg>
+</a>
+<h1 id="sparsity">Sparsity</h1>
+<p>It’s easy to run into quadratic complexity.</p>
+<p>Gradients are often sparse. Consider backpropagating over <code>fst :: (a, b) -&gt; a</code>.
+If gradient of <code>a</code> is <code>da</code>, then gradient of <code>(a, b)</code> is <code>(da, zeroV)</code>. The second
+element is just a zero, but it might be a very fat zero – maybe
+a large nested record of big arrays, all full of zeros! Extreme
+case of gradient sparsity appears in indexing a vector. All but one elements of
+gradient are zero. Constructing such a vector makes indexing <span class="arithmatex">\(O(n)\)</span> operation.</p>
+<h2 id="sparse-gradients">Sparse gradients</h2>
+<p>Imperative implementations of backpropagation dodge this problem by updating
+gradients in-place. While that’s possible to do in Haskell, there’s a better way –
+builders. Builder is data type for efficient representation of sparse gradients.
+Or it might be a <code>ST</code> action that bumps the gradient in-place if you wish.</p>
+<p><code>Downhill</code> library has a class for builders:</p>
+<pre><code class="language-haskell">class Monoid (VecBuilder v) =&gt; BasicVector v where
+    type VecBuilder v :: Type
+    sumBuilder :: VecBuilder v -&gt; v
+</code></pre>
+<p><code>BasicVector</code> is absolutely minimal requirement for a type to be eligible
+to automatic differentiation.
+Functions on graph edges produce builders. Nodes then <code>mconcat</code> them and
+pass to <code>sumBuilder</code>.</p>
+<p>For example, builder for pairs looks like this:</p>
+<pre><code class="language-haskell">type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
+</code></pre>
+<p><code>Nothing</code> stands for zero vector. <code>Maybe</code> is important here,
+<code>mempty</code> wouldn’t be cheap for deeply nested pairs otherwise.</p>
+<h2 id="better-ast">Better AST</h2>
+<p><code>Expr</code> type in the library is different to that in previous part in a few ways.</p>
+<p>First of all, it hasn’t got
+pairs of vectors and gradients, such as <code>a da v dv</code>. Just <code>a v</code>. Two
+sets of parameters allows both forward and reverse mode evaluation,
+but we do reverse mode only here. Those would be <code>da dv</code> for reverse
+mode. We drop superfluous “d” and call them <code>a</code> anv <code>v</code>.</p>
+<p>There’s also a little problem with our <code>Expr</code> type.
+As we’re going to convert it to a graph, we
+need a clear separation between nodes and edges.
+<code>Func</code> is definetely an edge. <code>Sum</code> itself is a
+node, but it contains a mixed bag of adjacent edges <em>and nodes</em>.
+We disallow this situation of nodes adjacent to nodes by
+splitting AST into terms and expressions:</p>
+<pre><code class="language-haskell">data Term a v where
+  Term :: (v -&gt; VecBuilder u) -&gt; Expr a u -&gt; Term a v
+
+data Expr a v where
+  ExprVar :: Expr a a
+  ExprSum :: BasicVector v =&gt; [Term a v] -&gt; Expr a v
+</code></pre>
+<p>There’s <code>v -&gt; VecBuilder u</code> in place of <code>PrimFunc</code>, which adds
+support for sparse gradients and drops forward mode evaluation.
+Also <code>BasicVector</code> replaces <code>AdditiveGroup</code>
+in <code>ExprSum</code>.</p>
+<h2 id="inline-nodes">Inline nodes</h2>
+<p>Builders are not enough. Say, we have a simple newtype wrapper for vector.
+Let’s have a closer look at what happens when we attempt to index it:</p>
+<pre><code class="language-haskell">newtype MyVector a = MyVector { unMyVector :: Vector a }
+
+myLookup :: MyVector a -&gt; Int -&gt; a
+myLookup v i = unMyVector v ! i
+</code></pre>
+<p>If this code would be bluntly adapted to work on <code>Expr</code>, the
+tree would have three nodes with two edges between them:</p>
+<div class="mermaid">graph TD
+  nodeMyVector[MyVector a]
+  nodeVector[Vector a]
+  nodeItem[a]
+  nodeVector-- "(! i)" --&gt;nodeItem
+  nodeMyVector-- unMyVector --&gt;nodeVector
+  nodeMore["..."]
+  style nodeMore stroke:none,fill:none
+  nodeMyVector-- "..." --&gt; nodeMore
+</div>
+<p>Let’s see how gradients propagate when we flip edges:</p>
+<div class="mermaid">graph BT
+  nodeMyVectorB["Grad (MyVector a)"]
+  nodeMyVectorB1(["GradBuilder (MyVector a)"])
+  style nodeMyVectorB1 fill:white,stroke-dasharray: 5 5
+  nodeMore["..."]
+  style nodeMore stroke:none,fill:none
+  nodeVectorB["&lt;b&gt;Grad (Vector a)&lt;/b&gt;"]
+  nodeVectorB1(["GradBuilder (Vector a)"])
+  style nodeVectorB1 fill:white,stroke-dasharray: 5 5
+  nodeItemB["Grad a"]
+  nodeItemB-- "(! i)" --&gt;nodeVectorB1
+  nodeVectorB1-- sumBuilder --&gt;nodeVectorB
+  nodeVectorB-- unMyVector --&gt;nodeMyVectorB1
+  nodeMyVectorB1-- sumBuilder --&gt;nodeMyVectorB
+  nodeMore-- "..." --&gt;nodeMyVectorB1
+</div>
+<p>Indexing function <code>(! i)</code> produces lightweight gradient builder, as desired.
+Only for the intermediate node (labeled in bold font) to convert it into a big fat vector, undoing all
+optimization!</p>
+<p><code>BackGrad</code> has the ability to relay gradients without summing them:</p>
+<pre><code class="language-haskell">newtype BackGrad a v
+  = BackGrad
+      ( forall x.
+        (x -&gt; VecBuilder v) -&gt;
+        Term a x
+      )
+</code></pre>
+<p><code>BackGrad</code> turns linear functions (<code>x -&gt; VecBuilder v</code>) to <code>Term</code>s.
+Alternatively, you could see it as a <code>Term</code> data constructor with a hole in
+place of <code>Expr</code> argument. It generalizes <code>Expr</code>:</p>
+<pre><code class="language-haskell">realNode :: Expr a v -&gt; BackGrad a v
+realNode x = BackGrad (\f -&gt; Term f x)
+</code></pre>
+<p>and provides means to apply linear function without creating a node:</p>
+<pre><code class="language-haskell">inlineNode ::
+  forall r u v.
+  (VecBuilder v -&gt; VecBuilder u) -&gt;
+  BackGrad r u -&gt;
+  BackGrad r v
+inlineNode f (BackGrad g) = BackGrad go
+  where
+    go :: forall x. (x -&gt; VecBuilder v) -&gt; Term r x
+    go h = g (f . h)
+</code></pre>
+<div class="mermaid">graph BT
+  nodeMyVectorB["Grad (MyVector a)"]
+  nodeMyVectorB1(["GradBuilder (MyVector a)"])
+  nodeMore["..."]
+  style nodeMore fill:none,stroke:none
+  style nodeMyVectorB1 fill:white,stroke-dasharray: 5 5
+  nodeVectorB1(["GradBuilder (Vector a)"])
+  style nodeVectorB1 fill:white,stroke-dasharray: 5 5
+  nodeItemB["Grad a"]
+  nodeItemB-- "(! i)" --&gt;nodeVectorB1
+  nodeVectorB1-- unMyVector --&gt;nodeMyVectorB1
+  nodeMyVectorB1-- sumBuilder --&gt;nodeMyVectorB
+  nodeMore-- "..." --&gt;nodeMyVectorB1
+</div>
+<p>Node that <code>Expr</code> is a node, <code>Term</code> is an edge. No <code>Expr</code> – no node.</p>
+<!--
+Note that `ExprSum` data constructors will turn into nodes, `Term`s will turn
+into edges and everything else will be evaluated directly.
+-->
+<h2 id="sparse-nodes">Sparse nodes</h2>
+<p>Inline nodes are still not enough. There’s no good way to access members
+of tuples, or other product types for that matter. They are important,
+because this library differentiates
+unary functions <code>BVar a -&gt; BVar b</code> only. If we have many variables to differentiate with
+respect to, we have to pack them together into single tuple or record <code>BVar a</code>.
+For a complex model <code>a</code> might be a big structure of nested records.
+Automatic differentiation starts with a single big variable containing all the data
+and there has to be an efficient way to access all parts of it.</p>
+<p>Constructing real <code>Expr</code> nodes won’t cut, because they lose sparsity and
+make the cost of accessing any member proportional to the size of the whole structure.
+Inline nodes are not an
+option, too. Accessing deeply nested members would create a long chain of <code>inlineNode</code>s.
+The cost of traversing the whole chain will have to be paid every time the variable
+is used. This way a simple traversal of a list will turn into into
+a Schlemiel the painter’s algorithm!</p>
+<p>The solution is to store sparse gradients in graph nodes for this use case.
+Luckily, there’s no need for new types of node here.
+Have a look at <code>BackGrad</code> definition – there’s
+no <code>v</code>, only <code>VecBuilder</code>. This means we can choose a different type of node to
+store gradient and hide it under <code>BackGrad</code> as if nothing happened. No one can
+possibly notice.</p>
+<pre><code class="language-haskell">castBackGrad ::
+  forall r v z.
+  VecBuilder z ~ VecBuilder v =&gt;
+  BackGrad r v -&gt; BackGrad r z
+castBackGrad (BackGrad g) = BackGrad g
+</code></pre>
+<p>Sparse gradients are wrapped in  <code>SparseVector</code> newtype for storage in graph.
+Storing naked <code>VecBuilder v</code> runs into a little problem – what’s
+ <code>VecBuilder (VecBuilder v)</code>?</p>
+<pre><code class="language-haskell">newtype SparseVector v = SparseVector
+  { unSparseVector :: VecBuilder v }
+</code></pre>
+<p><code>sumBuilder :: VecBuilder v -&gt; SparseVector v</code> doesn’t really sum anything,
+it just stores unevaluated builders.</p>
+<p>How does it differ from inline nodes? Turns out monoid operation of builders
+of product types plays a key role in intermediate nodes.
+It collects gradients from all successor nodes and packs them into a
+tuple/record before passing them to parent node as a single unit.
+This way gradients are assembled bottom up
+into a tree of the same shape as original data. Inline nodes would propagate
+gradients form each leaf node all the way to the root individually.</p>
+</article>
+</div>
+</div>
+</main>
+<footer class="md-footer">
+<nav aria-label="Footer" class="md-footer__inner md-grid">
+<a aria-label="Previous: Linear Graph" class="md-footer__link md-footer__link--prev" href="../part2/" rel="prev">
+<div class="md-footer__button md-icon">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"></path></svg>
+</div>
+<div class="md-footer__title">
+<div class="md-ellipsis">
+<span class="md-footer__direction">
+                Previous
+              </span>
+              Linear Graph
+            </div>
+</div>
+</a>
+<a aria-label="Next: Get Started" class="md-footer__link md-footer__link--next" href="../../getstart/" rel="next">
+<div class="md-footer__title">
+<div class="md-ellipsis">
+<span class="md-footer__direction">
+                Next
+              </span>
+              Get Started
+            </div>
+</div>
+<div class="md-footer__button md-icon">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"></path></svg>
+</div>
+</a>
+</nav>
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-footer-copyright">
+<div class="md-footer-copyright__highlight">
+            © 2021 Andrius Stankevičius
+          </div>
+        
+        
+          Made with
+          <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+            Material for MkDocs
+          </a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"base": "../..", "features": [], "translations": {"clipboard.copy": "Copy to clipboard", "clipboard.copied": "Copied to clipboard", "search.config.lang": "en", "search.config.pipeline": "trimmer, stopWordFilter", "search.config.separator": "[\\s\\-]+", "search.placeholder": "Search", "search.result.placeholder": "Type to start searching", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing", "select.version.title": "Select version"}, "search": "../../assets/javascripts/workers/search.8397ff9e.min.js", "version": null}</script>
+<script src="../../assets/javascripts/bundle.1e84347e.min.js"></script>
+<script src="../../js/mathjax.js"></script>
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<script src="https://unpkg.com/mermaid@8.8.0/dist/mermaid.min.js"></script><script>mermaid.initialize({
+    securityLevel: "loose",
+    theme: "material",
+    themeVariables: {
+        fontFamily: "monospace"
+    }
+});</script></body>
+</html>
