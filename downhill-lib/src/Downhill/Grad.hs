@@ -38,8 +38,12 @@ class
   -- if evalGrad goes to HasGrad class, parameter p is ambiguous
   evalGrad :: dv -> v -> s
 
--- | The job of a metric tensor is to convert gradients to vectors. Actually,
--- it's /inverse/ of a metric tensor, but that's what we need for gradient descent.
+-- | @MetricTensor@ converts gradients to vectors.
+--
+-- It is really inverse of a metric tensor, because it maps cotangent
+-- space into tangent space. Gradient descent doesn't need metric tensor,
+-- it needs inverse.
+
 class
   ( Dual (Scalar g) (MtVector g) (MtCovector g),
     VectorSpace g
@@ -62,7 +66,8 @@ class
   sqrNorm :: g -> MtCovector g -> Scalar g
   sqrNorm g x = innerProduct g x x
 
--- | Full pack of types and constraints for differentiation.
+-- | @HasGrad@ is a collection of types and constraints that are useful
+-- in many places. It helps to keep type signatures short.
 
 -- TODO: FullVector or not?
 -- TODO: Metric or not?

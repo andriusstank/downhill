@@ -14,11 +14,11 @@ to have different types.
 Traditionally reverse mode automatic differentiation
 works by constructing computational graph or Wengert list.
 However, faithfully representing heterogeneous
-graph in Haskell would result in horrid types.
+graph in Haskell would result in horrible types.
 
 This library exploits linearity of derivative and constructs *linear*
 computational graph to keep everything simple. Bringing heterogeneity
-to linear graphs don't make them more complicated. In fact, it makes
+to linear graphs don't make them more complicated. It makes
 working with them much easier, thanks to parametric polymorphism.
 
 ## Related work
@@ -26,7 +26,7 @@ working with them much easier, thanks to parametric polymorphism.
 ### Backprop
 
 [Backprop](https://backprop.jle.im/) introduced heterogeneous
-reverse mode differentiation as a useable library. It has a
+reverse mode differentiation as a usable library. It has a
 well typed and nice interface, but it relies on rather complicated
 machinery under the hood. *Downhill* library explores alternative ways
 to implement automatic differentiation.

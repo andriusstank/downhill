@@ -100,9 +100,15 @@ descent. Ability to measure distances is needed to make any sense
 of steepness.
 
 Metric tensor brings different units into commensurable quantities.
-It also plays the role of preconditioner.
+It also plays the role of preconditioner. Therefore, we opt to
+passing metric tensor explicitly instead of demanding existance
+of canonical one via Hilber space.
 
-There are infinitely  many choices of metric tensor. Demanding `V` to be
-a Hilbert space means choosing a canonical one.
-But differentiation, unlike gradient descent, does not depend on the
-choice of metric in any way.
+<!--
+Sometimes there is 
+There are infinitely many choices of metric tensor. 
+Demanding `V` to be
+a Hilbert space means choosing a canonical one. Instead, we opt to
+passing metric tensor explicitly where needed. Importantly,
+differentiation does not need one.
+-->
