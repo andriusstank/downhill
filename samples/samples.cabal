@@ -1,0 +1,44 @@
+cabal-version:       2.4
+
+name:                downhill-samples
+version:             0.1.0.0
+license:             MIT
+license-file:        LICENSE
+author:              Andrius Stankevičius
+maintainer:          floppycat@gmail.com
+
+common all-samples
+  ghc-options:         -Wall
+  build-depends:       base, downhill, vector-space
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+  hs-source-dirs:      src
+
+executable hello
+  import:              all-samples
+  main-is:             Hello.hs
+
+executable higher
+  import:              all-samples
+  main-is:             Higher.hs
+
+executable affine
+  import:              all-samples
+  main-is:             Affine.hs
+
+executable record
+  import:              all-samples
+  main-is:             Record.hs
+
+executable newtype
+  import:              all-samples
+  main-is:             Newtype.hs
+
+executable th
+  import:              all-samples
+  main-is:             TH.hs
+  build-depends:       lens, template-haskell
+
+executable traversable
+  import:              all-samples
+  main-is:             Traversable.hs

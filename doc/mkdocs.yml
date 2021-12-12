@@ -1,0 +1,40 @@
+site_name: Downhill
+site_url: http://localhost:8000/
+repo_url: https://github.com/andriusstank/downhill
+site_author: Andrius Stankevičius
+
+theme:
+    name: material
+
+plugins:
+    - search
+    - mermaid2:
+        arguments:
+          securityLevel: 'loose'
+          theme: 'material'
+          themeVariables:
+              fontFamily: monospace
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+  - footnotes
+  - smarty
+ 
+extra_javascript:
+  - js/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+extra_css:
+  - js/style.css
+
+nav:
+    - Home: index.md
+    - Design:
+        - 'Gradient Type': 'intro/part1.md'
+        - 'Linear Graph': 'intro/part2.md'
+        - 'Sparsity': 'intro/part3.md'
+    - Get Started: getstart.md
+
+copyright: "&copy; 2021 Andrius Stankevičius"

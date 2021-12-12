@@ -1,0 +1,58 @@
+cabal-version:       2.4
+
+name:                downhill
+version:             0.1.0.0
+-- synopsis:
+-- description:
+-- bug-reports:
+license:             MIT
+license-file:        LICENSE
+author:              Andrius Stankevičius
+maintainer:          floppycat@gmail.com
+-- copyright:
+category:            Math
+extra-source-files:  CHANGELOG.md
+
+library
+  exposed-modules:     Downhill.Linear.Expr,
+                       Downhill.Linear.BackGrad,
+                       Downhill.Linear.Backprop,
+                       Downhill.Linear.Lift,
+                       Downhill.Linear.Prelude,
+                       Downhill.Internal.Graph.Types,
+                       Downhill.Internal.Graph.OpenMap,
+                       Downhill.Internal.Graph.NodeMap,
+                       Downhill.Internal.Graph.OpenGraph,
+                       Downhill.Internal.Graph.Graph,
+                       Downhill.Grad,
+                       Downhill.BVar
+                       Downhill.BVar.Num,
+                       Downhill.BVar.Prelude,
+                       Downhill.BVar.Traversable
+                       Downhill.TH
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.12.0.0 && <4.16,
+                       vector-space,
+                       containers, unordered-containers,
+                       transformers,
+                       reflection,
+                       tagged,
+                       template-haskell,
+                       th-abstraction,
+                       dlist,
+                       vector,
+                       vector-sized
+
+  hs-source-dirs:      src
+  other-modules:       Trace
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+
+test-suite downhill-test
+  type:                exitcode-stdio-1.0
+  main-is:             Main.hs
+  other-modules:       DownhillTest.Point, DownhillTest.Traversable, DownhillTest.TH, DownhillTest.TestTHOptions
+  build-depends:       base, downhill, tasty, tasty-hunit, vector-space
+  hs-source-dirs:      test
+  default-language:    Haskell2010

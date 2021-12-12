@@ -1,0 +1,5 @@
+.ghc.environment.*
+dist-newstyle
+dist/cabal-config-flags
+cabal.project.local
+cabal.project.local~
