@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE KindSignatures #-}
@@ -61,7 +63,7 @@ import Language.Haskell.TH
     Dec (DataD, InstanceD, NewtypeD, SigD),
     Exp (AppE, ConE, InfixE, VarE),
     Name,
-    Pat (ConP, VarP),
+    Pat (VarP),
     Q,
     SourceStrictness (NoSourceStrictness),
     SourceUnpackedness (NoSourceUnpackedness),
@@ -83,6 +85,7 @@ import Language.Haskell.TH.Syntax
     VarBangType,
     mkNameS,
   )
+import qualified  Language.Haskell.TH
 
 data DatatypeFields
   = NormalFields [Type]
@@ -125,6 +128,13 @@ data BVarOptions = BVarOptions
      -- | List of fields that take no part in differentiation
     optExcludeFields :: [String]
   }
+
+pattern ConP :: Name -> [Pat] -> Pat
+#if MIN_VERSION_template_haskell(2,18,0)
+pattern ConP x y = Language.Haskell.TH.ConP x [] y
+#else
+pattern ConP x y = Language.Haskell.TH.ConP x y
+#endif
 
 defaultTangRecordNamer :: RecordNamer
 defaultTangRecordNamer =
@@ -839,9 +849,9 @@ mkDVarC1 options = \case
         (fullParsedRecord, cinfo) <- parseDownhillRecord recordName record'
         parsedRecord <- filterFields options fullParsedRecord
         recordTypeVarNames <- do
-          let getName x = do
-                let SigT (VarT y) _ = x
-                return y
+          let getName x = case x of
+                SigT (VarT y) _ -> return y
+                _ -> fail "Type variable is not VarT"
           traverse getName (datatypeInstTypes record')
         -- We have two sets of type variables: one in record definition (as in `data MyRecord a b c = ...`)
         -- and another one in instance head (`instance HasGrad (MyRecord a' b' c')). We need

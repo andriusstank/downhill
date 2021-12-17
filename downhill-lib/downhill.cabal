@@ -2,9 +2,13 @@ cabal-version:       2.4
 
 name:                downhill
 version:             0.1.0.0
--- synopsis:
--- description:
--- bug-reports:
+synopsis:            Reverse mode automatic differentiation
+homepage:            https://andriusstank.github.io/downhill/
+description:
+  Simple and well typed implementation of reverse mode automatic differentiation.
+  See home page <https://andriusstank.github.io/downhill/> for more detailed
+  description.
+bug-reports:         https://github.com/andriusstank/downhill/issues
 license:             MIT
 license-file:        LICENSE
 author:              Andrius Stankevičius
@@ -25,27 +29,23 @@ library
                        Downhill.Internal.Graph.OpenGraph,
                        Downhill.Internal.Graph.Graph,
                        Downhill.Grad,
-                       Downhill.BVar
-                       Downhill.BVar.Num,
+                       Downhill.BVar,
+                       Downhill.BVar.Num
                        Downhill.BVar.Prelude,
-                       Downhill.BVar.Traversable
+                       Downhill.BVar.Traversable,
                        Downhill.TH
   -- other-modules:
   -- other-extensions:
-  build-depends:       base >=4.12.0.0 && <4.16,
-                       vector-space,
-                       containers, unordered-containers,
-                       transformers,
-                       reflection,
-                       tagged,
-                       template-haskell,
-                       th-abstraction,
-                       dlist,
-                       vector,
-                       vector-sized
-
+  build-depends:       base                  >= 4.12.0.0 && <4.17,
+                       containers            >= 0.6.5 && < 0.7,
+                       reflection            >= 2.1.6 && < 2.2,
+                       template-haskell      >= 2.16.0 && < 2.19,
+                       transformers          >= 0.5.6 && < 0.6,
+                       th-abstraction        >= 0.4.3 && < 0.5,
+                       unordered-containers  >= 0.2.14 && < 0.3,
+                       vector-space          >= 0.16 && < 0.17,
   hs-source-dirs:      src
-  other-modules:       Trace
+  other-modules:
   default-language:    Haskell2010
   ghc-options:         -Wall
 

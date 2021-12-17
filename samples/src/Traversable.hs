@@ -10,6 +10,7 @@ is easy. Of course, it is only applicable if all variables are of the same type.
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Main(main) where
 
@@ -27,8 +28,9 @@ deriving via (TraversableVar MyRecord a) instance HasGrad a => HasGrad (MyRecord
 
 -- This version is less general than _myRecordGrad'. It shows that
 -- type of function to be differentiated does not need to mention BVar.
+{-# ANN myRecordGrad ("HLint: Eta reduce" :: String) #-}
 myRecordGrad :: (forall a. Num a => MyRecord a -> a) -> MyRecord Double -> MyRecord Double
-myRecordGrad = backpropTraversable_GradOnly 1
+myRecordGrad f = backpropTraversable_GradOnly 1 f
 
 _myRecordGrad' :: (forall r. MyRecord (BVar r Double) -> BVar r Double) ->  MyRecord Double -> MyRecord Double
 _myRecordGrad' = backpropTraversable_GradOnly 1

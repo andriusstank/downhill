@@ -8,12 +8,22 @@
 
 module Downhill.BVar.Num
   ( -- | Automatic differentiation for @Num@ hierarchy.
+    --
+    -- Polymorphic functions of type such as @Num a => a -> a@
+    -- can't be differentiated directly, because 'backprop' needs some additional instances.
+    -- 'AsNum' wrapper provides those instances.
+    --
+    -- @
+    -- derivative :: (forall b. Floating b => b -> b) -> (forall a. Floating a => a -> a)
+    -- derivative fun x0 = backpropNum (fun (var (AsNum x0)))
+    -- @
+
     AsNum (..),
     NumBVar,
     numbvarValue,
     var,
     constant,
-    backpropNum,
+    backpropNum
   )
 where
 

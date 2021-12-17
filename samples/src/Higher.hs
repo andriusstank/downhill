@@ -1,14 +1,14 @@
+{- Higher order derivatives -}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{- Higher order derivatives -}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Main(main) where
 
 import Downhill.BVar (var)
-import Downhill.BVar.Num (AsNum (AsNum), backpropNum)
+import Downhill.BVar.Num (backpropNum, AsNum (AsNum))
 
 -- Alternatively, the type can be rearrange this way:
 -- diff ::
