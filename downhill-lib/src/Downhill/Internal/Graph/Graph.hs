@@ -13,7 +13,7 @@
 
 module Downhill.Internal.Graph.Graph
   (  -- * Graph type
-    Graph (..),
+    Graph (..), Node(..),
     SomeGraph (..),
     -- * Evaluate
     evalGraph,
