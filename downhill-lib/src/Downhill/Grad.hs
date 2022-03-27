@@ -43,12 +43,10 @@ class
 -- It is really inverse of a metric tensor, because it maps cotangent
 -- space into tangent space. Gradient descent doesn't need metric tensor,
 -- it needs inverse.
-
 class
-  ( Dual (Scalar g) (MtVector g) (MtCovector g),
-    VectorSpace g
+  ( Dual s (MtVector g) (MtCovector g)
   ) =>
-  MetricTensor g
+  MetricTensor s g
   where
   type MtVector g :: Type
   type MtCovector g :: Type
@@ -59,11 +57,11 @@ class
   evalMetric :: g -> MtCovector g -> MtVector g
 
   -- | @innerProduct m x y = evalGrad x (evalMetric m y)@
-  innerProduct :: g -> MtCovector g -> MtCovector g -> Scalar g
+  innerProduct :: g -> MtCovector g -> MtCovector g -> s
   innerProduct g x y = evalGrad x (evalMetric g y)
 
   -- | @sqrNorm m x = innerProduct m x x@
-  sqrNorm :: g -> MtCovector g -> Scalar g
+  sqrNorm :: g -> MtCovector g -> s
   sqrNorm g x = innerProduct g x x
 
 -- | @HasGrad@ is a collection of types and constraints that are useful
@@ -73,7 +71,7 @@ class
 -- TODO: Metric or not?
 class
   ( Dual (MScalar p) (Tang p) (Grad p),
-    MetricTensor (Metric p),
+    MetricTensor (MScalar p) (Metric p),
     MtVector (Metric p) ~ Tang p,
     MtCovector (Metric p) ~ Grad p,
     BasicVector (Tang p),
@@ -110,7 +108,7 @@ type HasGradAffine p =
 instance Dual Integer Integer Integer where
   evalGrad = (*)
 
-instance MetricTensor Integer where
+instance MetricTensor Integer Integer where
   type MtVector Integer = Integer
   type MtCovector Integer = Integer
   evalMetric m x = m * x
@@ -127,7 +125,7 @@ instance (Dual s a da, Dual s b db) => Dual s (a, b) (da, db) where
 instance (Dual s a da, Dual s b db, Dual s c dc) => Dual s (a, b, c) (da, db, dc) where
   evalGrad (a, b, c) (x, y, z) = evalGrad a x ^+^ evalGrad b y ^+^ evalGrad c z
 
-instance (MetricTensor ma, MetricTensor mb, Scalar ma ~ Scalar mb) => MetricTensor (ma, mb) where
+instance (MetricTensor s ma, MetricTensor s mb) => MetricTensor s (ma, mb) where
   type MtVector (ma, mb) = (MtVector ma, MtVector mb)
   type MtCovector (ma, mb) = (MtCovector ma, MtCovector mb)
   evalMetric (ma, mb) (a, b) = (evalMetric ma a, evalMetric mb b)
@@ -146,13 +144,11 @@ instance
   type Metric (a, b) = (Metric a, Metric b)
 
 instance
-  ( MetricTensor ma,
-    MetricTensor mb,
-    MetricTensor mc,
-    Scalar ma ~ Scalar mb,
-    Scalar ma ~ Scalar mc
+  ( MetricTensor s ma,
+    MetricTensor s mb,
+    MetricTensor s mc
   ) =>
-  MetricTensor (ma, mb, mc)
+  MetricTensor s (ma, mb, mc)
   where
   type MtVector (ma, mb, mc) = (MtVector ma, MtVector mb, MtVector mc)
   type MtCovector (ma, mb, mc) = (MtCovector ma, MtCovector mb, MtCovector mc)
@@ -176,7 +172,7 @@ instance
 instance Dual Float Float Float where
   evalGrad = (*)
 
-instance MetricTensor Float where
+instance MetricTensor Float Float where
   type MtVector Float = Float
   type MtCovector Float = Float
   evalMetric m dv = m * dv
@@ -190,7 +186,7 @@ instance HasGrad Float where
 instance Dual Double Double Double where
   evalGrad = (*)
 
-instance MetricTensor Double where
+instance MetricTensor Double Double where
   type MtVector Double = Double
   type MtCovector Double = Double
   evalMetric m dv = m * dv
@@ -210,7 +206,7 @@ instance (AdditiveGroup (Scalar v), Num (Scalar v)) => VectorSpace (L2 v) where
   type Scalar (L2 v) = Scalar v
   x *^ L2 y = L2 (x * y)
 
-instance (AdditiveGroup a, Num a, a ~ Scalar v, Dual a v v) => MetricTensor (L2 v) where
+instance (AdditiveGroup a, Num a, a ~ Scalar v, Dual a v v) => MetricTensor a (L2 v) where
   type MtVector (L2 v) = v
   type MtCovector (L2 v) = v
   evalMetric (L2 a) u = a *^ u

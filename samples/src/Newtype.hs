@@ -1,18 +1,13 @@
 {- Manually wrapping and unwrapping newtypes inside BVar. -}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Main(main, unwrapBVar, wrapBVar) where
 
@@ -37,7 +32,7 @@ instance FullVector a => FullVector (MyWrapper a) where
   negateBuilder (MyWrapper a) = MyWrapper (negateBuilder a)
   scaleBuilder x (MyWrapper a) = MyWrapper (scaleBuilder x a)
 
-instance MetricTensor a => MetricTensor (MyWrapper a) where
+instance MetricTensor s a => MetricTensor s (MyWrapper a) where
   type MtVector (MyWrapper a) = MyWrapper (MtVector a)
   type MtCovector (MyWrapper a) = MyWrapper (MtCovector a)
   evalMetric (MyWrapper m) (MyWrapper x) = MyWrapper (evalMetric m x)

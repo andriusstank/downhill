@@ -55,7 +55,7 @@ instance Num a => HasGrad (AsNum a) where
   type Tang (AsNum a) = AsNum a
   type Metric (AsNum a) = AsNum a
 
-instance Num a => MetricTensor (AsNum a) where
+instance Num a => MetricTensor (AsNum a) (AsNum a) where
   type MtVector (AsNum a) = AsNum a
   type MtCovector (AsNum a) = AsNum a
   evalMetric (AsNum m) (AsNum x) = AsNum (m * x)

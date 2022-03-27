@@ -1,1 +1,3 @@
-packages: downhill-lib/downhill.cabal, samples/samples.cabal
+packages:
+  downhill-lib/downhill.cabal
+  samples/samples.cabal

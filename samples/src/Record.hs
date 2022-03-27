@@ -4,7 +4,6 @@ how it's done.
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -12,14 +11,13 @@ how it's done.
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Main (main, splitRecord, joinRecord) where
 
-import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace (Scalar))
+import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar))
 import Downhill.Grad (Dual (evalGrad), GradBuilder, HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm))
@@ -57,11 +55,10 @@ instance (FullVector a, FullVector b, VectorSpace.Scalar a ~ VectorSpace.Scalar 
   scaleBuilder x (MyRecord a b) = Just (MyRecord (scaleBuilder x a) (scaleBuilder x b))
 
 instance
-  ( MetricTensor a,
-    MetricTensor b,
-    Scalar a ~ Scalar b
+  ( MetricTensor s a,
+    MetricTensor s b
   ) =>
-  MetricTensor (MyRecord a b)
+  MetricTensor s (MyRecord a b)
   where
   type MtVector (MyRecord a b) = MyRecord (MtVector a) (MtVector b)
   type MtCovector (MyRecord a b) = MyRecord (MtCovector a) (MtCovector b)

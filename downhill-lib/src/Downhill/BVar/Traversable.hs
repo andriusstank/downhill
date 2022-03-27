@@ -8,7 +8,6 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -20,7 +19,7 @@
 --
 -- deriving via (TraversableVar MyRecord a) instance HasGrad a => HasGrad (MyRecord a)
 -- @
--- 
+--
 -- = Gradient type
 -- One might excect gradient type to be @type Grad (MyRecord a) = MyRecord (Grad a)@, but it's not
 -- the case, because record could contain additional members apart from @a@s, for example:
@@ -37,15 +36,13 @@
 -- and @MyPoint (Grad a)@ can't be made @VectorSpace@. Gradient type @Grad (MyRecord a)@
 -- is a newtype wrapper over @IntMap@
 -- that is not exported.
---
-
 module Downhill.BVar.Traversable
   ( -- * Backpropagate
     backpropTraversable,
     backpropTraversable_GradOnly,
     backpropTraversable_ValueAndGrad,
 
-     -- * Split
+    -- * Split
     splitTraversable,
 
     -- * TraversableVar
@@ -95,12 +92,12 @@ instance VectorSpace (Metric a) => VectorSpace (TraversableMetric f a) where
   type Scalar (TraversableMetric f a) = Scalar (Metric a)
 
 instance
-  ( MetricTensor (Metric a),
+  ( MetricTensor s (Metric a),
     MtVector (Metric a) ~ Tang a,
     MtCovector (Metric a) ~ Grad a,
     Dual s (Tang a) (Grad a)
   ) =>
-  MetricTensor (TraversableMetric f a)
+  MetricTensor s (TraversableMetric f a)
   where
   type MtVector (TraversableMetric f a) = IntmapVector f (Tang a)
   type MtCovector (TraversableMetric f a) = IntmapVector f (Grad a)
@@ -156,7 +153,7 @@ imap mkBVar' xs' = evalState (traverse getmkvar xs') 0
       return (mkBVar' index x)
 
 -- | Note that @splitTraversable@ won't be useful
--- for top level @BVar@, because the type @Grad (f a)@ is not exposed. 
+-- for top level @BVar@, because the type @Grad (f a)@ is not exposed.
 splitTraversable ::
   forall f r a.
   ( Traversable f,

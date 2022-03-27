@@ -9,8 +9,8 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TemplateHaskellQuotes #-}
 
 -- | Use like this:
 --
@@ -29,10 +29,8 @@
 --     or regular type variables (@instance HasGrad (MyRecord a)@)
 --
 --   * Scalar type.
---
 module Downhill.TH
-  (
-    mkHasGradInstances,
+  ( mkHasGradInstances,
     AffineSpaceOptions (..),
     RecordNamer (..),
     BVarOptions (..),
@@ -71,6 +69,7 @@ import Language.Haskell.TH
     nameBase,
     newName,
   )
+import qualified Language.Haskell.TH
 import Language.Haskell.TH.Datatype (ConstructorInfo (constructorFields, constructorName, constructorVariant), ConstructorVariant (InfixConstructor, NormalConstructor, RecordConstructor), DatatypeInfo (datatypeCons, datatypeInstTypes, datatypeName, datatypeVariant, datatypeVars), DatatypeVariant (Newtype), TypeSubstitution (applySubstitution), reifyDatatype)
 import Language.Haskell.TH.Datatype.TyVarBndr (TyVarBndrUnit)
 import Language.Haskell.TH.Syntax
@@ -85,7 +84,6 @@ import Language.Haskell.TH.Syntax
     VarBangType,
     mkNameS,
   )
-import qualified  Language.Haskell.TH
 
 data DatatypeFields
   = NormalFields [Type]
@@ -125,7 +123,7 @@ data BVarOptions = BVarOptions
     optMetricNamer :: RecordNamer,
     optBuilderNamer :: RecordNamer,
     optAffineSpace :: AffineSpaceOptions,
-     -- | List of fields that take no part in differentiation
+    -- | List of fields that take no part in differentiation
     optExcludeFields :: [String]
   }
 
@@ -483,7 +481,7 @@ mkMetricInstance metricRecord tangRecord gradRecord scalarType cxt instVars = do
               AppT (AppT EqualityT scalarVar) scalarType
             ]
           -- MetricTensor s (RecordMetric a1 … an)
-          ihead = ConT ''MetricTensor `AppT` metricType
+          ihead = ConT ''MetricTensor `AppT` scalarVar `AppT` metricType
       evalMetricDec <- mkEvalMetric
       sqrNormDec <- mkSqrNorm
       return
@@ -726,8 +724,11 @@ mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
   gradDecs <- mkVec cxt instVars scalarType gradRecord options
 
   metricDec <- mkRecord metricRecord
+  {-
+  -- No VectorSpace for MetricTensor
   additiveMetric <- mkAdditiveGroupInstance cxt metricRecord instVars
   vspaceMetric <- mkVectorSpaceInstance metricRecord scalarType cxt instVars
+  -}
   dualInstance <- mkDualInstance tangRecord gradRecord scalarType cxt instVars
   metricInstance <- mkMetricInstance metricRecord tangRecord gradRecord scalarType cxt instVars
   let needAffineSpace = case optAffineSpace options of
@@ -762,8 +763,6 @@ mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
   let decs =
         [ tangDecs,
           gradDecs,
-          additiveMetric,
-          vspaceMetric,
           dualInstance,
           metricDec,
           metricInstance,
@@ -866,7 +865,7 @@ mkDVarC1 options = \case
               when (scalarName /= ''MScalar) $
                 fail ("Expected `Scalar` equation, got " ++ show scalarName)
               return scalarType
-            _ -> fail "HasGrad instance must contain `Scalar ... = ...` declaration"
+            _ -> fail "HasGrad instance must contain `MScalar ... = ...` declaration"
           _ -> fail "`HasGrad` has multiple declarations"
 
         dvar <- mkDVar'' cxt parsedRecord options scalarType instVars substitutedRecord
