@@ -26,7 +26,7 @@ module Main (main) where
 import Data.AffineSpace (AffineSpace ((.+^), (.-.)), (.-^))
 import qualified Data.AffineSpace as AffineSpace
 import Data.Foldable (traverse_)
-import Data.VectorSpace (AdditiveGroup, Scalar, VectorSpace ((*^)))
+import Data.VectorSpace (AdditiveGroup, VectorSpace ((*^)))
 import Downhill.BVar (BVar (BVar, bvarValue), backprop, constant, var)
 import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), HasGradAffine, MetricTensor (..))
 import Downhill.Linear.Expr (BasicVector, DenseVector (DenseVector), FullVector)
@@ -82,20 +82,14 @@ sqrNormBp (BVar (Vector x y) dv) = BVar normValue (lift1_dense bp dv)
 distance :: BVar r Point -> BVar r Point -> BVar r Double
 distance x y = sqrt $ sqrNormBp (x .-. y)
 
--- (L2 a) is L2 norm of a vector, scaled by factor a.
-newtype L2 = L2 Double
+-- L2 norm
+data L2 = L2
   deriving (Generic)
-
-instance AdditiveGroup L2
-
-instance VectorSpace L2 where
-  type Scalar L2 = Double
-  x *^ L2 y = L2 (x * y)
 
 instance MetricTensor Double L2 where
   type MtVector L2 = Vector
   type MtCovector L2 = Gradient
-  evalMetric (L2 a) (Gradient x y) = a *^ Vector x y
+  evalMetric L2 (Gradient x y) = Vector x y
 
 data Triangle = Triangle Point Point Point
 
@@ -160,8 +154,8 @@ affineIterate objectiveFunc stepSize metric x0 = iterate (step . itPoint) (step 
   where
     step = affineStep objectiveFunc stepSize metric
 
-solveFermatPoint :: Triangle -> L2 -> Point -> [Iterate Point Double]
-solveFermatPoint triangle = affineIterate distF 0.1
+solveFermatPoint :: Triangle -> Double -> Point -> [Iterate Point Double]
+solveFermatPoint triangle lr = affineIterate distF lr L2
   where
     distF :: Point -> BVar Gradient Double
     distF x = totalDistance triangle (var x)
@@ -171,6 +165,5 @@ main = traverse_ print iters
   where
     triangle = Triangle (Point 0 0) (Point 0 1) (Point 1 0)
     x0 = Point 1 1
-    lr = L2 1.0
     iters :: [Iterate Point Double]
-    iters = take 20 $ solveFermatPoint triangle lr x0
+    iters = take 20 $ solveFermatPoint triangle 0.1 x0
