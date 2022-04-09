@@ -31,6 +31,7 @@ import Data.AffineSpace (AffineSpace ((.+^), (.-.)))
 import qualified Data.AffineSpace as AffineSpace
 import Data.VectorSpace
   ( AdditiveGroup (..),
+    InnerSpace ((<.>)),
     VectorSpace ((*^)),
   )
 import qualified Data.VectorSpace as VectorSpace
@@ -120,6 +121,25 @@ instance (HasFullGrad p, HasGradAffine p) => AffineSpace (BVar r p) where
   type Diff (BVar r p) = BVar r (Tang p)
   BVar y0 dy .+^ BVar z0 dz = BVar (y0 .+^ z0) (dy ^+^ dz)
   BVar y0 dy .-. BVar z0 dz = BVar (y0 .-. z0) (dy ^-^ dz)
+
+instance
+  ( VectorSpace v,
+    HasFullGrad v,
+    Grad v ~ v,
+    Tang v ~ v,
+    FullVector (MScalar v),
+    Grad (MScalar v) ~ MScalar v,
+    InnerSpace v,
+    HasGrad (MScalar v)
+  ) =>
+  InnerSpace (BVar r v)
+  where
+  BVar u du <.> BVar v dv = BVar (u <.> v) (lift2_dense bpU bpV du dv)
+    where
+      bpU :: MScalar v -> Grad v
+      bpU dz = dz *^ v
+      bpV :: MScalar v -> Grad v
+      bpV dz = dz *^ u
 
 -- | A variable with derivative of zero.
 constant :: forall r a. FullVector (Grad a) => a -> BVar r a
