@@ -2,6 +2,7 @@
 
 ## 0.2.0.0
 * `MetricTensor` is no longer required to be a `VectorSpace`
+* `T2`, `T3` pattern synonyms for `BVar`
 
 ## 0.1.0.0
 

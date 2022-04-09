@@ -12,12 +12,17 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Downhill.BVar
   ( BVar (..),
     var,
     constant,
     backprop,
+    -- * Pattern synonyms
+    pattern T2,
+    pattern T3
   )
 where
 
@@ -43,6 +48,7 @@ import qualified Downhill.Linear.Backprop as BP
 import Downhill.Linear.Expr (BasicVector, Expr (ExprVar), FullVector)
 import Downhill.Linear.Lift (lift2_dense)
 import Prelude hiding (id, (.))
+import qualified Downhill.Linear.Prelude as Linear
 
 -- | Variable is a value paired with derivative.
 data BVar r a = BVar
@@ -131,3 +137,19 @@ var x = BVar x (realNode ExprVar)
 -- 
 backprop :: forall r a. (HasGrad a, FullVector (Grad a), BasicVector r) => BVar r a -> Grad a -> r
 backprop (BVar _y0 x) = BP.backprop x
+
+
+splitPair :: (BasicVector (Grad a), BasicVector (Grad b)) => BVar r (a, b) -> (BVar r a, BVar r b)
+splitPair (BVar (a, b) (Linear.T2 da db)) = (BVar a da, BVar b db)
+
+pattern T2 :: forall r a b. (BasicVector (Grad a), BasicVector (Grad b)) => BVar r a -> BVar r b -> BVar r (a, b)
+pattern T2 a b <- (splitPair -> (a, b))
+  where T2 (BVar a da) (BVar b db) = BVar (a, b) (Linear.T2 da db)
+
+splitTriple :: (BasicVector (Grad a), BasicVector (Grad b), BasicVector (Grad c)) => BVar r (a, b, c) -> (BVar r a, BVar r b, BVar r c)
+splitTriple (BVar (a, b, c) (Linear.T3 da db dc)) = (BVar a da, BVar b db, BVar c dc)
+
+pattern T3 :: forall r a b c. (BasicVector (Grad a), BasicVector (Grad b), BasicVector (Grad c))
+ => BVar r a -> BVar r b -> BVar r c -> BVar r (a, b, c)
+pattern T3 a b c <- (splitTriple -> (a, b, c))
+  where T3 (BVar a da) (BVar b db) (BVar c dc) = BVar (a, b, c) (Linear.T3 da db dc)
