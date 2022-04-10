@@ -16,7 +16,7 @@
 {-# OPTIONS_GHC -Wno-unused-top-binds #-}
 
 -- Uncomment this line to see generated code
-{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
+--{-# OPTIONS_GHC -ddump-splices -ddump-to-file #-}
 
 module Main(main) where
 
