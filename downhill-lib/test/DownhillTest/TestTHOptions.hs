@@ -1,5 +1,5 @@
 module DownhillTest.TestTHOptions(defaultDVarOptions) where
-import Downhill.TH ( mkHasGradInstances, RecordNamer(..), BVarOptions(..), AffineSpaceOptions (AutoAffineSpace))
+import Downhill.TH ( mkHasGradInstances, RecordNamer(..), BVarOptions(..), AffineSpaceOptions (AutoAffineSpace), TangOptions (GenTang), GradOptions (GenGrad))
 
 defaultTangRecordNamer :: RecordNamer
 defaultTangRecordNamer =
@@ -36,8 +36,8 @@ defaultBuilderRecordNamer =
 defaultDVarOptions :: BVarOptions
 defaultDVarOptions =
   BVarOptions
-    { optTangNamer = defaultTangRecordNamer,
-      optGradNamer = defaultGradRecordNamer,
+    { optTang = GenTang defaultTangRecordNamer,
+      optGrad = GenGrad defaultGradRecordNamer,
       optMetricNamer = defaultMetricRecordNamer,
       optBuilderNamer = defaultBuilderRecordNamer,
       optAffineSpace = AutoAffineSpace,

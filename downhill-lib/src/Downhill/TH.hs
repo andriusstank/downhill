@@ -33,6 +33,8 @@ module Downhill.TH
   ( mkHasGradInstances,
     AffineSpaceOptions (..),
     RecordNamer (..),
+    TangOptions (..),
+    GradOptions (..),
     BVarOptions (..),
     defaultBVarOptions,
   )
@@ -101,6 +103,8 @@ data DownhillRecord = DownhillRecord
   }
   deriving (Show)
 
+-- | Sometimes new data type needs to be generated as a counterpart for the given one.
+-- @RecordNamer@ will generated new names for them, given the names of original data type.
 data RecordNamer = RecordNamer
   { typeConNamer :: String -> String,
     dataConNamer :: String -> String,
@@ -118,8 +122,8 @@ data AffineSpaceOptions
     AutoAffineSpace
 
 data BVarOptions = BVarOptions
-  { optTangNamer :: RecordNamer,
-    optGradNamer :: RecordNamer,
+  { optTang :: TangOptions,
+    optGrad :: GradOptions,
     optMetricNamer :: RecordNamer,
     optBuilderNamer :: RecordNamer,
     optAffineSpace :: AffineSpaceOptions,
@@ -166,11 +170,23 @@ defaultBuilderRecordNamer =
       fieldNamer = id
     }
 
+-- | @SameTang@ will use given type as its own tangent space. That's the right options
+-- for vector spaces.
+-- @GenTang namer@ will generate new data type the tangent space. Affine spaces, manifolds
+-- will need this option.
+data TangOptions = SameTang | GenTang RecordNamer
+
+-- | @SameGrad@ won't generate separate data type for gradient.
+-- Useful for Hilbert spaces
+-- when we don't want to distinguish between values of the variables and their gradients.
+-- @GenGrad namer@ will generate distinct data type for gradients.
+data GradOptions = SameGrad | GenGrad RecordNamer
+
 defaultBVarOptions :: BVarOptions
 defaultBVarOptions =
   BVarOptions
-    { optTangNamer = defaultTangRecordNamer,
-      optGradNamer = defaultGradRecordNamer,
+    { optTang = GenTang defaultTangRecordNamer,
+      optGrad = GenGrad defaultGradRecordNamer,
       optMetricNamer = defaultMetricRecordNamer,
       optBuilderNamer = defaultBuilderRecordNamer,
       optAffineSpace = AutoAffineSpace,
@@ -675,19 +691,33 @@ renameDownhillRecord (RecordTranstorm namer typeFun) record =
       ddtVariant = ddtVariant record
     }
 
+maybeRenameDownhillRecord :: Maybe RecordTranstorm -> DownhillRecord -> DownhillRecord
+maybeRenameDownhillRecord = \case
+  Nothing -> id
+  Just tr -> renameDownhillRecord tr
+
 builderTransform :: BVarOptions -> RecordTranstorm
 builderTransform options = RecordTranstorm (optBuilderNamer options) (AppT (ConT ''VecBuilder))
 
-tangTransform :: BVarOptions -> RecordTranstorm
-tangTransform options = RecordTranstorm (optTangNamer options) (AppT (ConT ''Tang))
+tangTransform :: BVarOptions -> Maybe RecordTranstorm
+tangTransform options = case optTang options of
+  SameTang -> Nothing
+  GenTang tangNamer -> Just (RecordTranstorm tangNamer (AppT (ConT ''Tang)))
 
-gradTransform :: BVarOptions -> RecordTranstorm
-gradTransform options = RecordTranstorm (optGradNamer options) (AppT (ConT ''Grad))
+gradTransform :: BVarOptions -> Maybe RecordTranstorm
+gradTransform options = case optGrad options of
+  SameGrad -> Nothing
+  GenGrad gradNamer -> Just (RecordTranstorm gradNamer (AppT (ConT ''Grad)))
 
 metricTransform :: BVarOptions -> RecordTranstorm
 metricTransform options = RecordTranstorm (optMetricNamer options) (AppT (ConT ''Metric))
 
-mkVec :: Cxt -> [Type] -> Type -> DownhillRecord -> BVarOptions -> Q [Dec]
+data VecDecls = VecDecls
+  { vdVecItself :: [Dec],
+    vdInstances :: [Dec]
+  }
+
+mkVec :: Cxt -> [Type] -> Type -> DownhillRecord -> BVarOptions -> Q VecDecls
 mkVec cxt instVars scalarType vectorType options = do
   let builderType = renameDownhillRecord (builderTransform options) vectorType
   tangDec <- mkRecord vectorType
@@ -697,15 +727,30 @@ mkVec cxt instVars scalarType vectorType options = do
   additiveTang <- mkAdditiveGroupInstance cxt vectorType instVars
   vspaceTang <- mkVectorSpaceInstance vectorType scalarType cxt instVars
   return
-    ( concat
-        [ tangDec,
-          tangBuilderDec,
-          tangInst,
-          tangSemigroup,
-          additiveTang,
-          vspaceTang
-        ]
+    ( VecDecls
+        tangDec
+        ( concat
+            [ tangBuilderDec,
+              tangInst,
+              tangSemigroup,
+              additiveTang,
+              vspaceTang
+            ]
+        )
     )
+
+mkVecTrVec :: Cxt -> [Type] -> Type -> DownhillRecord -> Maybe RecordTranstorm -> BVarOptions -> Q [Dec]
+mkVecTrVec cxt instVars scalarType origRecordType transform options = do
+  case transform of
+    Nothing -> do
+      VecDecls _devDec instDecs <- go origRecordType
+      return instDecs
+    Just tr -> do
+      VecDecls devDec instDecs <- go (renameDownhillRecord tr origRecordType)
+      return (devDec ++ instDecs)
+  where
+    go :: DownhillRecord -> Q VecDecls
+    go x = mkVec cxt instVars scalarType x options
 
 mkDVar'' ::
   Cxt ->
@@ -716,12 +761,12 @@ mkDVar'' ::
   ConstructorInfo ->
   Q [Dec]
 mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
-  let tangRecord = renameDownhillRecord (tangTransform options) pointRecord
-      gradRecord = renameDownhillRecord (gradTransform options) pointRecord
+  let tangRecord = maybeRenameDownhillRecord (tangTransform options) pointRecord
+      gradRecord = maybeRenameDownhillRecord (gradTransform options) pointRecord
       metricRecord = renameDownhillRecord (metricTransform options) pointRecord
 
-  tangDecs <- mkVec cxt instVars scalarType tangRecord options
-  gradDecs <- mkVec cxt instVars scalarType gradRecord options
+  tangDecs <- mkVecTrVec cxt instVars scalarType pointRecord (tangTransform options) options
+  gradDecs <- mkVecTrVec cxt instVars scalarType pointRecord (gradTransform options) options
 
   metricDec <- mkRecord metricRecord
   {-
@@ -870,8 +915,8 @@ mkDVarC1 options = \case
 
         dvar <- mkDVar'' cxt parsedRecord options scalarType instVars substitutedRecord
 
-        let tangName = ddtTypeConName (renameDownhillRecord (tangTransform options) parsedRecord)
-            gradName = ddtTypeConName (renameDownhillRecord (gradTransform options) parsedRecord)
+        let tangName = ddtTypeConName (maybeRenameDownhillRecord (tangTransform options) parsedRecord)
+            gradName = ddtTypeConName (maybeRenameDownhillRecord (gradTransform options) parsedRecord)
             metricName = ddtTypeConName (renameDownhillRecord (metricTransform options) parsedRecord)
             tangTypeDec =
               TySynInstD

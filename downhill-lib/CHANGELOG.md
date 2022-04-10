@@ -3,6 +3,7 @@
 ## 0.2.0.0
 * `MetricTensor` is no longer required to be a `VectorSpace`
 * `T2`, `T3` pattern synonyms for `BVar`
+* `TangOptions`, `GradOptions` template haskell options.
 
 ## 0.1.0.0
 

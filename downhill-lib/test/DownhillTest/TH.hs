@@ -10,7 +10,7 @@ module DownhillTest.TH (thTest) where
 
 import Data.AffineSpace (AffineSpace (..))
 import Downhill.Grad (HasGrad (MScalar, Tang))
-import Downhill.TH (BVarOptions (..), RecordNamer (..), mkHasGradInstances)
+import Downhill.TH (BVarOptions (..), RecordNamer (..), mkHasGradInstances, TangOptions(..))
 import Test.Tasty (TestTree, testGroup)
 import DownhillTest.TestTHOptions (defaultDVarOptions)
 
@@ -96,6 +96,15 @@ mkHasGradInstances
   [d|
     instance HasGrad a => HasGrad (MyRecord7 a) where
       type MScalar (MyRecord7 a) = MScalar a
+    |]
+
+data MyRecord8 = MyRecord8 Float
+
+mkHasGradInstances
+  defaultDVarOptions { optTang = SameTang }
+  [d|
+    instance HasGrad MyRecord8 where
+      type MScalar MyRecord8 = Float
     |]
 
 thTest :: TestTree
