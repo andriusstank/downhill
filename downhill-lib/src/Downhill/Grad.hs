@@ -13,7 +13,6 @@ module Downhill.Grad
     MetricTensor (..),
     HasGrad (..),
     GradBuilder,
-    HasFullGrad,
     HasGradAffine,
   )
 where
@@ -22,7 +21,7 @@ import Data.AffineSpace (AffineSpace (Diff))
 import Data.Kind (Type)
 import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace (Scalar, (*^)))
 import qualified Data.VectorSpace as VectorSpace
-import Downhill.Linear.Expr (BasicVector (VecBuilder), FullVector)
+import Downhill.Linear.Expr (BasicVector (VecBuilder))
 import GHC.Generics (Generic)
 
 -- | Dual of a vector @v@ is a linear map @v -> Scalar v@.
@@ -93,8 +92,6 @@ class
   type Metric p :: Type
 
 type GradBuilder v = VecBuilder (Grad v)
-
-type HasFullGrad p = (HasGrad p, FullVector (Grad p))
 
 type HasGradAffine p =
   ( AffineSpace p,

@@ -37,7 +37,7 @@ import Downhill.Grad
     HasGrad (Grad, Metric, MScalar, Tang),
     MetricTensor (MtCovector, MtVector, evalMetric),
   )
-import Downhill.Linear.Expr (BasicVector (..), FullVector (identityBuilder, negateBuilder, scaleBuilder))
+import Downhill.Linear.Expr (BasicVector (..))
 
 -- | @AsNum a@ implements many instances in terms of @Num a@ instance.
 newtype AsNum a = AsNum {unAsNum :: a}
@@ -73,11 +73,7 @@ instance Num a => VectorSpace (AsNum a) where
 instance Num a => BasicVector (AsNum a) where
   type VecBuilder (AsNum a) = Sum a
   sumBuilder = AsNum . getSum
-
-instance Num a => FullVector (AsNum a) where
   identityBuilder = Sum . unAsNum
-  negateBuilder = Sum . negate . unAsNum
-  scaleBuilder (AsNum x) (AsNum y) = Sum $ x * y
 
 instance Num a => AffineSpace (AsNum a) where
   type Diff (AsNum a) = AsNum a

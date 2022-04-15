@@ -37,7 +37,6 @@ import Data.VectorSpace
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasFullGrad,
     HasGrad (Grad, MScalar, Tang),
     HasGradAffine,
   )
@@ -46,7 +45,7 @@ import Downhill.Linear.BackGrad
     realNode,
   )
 import qualified Downhill.Linear.Backprop as BP
-import Downhill.Linear.Expr (BasicVector, Expr (ExprVar), FullVector)
+import Downhill.Linear.Expr (BasicVector, Expr (ExprVar))
 import Downhill.Linear.Lift (lift2_dense)
 import Prelude hiding (id, (.))
 import qualified Downhill.Linear.Prelude as Linear
@@ -57,13 +56,13 @@ data BVar r a = BVar
     bvarGrad :: BackGrad r (Grad a)
   }
 
-instance (AdditiveGroup b, HasFullGrad b) => AdditiveGroup (BVar r b) where
+instance (AdditiveGroup b, HasGrad b) => AdditiveGroup (BVar r b) where
   zeroV = BVar zeroV zeroV
   negateV (BVar y0 dy) = BVar (negateV y0) (negateV dy)
   BVar y0 dy ^-^ BVar z0 dz = BVar (y0 ^-^ z0) (dy ^-^ dz)
   BVar y0 dy ^+^ BVar z0 dz = BVar (y0 ^+^ z0) (dy ^+^ dz)
 
-instance (Num b, HasFullGrad b, MScalar b ~ b) => Num (BVar r b) where
+instance (Num b, HasGrad b, MScalar b ~ b) => Num (BVar r b) where
   (BVar f0 df) + (BVar g0 dg) = BVar (f0 + g0) (df ^+^ dg)
   (BVar f0 df) - (BVar g0 dg) = BVar (f0 - g0) (df ^-^ dg)
   (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (f0 *^ dg ^+^ g0 *^ df)
@@ -78,14 +77,14 @@ sqr x = x * x
 rsqrt :: Floating a => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (Fractional b, HasFullGrad b, MScalar b ~ b) => Fractional (BVar r b) where
+instance (Fractional b, HasGrad b, MScalar b ~ b) => Fractional (BVar r b) where
   fromRational x = BVar (fromRational x) zeroV
   recip (BVar x dx) = BVar (recip x) (df *^ dx)
     where
       df = negate (recip (sqr x))
   BVar x dx / BVar y dy = BVar (x / y) ((recip y *^ dx) ^-^ ((x / sqr y) *^ dy))
 
-instance (Floating b, HasFullGrad b, MScalar b ~ b) => Floating (BVar r b) where
+instance (Floating b, HasGrad b, MScalar b ~ b) => Floating (BVar r b) where
   pi = BVar pi zeroV
   exp (BVar x dx) = BVar (exp x) (exp x *^ dx)
   log (BVar x dx) = BVar (log x) (recip x *^ dx)
@@ -102,9 +101,9 @@ instance (Floating b, HasFullGrad b, MScalar b ~ b) => Floating (BVar r b) where
 
 instance
   ( VectorSpace v,
-    HasFullGrad v,
+    HasGrad v,
     Tang v ~ v,
-    FullVector (MScalar v),
+    BasicVector (MScalar v),
     Grad (MScalar v) ~ MScalar v
   ) =>
   VectorSpace (BVar r v)
@@ -117,17 +116,17 @@ instance
       bpV :: Grad v -> Grad v
       bpV dz = a *^ dz
 
-instance (HasFullGrad p, HasGradAffine p) => AffineSpace (BVar r p) where
+instance (HasGrad p, HasGradAffine p) => AffineSpace (BVar r p) where
   type Diff (BVar r p) = BVar r (Tang p)
   BVar y0 dy .+^ BVar z0 dz = BVar (y0 .+^ z0) (dy ^+^ dz)
   BVar y0 dy .-. BVar z0 dz = BVar (y0 .-. z0) (dy ^-^ dz)
 
 instance
   ( VectorSpace v,
-    HasFullGrad v,
+    HasGrad v,
     Grad v ~ v,
     Tang v ~ v,
-    FullVector (MScalar v),
+    BasicVector (MScalar v),
     Grad (MScalar v) ~ MScalar v,
     InnerSpace v,
     HasGrad (MScalar v)
@@ -142,7 +141,7 @@ instance
       bpV dz = dz *^ u
 
 -- | A variable with derivative of zero.
-constant :: forall r a. FullVector (Grad a) => a -> BVar r a
+constant :: forall r a. (BasicVector (Grad a), AdditiveGroup (Grad a)) => a -> BVar r a
 constant x = BVar x zeroV
 
 -- | A variable with identity derivative.
@@ -155,7 +154,7 @@ var x = BVar x (realNode ExprVar)
 -- | Reverse mode differentiation.
 --
 -- 
-backprop :: forall r a. (HasGrad a, FullVector (Grad a), BasicVector r) => BVar r a -> Grad a -> r
+backprop :: forall r a. (HasGrad a, BasicVector r) => BVar r a -> Grad a -> r
 backprop (BVar _y0 x) = BP.backprop x
 
 

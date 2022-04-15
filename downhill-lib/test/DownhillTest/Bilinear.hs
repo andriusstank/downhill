@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -17,7 +16,7 @@ import Data.AffineSpace ((.+^))
 import Data.VectorSpace (AdditiveGroup, VectorSpace ((*^)), (^+^))
 import Downhill.BVar (BVar (bvarValue))
 import qualified Downhill.BVar as BVar
-import Downhill.Grad (Dual (evalGrad), HasFullGrad, HasGrad (Grad, MScalar))
+import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar))
 import Hedgehog
   ( Gen,
     Property,
@@ -33,7 +32,7 @@ import qualified Hedgehog.Internal.Show as Gen
 import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import GHC.Generics (Generic)
-import Downhill.Linear.Expr (BasicVector, FullVector, DenseVector (DenseVector))
+import Downhill.Linear.Expr (BasicVector, DenseVector (DenseVector))
 import Downhill.TH (BVarOptions (..), defaultBVarOptions, mkHasGradInstances)
 
 testBilinear ::
@@ -42,7 +41,7 @@ testBilinear ::
     HasGrad u,
     HasGrad v,
     Show (Grad z),
-    HasFullGrad z,
+    HasGrad z,
     Eq z,
     AdditiveGroup u,
     Show z,

@@ -29,7 +29,7 @@ import Data.Foldable (traverse_)
 import Data.VectorSpace (AdditiveGroup, VectorSpace ((*^)))
 import Downhill.BVar (BVar (BVar, bvarValue), backprop, constant, var)
 import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), HasGradAffine, MetricTensor (..))
-import Downhill.Linear.Expr (BasicVector, DenseVector (DenseVector), FullVector)
+import Downhill.Linear.Expr (BasicVector, DenseVector (DenseVector))
 import Downhill.Linear.Lift (lift1_dense)
 import GHC.Generics (Generic)
 
@@ -38,11 +38,11 @@ data Point = Point Double Double
 
 data Vector = Vector Double Double
   deriving (Generic, Show)
-  deriving (BasicVector, FullVector) via (DenseVector Vector)
+  deriving (BasicVector) via (DenseVector Vector)
 
 data Gradient = Gradient Double Double
   deriving (Generic, Show)
-  deriving (BasicVector, FullVector) via (DenseVector Gradient)
+  deriving (BasicVector) via (DenseVector Gradient)
 
 instance AdditiveGroup Vector
 
@@ -113,7 +113,7 @@ deriving instance (Show p, Show z, Show (MScalar p)) => Show (Iterate p z)
 type PlainScalar z =
   ( Tang z ~ z,
     Grad z ~ z,
-    FullVector z,
+    BasicVector z,
     Num z,
     HasGrad z
   )

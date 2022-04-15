@@ -4,7 +4,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeApplications #-}
 
 module Downhill.Linear.BackGrad
   ( BackGrad (..),
@@ -21,9 +20,8 @@ import Data.VectorSpace
     VectorSpace (..),
   )
 import Downhill.Linear.Expr
-  ( BasicVector (VecBuilder),
+  ( BasicVector (VecBuilder, identityBuilder),
     Expr (ExprSum),
-    FullVector (identityBuilder, negateBuilder, scaleBuilder),
     Term (Term), SparseVector (unSparseVector),
   )
 
@@ -79,12 +77,12 @@ castBackGrad ::
   BackGrad r z
 castBackGrad (BackGrad g) = BackGrad g
 
-instance (FullVector v) => AdditiveGroup (BackGrad r v) where
+instance (BasicVector v, AdditiveGroup v) => AdditiveGroup (BackGrad r v) where
   zeroV = realNode (ExprSum [])
-  negateV (BackGrad x) = realNode (ExprSum [x negateBuilder])
+  negateV (BackGrad x) = realNode (ExprSum [x (identityBuilder . negateV)])
   BackGrad x ^+^ BackGrad y = realNode (ExprSum [x identityBuilder, y identityBuilder])
-  BackGrad x ^-^ BackGrad y = realNode (ExprSum [x identityBuilder, y negateBuilder])
+  BackGrad x ^-^ BackGrad y = realNode (ExprSum [x identityBuilder, y (identityBuilder . negateV)])
 
-instance FullVector v => VectorSpace (BackGrad r v) where
+instance (BasicVector v, VectorSpace v) => VectorSpace (BackGrad r v) where
   type Scalar (BackGrad r v) = Scalar v
-  a *^ BackGrad v = realNode (ExprSum [v (scaleBuilder a)])
+  a *^ BackGrad v = realNode (ExprSum [v (identityBuilder . (a*^))])

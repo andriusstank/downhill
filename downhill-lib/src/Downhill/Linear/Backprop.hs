@@ -25,8 +25,7 @@ import Downhill.Internal.Graph.OpenGraph (recoverSharing)
 import Downhill.Internal.Graph.Types (BackFun, flipBackFun)
 import Downhill.Linear.BackGrad (BackGrad (..), castBackGrad)
 import Downhill.Linear.Expr
-  ( BasicVector (VecBuilder),
-    FullVector (identityBuilder),
+  ( BasicVector (VecBuilder, identityBuilder),
     SparseVector (SparseVector, unSparseVector),
     Term,
   )
@@ -65,5 +64,5 @@ _backprop dvar x =
 -- | Purity of this function depends on laws of arithmetic
 -- and linearity law of 'Term'. If your addition is approximately
 -- associative, then this function is approximately pure. Fair?
-backprop :: forall a v. (BasicVector a, FullVector v) => BackGrad a v -> v -> a
+backprop :: forall a v. (BasicVector a, BasicVector v) => BackGrad a v -> v -> a
 backprop dvar = abstractBackprop dvar identityBuilder

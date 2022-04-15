@@ -56,7 +56,7 @@ import Downhill.Grad
     HasGrad (Grad, MScalar, Metric, Tang),
     MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm),
   )
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder))
+import Downhill.Linear.Expr (BasicVector (VecBuilder, identityBuilder, sumBuilder))
 import Downhill.Linear.Lift (lift1_sparse)
 import GHC.Records (HasField (getField))
 import Language.Haskell.TH
@@ -380,7 +380,8 @@ mkVectorSpaceInstance record scalarType cxt instVars = do
 mkBasicVectorInstance :: DownhillRecord -> BVarOptions -> Cxt -> [Type] -> THWriter ()
 mkBasicVectorInstance vectorRecord options cxt instVars = do
   sumBuilderDec <- lift mkSumBuilder
-  mkClassInstance ''BasicVector cxt vectorRecord instVars [vecbuilderDec, sumBuilderDec]
+  identityBuilderDec <- lift mkIdentityBuilder
+  mkClassInstance ''BasicVector cxt vectorRecord instVars [vecbuilderDec, sumBuilderDec, identityBuilderDec]
   where
     n = ddtFieldCount vectorRecord
     builderRecord = renameDownhillRecord (builderTransform options) vectorRecord
@@ -402,6 +403,26 @@ mkBasicVectorInstance vectorRecord options cxt instVars = do
           'sumBuilder
           [ Clause [ConP 'Nothing []] (NormalB (VarE 'zeroV)) [],
             Clause [ConP 'Just [pat]] (NormalB rhs) []
+          ]
+
+    mkIdentityBuilder :: Q Dec
+    mkIdentityBuilder = do
+      builders <- replicateM n (newName "x")
+      let pat :: Pat
+          pat = ConP (ddtDataConName vectorRecord) (map VarP builders)
+          rhs :: Exp
+          rhs =
+            AppE
+              (ConE 'Just)
+              ( foldl
+                  AppE
+                  (ConE (ddtDataConName builderRecord))
+                  [AppE (VarE 'identityBuilder) (VarE x) | x <- builders]
+              )
+      return $
+        FunD
+          'identityBuilder
+          [ Clause [pat] (NormalB rhs) []
           ]
 
     vecbuilderDec =

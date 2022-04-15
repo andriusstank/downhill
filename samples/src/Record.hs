@@ -21,7 +21,7 @@ import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar))
 import Downhill.Grad (Dual (evalGrad), GradBuilder, HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm))
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder), maybeToMonoid)
+import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder, identityBuilder), maybeToMonoid)
 import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
 import GHC.Generics (Generic)
 import GHC.Records (HasField (getField))
@@ -45,14 +45,11 @@ instance (BasicVector a, BasicVector b) => BasicVector (MyRecord a b) where
     where
       a = maybeToMonoid (fieldA <$> r)
       b = maybeToMonoid (fieldB <$> r)
+  identityBuilder (MyRecord a b) = Just (MyRecord (identityBuilder a) (identityBuilder b))
 
 instance (Dual s da a, Dual s db b) => Dual s (MyRecord da db) (MyRecord a b) where
   evalGrad (MyRecord da db) (MyRecord a b) = evalGrad da a ^+^ evalGrad db b
 
-instance (FullVector a, FullVector b, VectorSpace.Scalar a ~ VectorSpace.Scalar b) => FullVector (MyRecord a b) where
-  identityBuilder (MyRecord a b) = Just (MyRecord (identityBuilder a) (identityBuilder b))
-  negateBuilder (MyRecord a b) = Just (MyRecord (negateBuilder a) (negateBuilder b))
-  scaleBuilder x (MyRecord a b) = Just (MyRecord (scaleBuilder x a) (scaleBuilder x b))
 
 instance
   ( MetricTensor s a,

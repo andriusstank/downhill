@@ -15,7 +15,7 @@ import Data.VectorSpace (AdditiveGroup, VectorSpace)
 import Downhill.BVar (BVar (BVar))
 import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm))
 import Downhill.Linear.BackGrad ( inlineNode )
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder), FullVector (identityBuilder, negateBuilder, scaleBuilder))
+import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder, identityBuilder))
 
 newtype MyWrapper a = MyWrapper { unMyWrapper :: a }
     deriving (Semigroup, Monoid, AdditiveGroup, VectorSpace) via a
@@ -23,14 +23,10 @@ newtype MyWrapper a = MyWrapper { unMyWrapper :: a }
 instance BasicVector a => BasicVector (MyWrapper a) where
   type VecBuilder (MyWrapper a) = MyWrapper (VecBuilder a)
   sumBuilder (MyWrapper x) = MyWrapper (sumBuilder x)
+  identityBuilder (MyWrapper a) = MyWrapper (identityBuilder a)
 
 instance Dual s da a => Dual s (MyWrapper da) (MyWrapper a) where
   evalGrad (MyWrapper da) (MyWrapper a) = evalGrad da a
-
-instance FullVector a => FullVector (MyWrapper a) where
-  identityBuilder (MyWrapper a) = MyWrapper (identityBuilder a)
-  negateBuilder (MyWrapper a) = MyWrapper (negateBuilder a)
-  scaleBuilder x (MyWrapper a) = MyWrapper (scaleBuilder x a)
 
 instance MetricTensor s a => MetricTensor s (MyWrapper a) where
   type MtVector (MyWrapper a) = MyWrapper (MtVector a)

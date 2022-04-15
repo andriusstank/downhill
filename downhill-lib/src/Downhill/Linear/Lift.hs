@@ -29,7 +29,7 @@ module Downhill.Linear.Lift
 where
 
 import Downhill.Linear.BackGrad (BackGrad (..), castBackGrad, realNode)
-import Downhill.Linear.Expr (BasicVector (..), Expr (ExprSum), FullVector (identityBuilder), SparseVector (unSparseVector))
+import Downhill.Linear.Expr (BasicVector (..), Expr (ExprSum), SparseVector (unSparseVector))
 import Prelude hiding (fst, snd, zip)
 
 lift1 ::
@@ -111,12 +111,12 @@ lift3_sparse fa fb fc a b c =
     fc' = fc . unSparseVector
 
 lift1_dense ::
-  (BasicVector v, FullVector a) =>
+  (BasicVector v, BasicVector a) =>
   ((v -> a) -> BackGrad r a -> BackGrad r v)
 lift1_dense fa = lift1 (identityBuilder . fa)
 
 lift2_dense ::
-  (BasicVector v, FullVector a, FullVector b) =>
+  (BasicVector v, BasicVector a, BasicVector b) =>
   (v -> a) ->
   (v -> b) ->
   BackGrad r a ->
@@ -125,7 +125,7 @@ lift2_dense ::
 lift2_dense fa fb = lift2 (identityBuilder . fa) (identityBuilder . fb)
 
 lift3_dense ::
-  (BasicVector v, FullVector a, FullVector b, FullVector c) =>
+  (BasicVector v, BasicVector a, BasicVector b, BasicVector c) =>
   (v -> a) ->
   (v -> b) ->
   (v -> c) ->

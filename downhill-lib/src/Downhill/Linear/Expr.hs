@@ -17,7 +17,6 @@ module Downhill.Linear.Expr
 
     -- * Vectors
     BasicVector (..),
-    FullVector (..),
     SparseVector (..),
     DenseVector (..),
     DenseBuilder (..),
@@ -57,6 +56,7 @@ class Monoid (VecBuilder v) => BasicVector v where
   type VecBuilder v :: Type
 
   sumBuilder :: VecBuilder v -> v
+  identityBuilder :: v -> VecBuilder v
 
 maybeToMonoid :: Monoid m => Maybe m -> m
 maybeToMonoid = fromMaybe mempty
@@ -64,61 +64,32 @@ maybeToMonoid = fromMaybe mempty
 instance BasicVector Integer where
   type VecBuilder Integer = Sum Integer
   sumBuilder = getSum
+  identityBuilder = Sum
 
 instance (BasicVector a, BasicVector b) => BasicVector (a, b) where
   type VecBuilder (a, b) = Maybe (VecBuilder a, VecBuilder b)
   sumBuilder = sumPair . maybeToMonoid
     where
       sumPair (a, b) = (sumBuilder a, sumBuilder b)
+  identityBuilder (x, y) = Just (identityBuilder x, identityBuilder y)
 
 instance (BasicVector a, BasicVector b, BasicVector c) => BasicVector (a, b, c) where
   type VecBuilder (a, b, c) = Maybe (VecBuilder a, VecBuilder b, VecBuilder c)
   sumBuilder = sumTriple . maybeToMonoid
     where
       sumTriple (a, b, c) = (sumBuilder a, sumBuilder b, sumBuilder c)
+  identityBuilder (x, y, z) = Just (identityBuilder x, identityBuilder y, identityBuilder z)
 
 instance BasicVector Float where
   type VecBuilder Float = Sum Float
   sumBuilder = getSum
+  identityBuilder = Sum
 
 instance BasicVector Double where
   type VecBuilder Double = Sum Double
   sumBuilder = getSum
-
--- | Full-featured vector.
---
--- Gradients are linear functions and form a vector space.
--- @FullVector@ class provides functionality that is needed to
--- make 'VectorSpace' instances.
-class (BasicVector v, VectorSpace v) => FullVector v where
-  identityBuilder :: v -> VecBuilder v
-  negateBuilder :: v -> VecBuilder v
-  scaleBuilder :: Scalar v -> v -> VecBuilder v
-
-instance FullVector Float where
   identityBuilder = Sum
-  negateBuilder = Sum . negate
-  scaleBuilder x = Sum . (x *)
 
-instance FullVector Double where
-  identityBuilder = Sum
-  negateBuilder = Sum . negate
-  scaleBuilder x = Sum . (x *)
-
-instance FullVector Integer where
-  identityBuilder = Sum
-  negateBuilder = Sum . negate
-  scaleBuilder x = Sum . (x *)
-
-instance (Scalar a ~ Scalar b, FullVector a, FullVector b) => FullVector (a, b) where
-  identityBuilder (x, y) = Just (identityBuilder x, identityBuilder y)
-  negateBuilder (x, y) = Just (negateBuilder x, negateBuilder y)
-  scaleBuilder a (x, y) = Just (scaleBuilder a x, scaleBuilder a y)
-
-instance (s ~ Scalar a, s ~ Scalar b, s ~ Scalar c, FullVector a, FullVector b, FullVector c) => FullVector (a, b, c) where
-  identityBuilder (x, y, z) = Just (identityBuilder x, identityBuilder y, identityBuilder z)
-  negateBuilder (x, y, z) = Just (negateBuilder x, negateBuilder y, negateBuilder z)
-  scaleBuilder a (x, y, z) = Just (scaleBuilder a x, scaleBuilder a y, scaleBuilder a z)
 
 -- |  Normally graph node would compute the sum of gradients and then
 -- propagate it to ancestor nodes. That's the best strategy when
@@ -135,6 +106,7 @@ deriving via (VecBuilder v) instance Semigroup (VecBuilder v) => Semigroup (Spar
 instance Monoid (VecBuilder v) => BasicVector (SparseVector v) where
   type VecBuilder (SparseVector v) = VecBuilder v
   sumBuilder = SparseVector
+  identityBuilder = unSparseVector
 
 newtype DenseSemibuilder v = DenseSemibuilder {_unDenseSemibuilder :: v}
 
@@ -156,18 +128,4 @@ instance AdditiveGroup v => BasicVector (DenseVector v) where
   type VecBuilder (DenseVector v) = DenseBuilder v
   sumBuilder (DenseBuilder Nothing) = DenseVector zeroV
   sumBuilder (DenseBuilder (Just x)) = DenseVector x
-
-instance VectorSpace v => FullVector (DenseVector v) where
   identityBuilder (DenseVector v) = DenseBuilder (Just v)
-  negateBuilder (DenseVector v) = DenseBuilder (Just (negateV v))
-  scaleBuilder a (DenseVector v) = DenseBuilder (Just (a *^ v))
-
-instance FullVector v => AdditiveGroup (Expr a v) where
-  zeroV = ExprSum []
-  negateV x = ExprSum [Term negateBuilder x]
-  x ^+^ y = ExprSum [Term identityBuilder x, Term identityBuilder y]
-  x ^-^ y = ExprSum [Term identityBuilder x, Term negateBuilder y]
-
-instance FullVector dv => VectorSpace (Expr da dv) where
-  type Scalar (Expr da dv) = Scalar dv
-  a *^ v = ExprSum [Term (scaleBuilder a) v]

@@ -70,9 +70,8 @@ import Downhill.Grad
   )
 import Downhill.Linear.BackGrad (BackGrad (BackGrad), castBackGrad, realNode)
 import Downhill.Linear.Expr
-  ( BasicVector (VecBuilder, sumBuilder),
+  ( BasicVector (VecBuilder, sumBuilder, identityBuilder),
     Expr (ExprSum),
-    FullVector,
     SparseVector (unSparseVector),
     Term,
   )
@@ -137,6 +136,7 @@ deriving via (IntMap v) instance Monoid v => Monoid (IntmapVector f v)
 instance BasicVector v => BasicVector (IntmapVector f v) where
   type VecBuilder (IntmapVector f v) = IntmapVector f (VecBuilder v)
   sumBuilder (IntmapVector v) = IntmapVector (fmap sumBuilder v)
+  identityBuilder (IntmapVector x) = IntmapVector (identityBuilder <$> x)
 
 imap ::
   forall t a b.
@@ -185,8 +185,7 @@ _joinTraversable ::
   forall f r a.
   ( Traversable f,
     Grad (f a) ~ Grad (TraversableVar f a),
-    HasGrad a,
-    FullVector (Grad a)
+    HasGrad a
   ) =>
   f (BVar r a) ->
   BVar r (f a)
@@ -221,8 +220,7 @@ backpropTraversable ::
   ( Traversable f,
     Grad (f a) ~ Grad (TraversableVar f a),
     HasGrad a,
-    HasGrad p,
-    FullVector (Grad p)
+    HasGrad p
   ) =>
   Grad p ->
   (a -> Grad a -> b) ->
@@ -253,8 +251,7 @@ backpropTraversable_GradOnly ::
   ( Traversable f,
     Grad (f a) ~ Grad (TraversableVar f a),
     HasGrad a,
-    HasGrad p,
-    FullVector (Grad p)
+    HasGrad p
   ) =>
   Grad p ->
   (forall r. f (BVar r a) -> BVar r p) ->
@@ -271,8 +268,7 @@ backpropTraversable_ValueAndGrad ::
   ( Traversable f,
     Grad (f a) ~ Grad (TraversableVar f a),
     HasGrad a,
-    HasGrad p,
-    FullVector (Grad p)
+    HasGrad p
   ) =>
   Grad p ->
   (forall r. f (BVar r a) -> BVar r p) ->
