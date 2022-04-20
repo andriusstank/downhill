@@ -38,8 +38,6 @@ class
 
 -- | @HasGrad@ is a collection of types and constraints that are useful
 -- in many places. It helps to keep type signatures short.
--- TODO: FullVector or not?
--- TODO: Metric or not?
 class
   ( Dual (MScalar p) (Tang p) (Grad p),
     BasicVector (Tang p),
