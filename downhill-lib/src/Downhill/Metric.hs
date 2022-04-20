@@ -4,6 +4,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Downhill.Metric
   ( MetricTensor (..)
@@ -56,3 +58,8 @@ instance MetricTensor Float Float where
 
 instance MetricTensor Double Double where
   evalMetric m dv = m * dv
+
+data L2 = L2
+
+instance (Dual (Tang p) (Grad p), Grad p ~ Tang p) => MetricTensor p L2 where
+  evalMetric L2 v = v
