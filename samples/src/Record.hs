@@ -20,11 +20,16 @@ module Main (main, splitRecord, joinRecord) where
 import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar))
-import Downhill.Grad (Dual (evalGrad), GradBuilder, HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm))
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder, identityBuilder), maybeToMonoid)
+import Downhill.Grad
+  ( Dual (evalGrad),
+    GradBuilder,
+    HasGrad (Grad, MScalar, Tang)
+  )
+import Downhill.Linear.Expr (BasicVector (VecBuilder, identityBuilder, sumBuilder), maybeToMonoid)
 import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
 import GHC.Generics (Generic)
 import GHC.Records (HasField (getField))
+import Downhill.Metric (MetricTensor (evalMetric, sqrNorm))
 
 data MyRecord a b = MyRecord
   { fieldA :: a,
@@ -50,25 +55,21 @@ instance (BasicVector a, BasicVector b) => BasicVector (MyRecord a b) where
 instance (Dual s da a, Dual s db b) => Dual s (MyRecord da db) (MyRecord a b) where
   evalGrad (MyRecord da db) (MyRecord a b) = evalGrad da a ^+^ evalGrad db b
 
-
 instance
-  ( MetricTensor s a,
-    MetricTensor s b
+  ( MScalar a ~ MScalar b,
+    MetricTensor a ga,
+    MetricTensor b gb
   ) =>
-  MetricTensor s (MyRecord a b)
+  MetricTensor (MyRecord a b) (MyRecord ga gb)
   where
-  type MtVector (MyRecord a b) = MyRecord (MtVector a) (MtVector b)
-  type MtCovector (MyRecord a b) = MyRecord (MtCovector a) (MtCovector b)
-  evalMetric (MyRecord m1 m2) (MyRecord x1 x2) = MyRecord (evalMetric m1 x1) (evalMetric m2 x2)
-  sqrNorm (MyRecord m1 m2) (MyRecord x1 x2) = sqrNorm m1 x1 ^+^ sqrNorm m2 x2
+  evalMetric (MyRecord m1 m2) (MyRecord x1 x2) = MyRecord (evalMetric @a m1 x1) (evalMetric @b m2 x2)
+  sqrNorm (MyRecord m1 m2) (MyRecord x1 x2) = sqrNorm @a m1 x1 ^+^ sqrNorm @b m2 x2
 
 instance (HasGrad a, HasGrad b, MScalar a ~ MScalar b) => HasGrad (MyRecord a b) where
   type MScalar (MyRecord a b) = MScalar a
   type Tang (MyRecord a b) = MyRecord (Tang a) (Tang b)
   type Grad (MyRecord a b) = MyRecord (Grad a) (Grad b)
-  type Metric (MyRecord a b) = MyRecord (Metric a) (Metric b)
 
-{-# ANN splitRecord ("HLint: ignore Avoid lambda" :: String) #-}
 splitRecord :: forall r a b. (BasicVector (Grad a), BasicVector (Grad b)) => BVar r (MyRecord a b) -> MyRecord (BVar r a) (BVar r b)
 splitRecord x = MyRecord (getField @"fieldA" x) (getField @"fieldB" x)
 

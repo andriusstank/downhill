@@ -17,14 +17,6 @@ defaultGradRecordNamer =
       fieldNamer = id
     }
 
-defaultMetricRecordNamer :: RecordNamer
-defaultMetricRecordNamer =
-  RecordNamer
-    { typeConNamer = (++ "MetricT"),
-      dataConNamer = (++ "MetricD"),
-      fieldNamer = id
-    }
-
 defaultBuilderRecordNamer :: RecordNamer
 defaultBuilderRecordNamer =
   RecordNamer
@@ -38,7 +30,6 @@ defaultDVarOptions =
   BVarOptions
     { optTang = GenTang defaultTangRecordNamer,
       optGrad = GenGrad defaultGradRecordNamer,
-      optMetricNamer = defaultMetricRecordNamer,
       optBuilderNamer = defaultBuilderRecordNamer,
       optAffineSpace = AutoAffineSpace,
       optExcludeFields = []

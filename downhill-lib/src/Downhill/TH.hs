@@ -53,8 +53,7 @@ import Data.VectorSpace (AdditiveGroup (negateV, zeroV), VectorSpace (Scalar, (*
 import Downhill.BVar (BVar (BVar))
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, MScalar, Metric, Tang),
-    MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm),
+    HasGrad (Grad, MScalar, Tang),
   )
 import Downhill.Linear.Expr (BasicVector (VecBuilder, identityBuilder, sumBuilder))
 import Downhill.Linear.Lift (lift1_sparse)
@@ -129,7 +128,6 @@ data AffineSpaceOptions
 data BVarOptions = BVarOptions
   { optTang :: TangOptions,
     optGrad :: GradOptions,
-    optMetricNamer :: RecordNamer,
     optBuilderNamer :: RecordNamer,
     optAffineSpace :: AffineSpaceOptions,
     -- | List of fields that take no part in differentiation
@@ -159,14 +157,6 @@ defaultGradRecordNamer =
       fieldNamer = id
     }
 
-defaultMetricRecordNamer :: RecordNamer
-defaultMetricRecordNamer =
-  RecordNamer
-    { typeConNamer = (++ "Metric"),
-      dataConNamer = (++ "Metric"),
-      fieldNamer = id
-    }
-
 defaultBuilderRecordNamer :: RecordNamer
 defaultBuilderRecordNamer =
   RecordNamer
@@ -192,7 +182,6 @@ defaultBVarOptions =
   BVarOptions
     { optTang = GenTang defaultTangRecordNamer,
       optGrad = GenGrad defaultGradRecordNamer,
-      optMetricNamer = defaultMetricRecordNamer,
       optBuilderNamer = defaultBuilderRecordNamer,
       optAffineSpace = AutoAffineSpace,
       optExcludeFields = []
@@ -503,111 +492,6 @@ mkDualInstance tangRecord gradRecord scalarType cxt instVars = do
                   []
               ]
 
-mkMetricInstance ::
-  DownhillRecord ->
-  DownhillRecord ->
-  DownhillRecord ->
-  Type ->
-  Cxt ->
-  [Type] ->
-  THWriter ()
-mkMetricInstance metricRecord tangRecord gradRecord scalarType cxt instVars = do
-  scalarTypeName <- lift (newName "s")
-  mkClassDec (VarT scalarTypeName)
-  where
-    -- instance (ctx, s ~ scalarType) => MetricTensor s (RecordMetric a1 … an) where
-    --   …
-    mkClassDec :: Type -> THWriter ()
-    mkClassDec scalarVar = do
-      let newConstraints =
-            [ -- s ~ scalarType
-              AppT (AppT EqualityT scalarVar) scalarType
-            ]
-          -- MetricTensor s (RecordMetric a1 … an)
-          ihead = ConT ''MetricTensor `AppT` scalarVar `AppT` metricType
-      evalMetricDec <- lift mkEvalMetric
-      sqrNormDec <- lift mkSqrNorm
-      tell
-        [ InstanceD
-            Nothing
-            (cxt ++ newConstraints)
-            ihead
-            [vectypeDec, covectorTypeDec, evalMetricDec, sqrNormDec]
-        ]
-      where
-        vectorType :: Type
-        vectorType = foldl AppT (ConT $ ddtTypeConName tangRecord) instVars
-        covectorType :: Type
-        covectorType = foldl AppT (ConT $ ddtTypeConName gradRecord) instVars
-        metricType :: Type
-        metricType = foldl AppT (ConT $ ddtTypeConName metricRecord) instVars
-        -- type MtVector (RecordMetric a1 … an) = RecordTang a1 … an
-        vectypeDec =
-          TySynInstD
-            ( TySynEqn
-                Nothing
-                (AppT (ConT ''MtVector) metricType)
-                vectorType
-            )
-        -- type MtCovector (RecordMetric a1 … an) = RecordGrad a1 … an
-        covectorTypeDec =
-          TySynInstD
-            ( TySynEqn
-                Nothing
-                (AppT (ConT ''MtCovector) metricType)
-                covectorType
-            )
-
-        mkEvalMetric :: Q Dec
-        mkEvalMetric = do
-          let n = ddtFieldCount metricRecord
-          xs <- replicateM n (newName "m")
-          ys <- replicateM n (newName "dv")
-          let leftPat, rightPat :: Pat
-              leftPat = ConP (ddtDataConName metricRecord) (map VarP xs)
-              rightPat = ConP (ddtDataConName gradRecord) (map VarP ys)
-              terms :: [Exp]
-              terms = zipWith evalGradExp xs ys
-                where
-                  evalGradExp :: Name -> Name -> Exp
-                  evalGradExp x y = VarE 'evalMetric `AppE` VarE x `AppE` VarE y
-              rhs =
-                foldl
-                  AppE
-                  (ConE (ddtDataConName tangRecord))
-                  terms
-          return $
-            FunD
-              'evalMetric
-              [ Clause
-                  [leftPat, rightPat]
-                  (NormalB rhs)
-                  []
-              ]
-
-        mkSqrNorm :: Q Dec
-        mkSqrNorm = do
-          let n = ddtFieldCount metricRecord
-          xs <- replicateM n (newName "m")
-          ys <- replicateM n (newName "dv")
-          let leftPat, rightPat :: Pat
-              leftPat = ConP (ddtDataConName metricRecord) (map VarP xs)
-              rightPat = ConP (ddtDataConName gradRecord) (map VarP ys)
-              terms :: [Exp]
-              terms = zipWith evalSqrtNorm xs ys
-                where
-                  evalSqrtNorm :: Name -> Name -> Exp
-                  evalSqrtNorm x y = VarE 'sqrNorm `AppE` VarE x `AppE` VarE y
-              rhs = sumVExpr terms
-          return $
-            FunD
-              'sqrNorm
-              [ Clause
-                  [leftPat, rightPat]
-                  (NormalB rhs)
-                  []
-              ]
-
 mkRecord :: DownhillRecord -> THWriter ()
 mkRecord record = do
   let newConstr = mkConstructor record
@@ -731,9 +615,6 @@ gradTransform options = case optGrad options of
   SameGrad -> Nothing
   GenGrad gradNamer -> Just (RecordTranstorm gradNamer (AppT (ConT ''Grad)))
 
-metricTransform :: BVarOptions -> RecordTranstorm
-metricTransform options = RecordTranstorm (optMetricNamer options) (AppT (ConT ''Metric))
-
 mkVecInstances :: Cxt -> [Type] -> Type -> DownhillRecord -> BVarOptions -> THWriter ()
 mkVecInstances cxt instVars scalarType vectorType options = do
   let builderType = renameDownhillRecord (builderTransform options) vectorType
@@ -756,8 +637,7 @@ mkVecTrVec cxt instVars scalarType origRecordType transform options = do
 
 data MkDVarResult = MkDVarResult
   { mkdvTangName :: Name,
-    mkdvGradName :: Name,
-    mkdvMetricName :: Name
+    mkdvGradName :: Name
   }
 
 mkDVar'' ::
@@ -771,16 +651,13 @@ mkDVar'' ::
 mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
   tangRecord <- mkVecTrVec cxt instVars scalarType pointRecord (tangTransform options) options
   gradRecord <- mkVecTrVec cxt instVars scalarType pointRecord (gradTransform options) options
-  let metricRecord = renameDownhillRecord (metricTransform options) pointRecord
 
-  mkRecord metricRecord
   {-
   -- No VectorSpace for MetricTensor
   additiveMetric <- mkAdditiveGroupInstance cxt metricRecord instVars
   vspaceMetric <- mkVectorSpaceInstance metricRecord scalarType cxt instVars
   -}
   mkDualInstance tangRecord gradRecord scalarType cxt instVars
-  mkMetricInstance metricRecord tangRecord gradRecord scalarType cxt instVars
   let needAffineSpace = case optAffineSpace options of
         MakeAffineSpace -> True
         NoAffineSpace -> False
@@ -808,8 +685,7 @@ mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
   return
     MkDVarResult
       { mkdvTangName = ddtTypeConName tangRecord,
-        mkdvGradName = ddtTypeConName gradRecord,
-        mkdvMetricName = ddtTypeConName metricRecord
+        mkdvGradName = ddtTypeConName gradRecord
       }
 
 parseRecordType :: (Monad m, MonadFail m) => Type -> [Type] -> m (Name, [Type])
@@ -909,7 +785,7 @@ mkDVarC1 options = \case
             _ -> fail "HasGrad instance must contain `MScalar ... = ...` declaration"
           _ -> fail "`HasGrad` has multiple declarations"
 
-        MkDVarResult {mkdvTangName, mkdvGradName, mkdvMetricName} <-
+        MkDVarResult {mkdvTangName, mkdvGradName} <-
           mkDVar'' cxt parsedRecord options scalarType instVars substitutedRecord
 
         --metricTypeDec' :: [Dec]
@@ -932,13 +808,6 @@ mkDVarC1 options = \case
                     (AppT (ConT ''Grad) recordInConstraintType)
                     (foldl AppT (ConT mkdvGradName) instVars)
                 )
-            metricTypeDec =
-              TySynInstD
-                ( TySynEqn
-                    Nothing
-                    (AppT (ConT ''Metric) recordInConstraintType)
-                    (foldl AppT (ConT mkdvMetricName) instVars)
-                )
 
             hasgradInstance =
               InstanceD
@@ -947,8 +816,7 @@ mkDVarC1 options = \case
                 type_
                 ( decs
                     ++ [ tangTypeDec,
-                         gradTypeDec,
-                         metricTypeDec
+                         gradTypeDec
                        ]
                 )
         tell [hasgradInstance]

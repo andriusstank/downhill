@@ -34,10 +34,10 @@ import Downhill.BVar (BVar (bvarValue), backprop)
 import qualified Downhill.BVar as BVar
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, Metric, MScalar, Tang),
-    MetricTensor (MtCovector, MtVector, evalMetric),
+    HasGrad (Grad, MScalar, Tang)
   )
 import Downhill.Linear.Expr (BasicVector (..))
+import Downhill.Metric (MetricTensor (evalMetric))
 
 -- | @AsNum a@ implements many instances in terms of @Num a@ instance.
 newtype AsNum a = AsNum {unAsNum :: a}
@@ -53,11 +53,8 @@ instance Num a => HasGrad (AsNum a) where
   type MScalar (AsNum a) = AsNum a
   type Grad (AsNum a) = AsNum a
   type Tang (AsNum a) = AsNum a
-  type Metric (AsNum a) = AsNum a
 
 instance Num a => MetricTensor (AsNum a) (AsNum a) where
-  type MtVector (AsNum a) = AsNum a
-  type MtCovector (AsNum a) = AsNum a
   evalMetric (AsNum m) (AsNum x) = AsNum (m * x)
 
 instance Num a => AdditiveGroup (AsNum a) where

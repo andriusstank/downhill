@@ -18,6 +18,7 @@ vertex.
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -28,10 +29,15 @@ import qualified Data.AffineSpace as AffineSpace
 import Data.Foldable (traverse_)
 import Data.VectorSpace (AdditiveGroup, VectorSpace ((*^)))
 import Downhill.BVar (BVar (BVar, bvarValue), backprop, constant, var)
-import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), HasGradAffine, MetricTensor (..))
+import Downhill.Grad
+  ( Dual (evalGrad),
+    HasGrad (Grad, MScalar, Tang),
+    HasGradAffine
+  )
 import Downhill.Linear.Expr (BasicVector, DenseVector (DenseVector))
 import Downhill.Linear.Lift (lift1_dense)
 import GHC.Generics (Generic)
+import Downhill.Metric (MetricTensor (evalMetric))
 
 data Point = Point Double Double
   deriving (Generic, Show)
@@ -64,13 +70,11 @@ instance HasGrad Vector where
   type MScalar Vector = Double
   type Tang Vector = Vector
   type Grad Vector = Gradient
-  type Metric Vector = L2
 
 instance HasGrad Point where
   type MScalar Point = Double
   type Tang Point = Vector
   type Grad Point = Gradient
-  type Metric Point = L2
 
 sqrNormBp :: BVar r Vector -> BVar r Double
 sqrNormBp (BVar (Vector x y) dv) = BVar normValue (lift1_dense bp dv)
@@ -86,9 +90,7 @@ distance x y = sqrt $ sqrNormBp (x .-. y)
 data L2 = L2
   deriving (Generic)
 
-instance MetricTensor Double L2 where
-  type MtVector L2 = Vector
-  type MtCovector L2 = Gradient
+instance MetricTensor Point L2 where
   evalMetric L2 (Gradient x y) = Vector x y
 
 data Triangle = Triangle Point Point Point
@@ -119,13 +121,14 @@ type PlainScalar z =
   )
 
 affineStep ::
-  forall p z.
+  forall p g z.
   ( HasGradAffine p,
+    MetricTensor p g,
     PlainScalar z
   ) =>
   (p -> BVar (Grad p) z) ->
   MScalar p ->
-  Metric p ->
+  g ->
   p ->
   Iterate p z
 affineStep objectiveFunc stepSize metric = nextIter
@@ -138,16 +141,17 @@ affineStep objectiveFunc stepSize metric = nextIter
         grad :: Grad p
         grad = backprop dist 1
         step :: Tang p
-        step = evalMetric metric grad
+        step = evalMetric @p metric grad
 
 affineIterate ::
-  forall p z.
+  forall p g z.
   ( HasGradAffine p,
+    MetricTensor p g,
     PlainScalar z
   ) =>
   (p -> BVar (Grad p) z) ->
   MScalar p ->
-  Metric p ->
+  g ->
   p ->
   [Iterate p z]
 affineIterate objectiveFunc stepSize metric x0 = iterate (step . itPoint) (step x0)
@@ -155,7 +159,7 @@ affineIterate objectiveFunc stepSize metric x0 = iterate (step . itPoint) (step 
     step = affineStep objectiveFunc stepSize metric
 
 solveFermatPoint :: Triangle -> Double -> Point -> [Iterate Point Double]
-solveFermatPoint triangle lr = affineIterate distF lr L2
+solveFermatPoint triangle lr = affineIterate @Point @L2 @Double distF lr L2
   where
     distF :: Point -> BVar Gradient Double
     distF x = totalDistance triangle (var x)

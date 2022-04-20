@@ -33,6 +33,7 @@ library
                        Downhill.BVar.Num
                        Downhill.BVar.Prelude,
                        Downhill.BVar.Traversable,
+                       Downhill.Metric,
                        Downhill.TH
   -- other-modules:
   -- other-extensions:

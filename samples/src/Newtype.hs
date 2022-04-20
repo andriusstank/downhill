@@ -1,24 +1,29 @@
 {- Manually wrapping and unwrapping newtypes inside BVar. -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeApplications #-}
 
-module Main(main, unwrapBVar, wrapBVar) where
+module Main (main, unwrapBVar, wrapBVar) where
 
 import Data.VectorSpace (AdditiveGroup, VectorSpace)
 import Downhill.BVar (BVar (BVar))
-import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Metric, Tang), MetricTensor (MtCovector, MtVector, evalMetric, sqrNorm))
-import Downhill.Linear.BackGrad ( inlineNode )
-import Downhill.Linear.Expr (BasicVector (VecBuilder, sumBuilder, identityBuilder))
+import Downhill.Grad
+  ( Dual (evalGrad),
+    HasGrad (Grad, MScalar, Tang)
+  )
+import Downhill.Linear.BackGrad (inlineNode)
+import Downhill.Linear.Expr (BasicVector (VecBuilder, identityBuilder, sumBuilder))
+import Downhill.Metric (MetricTensor (evalMetric, sqrNorm))
 
-newtype MyWrapper a = MyWrapper { unMyWrapper :: a }
-    deriving (Semigroup, Monoid, AdditiveGroup, VectorSpace) via a
+newtype MyWrapper a = MyWrapper {unMyWrapper :: a}
+  deriving (Semigroup, Monoid, AdditiveGroup, VectorSpace) via a
 
 instance BasicVector a => BasicVector (MyWrapper a) where
   type VecBuilder (MyWrapper a) = MyWrapper (VecBuilder a)
@@ -28,17 +33,14 @@ instance BasicVector a => BasicVector (MyWrapper a) where
 instance Dual s da a => Dual s (MyWrapper da) (MyWrapper a) where
   evalGrad (MyWrapper da) (MyWrapper a) = evalGrad da a
 
-instance MetricTensor s a => MetricTensor s (MyWrapper a) where
-  type MtVector (MyWrapper a) = MyWrapper (MtVector a)
-  type MtCovector (MyWrapper a) = MyWrapper (MtCovector a)
-  evalMetric (MyWrapper m) (MyWrapper x) = MyWrapper (evalMetric m x)
-  sqrNorm (MyWrapper m) (MyWrapper x) = sqrNorm m x
+instance MetricTensor p a => MetricTensor (MyWrapper p) (MyWrapper a) where
+  evalMetric (MyWrapper m) (MyWrapper x) = MyWrapper (evalMetric @p m x)
+  sqrNorm (MyWrapper m) (MyWrapper x) = sqrNorm @p m x
 
 instance HasGrad a => HasGrad (MyWrapper a) where
   type MScalar (MyWrapper a) = MScalar a
   type Tang (MyWrapper a) = MyWrapper (Tang a)
   type Grad (MyWrapper a) = MyWrapper (Grad a)
-  type Metric (MyWrapper a) = MyWrapper (Metric a)
 
 unwrapBVar :: forall r a. BasicVector (Grad a) => BVar r (MyWrapper a) -> BVar r a
 unwrapBVar (BVar x dx) = BVar (unMyWrapper x) (inlineNode MyWrapper dx)

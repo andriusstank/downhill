@@ -4,12 +4,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- | Easy backpropagation when all variables have the same type.
 --
@@ -55,61 +55,49 @@ import Data.AdditiveGroup (AdditiveGroup, sumV)
 import Data.Foldable (toList)
 import Data.IntMap (IntMap)
 import qualified Data.IntMap as IntMap
+import Data.Kind (Type)
 import Data.Maybe (fromMaybe)
 import Data.VectorSpace (AdditiveGroup (negateV, zeroV, (^+^), (^-^)), VectorSpace (Scalar, (*^)))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar, bvarGrad, bvarValue), backprop, var)
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, MScalar, Metric, Tang),
-    MetricTensor
-      ( MtCovector,
-        MtVector,
-        evalMetric
-      ),
+    HasGrad (Grad, MScalar, Tang)
   )
 import Downhill.Linear.BackGrad (BackGrad (BackGrad), castBackGrad, realNode)
 import Downhill.Linear.Expr
-  ( BasicVector (VecBuilder, sumBuilder, identityBuilder),
+  ( BasicVector (VecBuilder, identityBuilder, sumBuilder),
     Expr (ExprSum),
     SparseVector (unSparseVector),
     Term,
   )
 import Downhill.Linear.Lift (lift1_sparse)
 import GHC.Generics (Generic)
+import Downhill.Metric (MetricTensor (evalMetric))
 
 -- | Provides HasGrad instance for use in deriving via
 newtype TraversableVar f a = TraversableVar {unTraversableVar :: f a}
   deriving stock (Functor, Foldable, Traversable)
 
-newtype TraversableMetric f a = TraversableMetric (Metric a)
+newtype TraversableMetric (f :: Type -> Type) g = TraversableMetric g
   deriving (Generic)
 
-instance AdditiveGroup (Metric a) => AdditiveGroup (TraversableMetric f a)
+instance AdditiveGroup g => AdditiveGroup (TraversableMetric f g)
 
-instance VectorSpace (Metric a) => VectorSpace (TraversableMetric f a) where
-  type Scalar (TraversableMetric f a) = Scalar (Metric a)
+instance VectorSpace g => VectorSpace (TraversableMetric f g) where
+  type Scalar (TraversableMetric f g) = Scalar g
 
-instance
-  ( MetricTensor s (Metric a),
-    MtVector (Metric a) ~ Tang a,
-    MtCovector (Metric a) ~ Grad a,
-    Dual s (Tang a) (Grad a)
-  ) =>
-  MetricTensor s (TraversableMetric f a)
-  where
-  type MtVector (TraversableMetric f a) = IntmapVector f (Tang a)
-  type MtCovector (TraversableMetric f a) = IntmapVector f (Grad a)
-  evalMetric (TraversableMetric m) (IntmapVector da) = IntmapVector (IntMap.map (evalMetric m) da)
+instance MetricTensor p g => MetricTensor (TraversableVar f p) (TraversableMetric f g) where
+  evalMetric (TraversableMetric m) (IntmapVector da) =
+    IntmapVector (IntMap.map (evalMetric @p @g m) da)
 
 instance HasGrad a => HasGrad (TraversableVar f a) where
   type MScalar (TraversableVar f a) = MScalar a
   type Tang (TraversableVar f a) = IntmapVector f (Tang a)
   type Grad (TraversableVar f a) = IntmapVector f (Grad a)
-  type Metric (TraversableVar f a) = TraversableMetric f a
 
 -- | @IntmapVector@ serves as a gradient of 'TraversableVar'.
-newtype IntmapVector f v = IntmapVector {unIntmapVector :: IntMap v}
+newtype IntmapVector (f :: Type -> Type) v = IntmapVector {unIntmapVector :: IntMap v}
   deriving (Show)
 
 instance AdditiveGroup a => AdditiveGroup (IntmapVector f a) where
