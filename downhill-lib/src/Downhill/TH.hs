@@ -130,6 +130,7 @@ data BVarOptions = BVarOptions
     optGrad :: GradOptions,
     optBuilderNamer :: RecordNamer,
     optAffineSpace :: AffineSpaceOptions,
+    optHasFieldInstances :: Bool,
     -- | List of fields that take no part in differentiation
     optExcludeFields :: [String]
   }
@@ -184,6 +185,7 @@ defaultBVarOptions =
       optGrad = GenGrad defaultGradRecordNamer,
       optBuilderNamer = defaultBuilderRecordNamer,
       optAffineSpace = AutoAffineSpace,
+      optHasFieldInstances = True,
       optExcludeFields = []
     }
 
@@ -666,22 +668,23 @@ mkDVar'' cxt pointRecord options scalarType instVars substitutedCInfo = do
   when needAffineSpace $
     mkAffineSpaceInstance cxt pointRecord tangRecord instVars
 
-  case ddtFieldNames pointRecord of
-    Nothing -> return ()
-    Just names ->
-      let info :: Int -> String -> Type -> FieldInfo
-          info index name = FieldInfo name index
-          substitutedFields = constructorFields substitutedCInfo
-          fields :: [FieldInfo]
-          fields = zipWith3 info [0 ..] names substitutedFields
-          mkFieldGetter :: FieldInfo -> THWriter ()
-          mkFieldGetter =
-            mkGetField
-              pointRecord
-              (renameDownhillRecord (builderTransform options) gradRecord)
-              cxt
-              instVars
-       in traverse_ mkFieldGetter fields
+  when (optHasFieldInstances options) $
+    case ddtFieldNames pointRecord of
+      Nothing -> return ()
+      Just names ->
+        let info :: Int -> String -> Type -> FieldInfo
+            info index name = FieldInfo name index
+            substitutedFields = constructorFields substitutedCInfo
+            fields :: [FieldInfo]
+            fields = zipWith3 info [0 ..] names substitutedFields
+            mkFieldGetter :: FieldInfo -> THWriter ()
+            mkFieldGetter =
+              mkGetField
+                pointRecord
+                (renameDownhillRecord (builderTransform options) gradRecord)
+                cxt
+                instVars
+        in traverse_ mkFieldGetter fields
   return
     MkDVarResult
       { mkdvTangName = ddtTypeConName tangRecord,

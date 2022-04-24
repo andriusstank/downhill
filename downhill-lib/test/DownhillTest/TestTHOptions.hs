@@ -32,6 +32,7 @@ defaultDVarOptions =
       optGrad = GenGrad defaultGradRecordNamer,
       optBuilderNamer = defaultBuilderRecordNamer,
       optAffineSpace = AutoAffineSpace,
+      optHasFieldInstances = True,
       optExcludeFields = []
     }
 
