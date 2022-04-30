@@ -10,6 +10,8 @@ cradle:
       component: "downhill-samples:record"
     - path: "./samples/src/Newtype.hs"
       component: "downhill-samples:newtype"
+    - path: "./samples/src/Generics.hs"
+      component: "downhill-samples:generics"
     - path: "./samples/src/Traversable.hs"
       component: "downhill-samples:traversable"
     - path: "./samples/src/Affine.hs"

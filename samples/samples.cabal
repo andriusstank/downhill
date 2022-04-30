@@ -34,6 +34,11 @@ executable newtype
   import:              all-samples
   main-is:             Newtype.hs
 
+executable generics
+  import:              all-samples
+  main-is:             Generics.hs
+  build-depends:       generic-monoid
+
 executable traversable
   import:              all-samples
   main-is:             Traversable.hs
