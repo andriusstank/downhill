@@ -3,12 +3,14 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Main where
 import GHC.Generics (Generic)
 import Downhill.Linear.Expr (BasicVector(..))
 import Data.Monoid.Generic (GenericSemigroup (..))
-import Data.AdditiveGroup (AdditiveGroup)
+import Downhill.Grad (Dual, HasGrad(..))
+import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
 
 data MyRecord = MyRecord {
   fieldA :: Double,
@@ -21,11 +23,19 @@ data MyRecordBuilder = MyRecordBuilder {
 } deriving Generic
 
 instance AdditiveGroup MyRecord
+instance VectorSpace MyRecord where
+  type Scalar MyRecord = Double
+
 deriving via (GenericSemigroup MyRecordBuilder) instance (Semigroup MyRecordBuilder)
+
+instance Dual MyRecord MyRecord where
 
 instance BasicVector MyRecord where
   type VecBuilder MyRecord = Maybe MyRecordBuilder
 
+instance HasGrad MyRecord where
+  type Tang MyRecord = MyRecord
+  type Grad MyRecord = MyRecord
 
 main :: IO ()
 main = return ()

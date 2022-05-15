@@ -1,11 +1,16 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE EmptyCase #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Downhill.Grad
   ( Dual (..),
@@ -17,8 +22,9 @@ where
 
 import Data.AffineSpace (AffineSpace (Diff))
 import Data.Kind (Type)
-import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace(Scalar))
+import Data.VectorSpace (AdditiveGroup ((^+^), zeroV), VectorSpace(Scalar))
 import Downhill.Linear.Expr (BasicVector (VecBuilder))
+import GHC.Generics (Generic (Rep, from), K1 (K1), M1 (M1), U1 (U1), V1, (:*:) ((:*:)))
 
 -- | Dual of a vector @v@ is a linear map @v -> Scalar v@.
 class
@@ -32,6 +38,8 @@ class
   where
   -- if evalGrad goes to HasGrad class, parameter p is ambiguous
   evalGrad :: dv -> v -> Scalar v
+  default evalGrad :: (GDual (Scalar v) (Rep v) (Rep dv), Generic dv, Generic v) => dv -> v -> Scalar v
+  evalGrad dv v = gevalGrad (from dv) (from v)
 
 type MScalar p = Scalar (Tang p)
 
@@ -115,3 +123,21 @@ instance Dual Double Double where
 instance HasGrad Double where
   type Grad Double = Double
   type Tang Double = Double
+
+class GDual s v dv where
+  gevalGrad :: dv p -> v p -> s
+
+instance (s ~ Scalar v, Dual v dv) => GDual s (K1 x v) (K1 x dv) where
+  gevalGrad (K1 dv) (K1 v) = evalGrad dv v
+
+instance (GDual s v dv) => GDual s (M1 x y v) (M1 x y' dv) where
+  gevalGrad (M1 dv) (M1 v) = gevalGrad dv v
+
+instance (AdditiveGroup s, GDual s u du, GDual s v dv) => GDual s (u :*: v) (du :*: dv) where
+  gevalGrad (du :*: dv) (u :*: v) = gevalGrad du u ^+^ gevalGrad dv v
+
+instance GDual s V1 V1 where
+  gevalGrad = \case {}
+
+instance AdditiveGroup s => GDual s U1 U1 where
+  gevalGrad U1 = zeroV

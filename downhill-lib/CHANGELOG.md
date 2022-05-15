@@ -5,6 +5,7 @@
 * `T2`, `T3` pattern synonyms for `BVar`
 * `TangOptions`, `GradOptions` template haskell options.
 * `L2` metric.
+* Generics for `BasicVector`, `Dual`.
 
 ## 0.1.0.0
 
