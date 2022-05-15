@@ -62,7 +62,7 @@ import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar, bvarGrad, bvarValue), backprop, var)
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, MScalar, Tang)
+    HasGrad (Grad, Tang)
   )
 import Downhill.Linear.BackGrad (BackGrad (BackGrad), castBackGrad, realNode)
 import Downhill.Linear.Expr
@@ -92,7 +92,6 @@ instance MetricTensor p g => MetricTensor (TraversableVar f p) (TraversableMetri
     IntmapVector (IntMap.map (evalMetric @p @g m) da)
 
 instance HasGrad a => HasGrad (TraversableVar f a) where
-  type MScalar (TraversableVar f a) = MScalar a
   type Tang (TraversableVar f a) = IntmapVector f (Tang a)
   type Grad (TraversableVar f a) = IntmapVector f (Grad a)
 
@@ -114,7 +113,7 @@ instance VectorSpace v => VectorSpace (IntmapVector f v) where
   type Scalar (IntmapVector f v) = VectorSpace.Scalar v
   a *^ (IntmapVector v) = IntmapVector (fmap (a *^) v)
 
-instance Dual s dv v => Dual s (IntmapVector f dv) (IntmapVector f v) where
+instance Dual dv v => Dual (IntmapVector f dv) (IntmapVector f v) where
   evalGrad (IntmapVector dv) (IntmapVector v) = sumV $ IntMap.intersectionWith evalGrad dv v
 
 deriving via (IntMap v) instance Semigroup v => Semigroup (IntmapVector f v)

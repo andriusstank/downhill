@@ -9,7 +9,7 @@
 
 module Downhill.Grad
   ( Dual (..),
-    HasGrad (..),
+    HasGrad (..), MScalar,
     GradBuilder,
     HasGradAffine,
   )
@@ -17,36 +17,37 @@ where
 
 import Data.AffineSpace (AffineSpace (Diff))
 import Data.Kind (Type)
-import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
-import qualified Data.VectorSpace as VectorSpace
+import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace(Scalar))
 import Downhill.Linear.Expr (BasicVector (VecBuilder))
 
 -- | Dual of a vector @v@ is a linear map @v -> Scalar v@.
 class
-  ( AdditiveGroup s,
+  ( 
+    Scalar v ~ Scalar dv,
+    AdditiveGroup (Scalar v),
     VectorSpace v,
-    VectorSpace dv,
-    VectorSpace.Scalar v ~ s,
-    VectorSpace.Scalar dv ~ s
+    VectorSpace dv
   ) =>
-  Dual s v dv
+  Dual v dv
   where
   -- if evalGrad goes to HasGrad class, parameter p is ambiguous
-  evalGrad :: dv -> v -> s
+  evalGrad :: dv -> v -> Scalar v
 
-
+type MScalar p = Scalar (Tang p)
 
 -- | @HasGrad@ is a collection of types and constraints that are useful
 -- in many places. It helps to keep type signatures short.
 class
-  ( Dual (MScalar p) (Tang p) (Grad p),
+  ( Dual (Tang p) (Grad p),
     BasicVector (Tang p),
-    BasicVector (Grad p)
+    BasicVector (Grad p),
+    Scalar (Tang p) ~ MScalar p,
+    Scalar (Grad p) ~ MScalar p
   ) =>
   HasGrad p
   where
   -- | Scalar of @Tang p@ and @Grad p@.
-  type MScalar p :: Type
+  --type MScalar p :: Type
 
   -- | Tangent vector of manifold @p@. If p is 'AffineSpace', @Tang p@ should
   -- be @'Diff' p@. If @p@ is 'VectorSpace', @Tang p@ might be the same as @p@ itself.
@@ -66,18 +67,17 @@ type HasGradAffine p =
     Grad (Tang p) ~ Grad p
   )
 
-instance Dual Integer Integer Integer where
+instance Dual Integer Integer where
   evalGrad = (*)
 
 instance HasGrad Integer where
-  type MScalar Integer = Integer
   type Tang Integer = Integer
   type Grad Integer = Integer
 
-instance (Dual s a da, Dual s b db) => Dual s (a, b) (da, db) where
+instance (Scalar a ~ Scalar b, Dual a da, Dual b db) => Dual (a, b) (da, db) where
   evalGrad (a, b) (x, y) = evalGrad a x ^+^ evalGrad b y
 
-instance (Dual s a da, Dual s b db, Dual s c dc) => Dual s (a, b, c) (da, db, dc) where
+instance (Scalar a ~ Scalar b, Scalar a ~ Scalar c, Dual a da, Dual b db, Dual c dc) => Dual (a, b, c) (da, db, dc) where
   evalGrad (a, b, c) (x, y, z) = evalGrad a x ^+^ evalGrad b y ^+^ evalGrad c z
 
 instance
@@ -87,7 +87,6 @@ instance
   ) =>
   HasGrad (a, b)
   where
-  type MScalar (a, b) = MScalar a
   type Grad (a, b) = (Grad a, Grad b)
   type Tang (a, b) = (Tang a, Tang b)
 
@@ -100,22 +99,19 @@ instance
   ) =>
   HasGrad (a, b, c)
   where
-  type MScalar (a, b, c) = MScalar a
   type Grad (a, b, c) = (Grad a, Grad b, Grad c)
   type Tang (a, b, c) = (Tang a, Tang b, Tang c)
 
-instance Dual Float Float Float where
+instance Dual Float Float where
   evalGrad = (*)
 
 instance HasGrad Float where
-  type MScalar Float = Float
   type Grad Float = Float
   type Tang Float = Float
 
-instance Dual Double Double Double where
+instance Dual Double Double where
   evalGrad = (*)
 
 instance HasGrad Double where
-  type MScalar Double = Double
   type Grad Double = Double
   type Tang Double = Double

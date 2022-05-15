@@ -16,7 +16,7 @@ import Data.VectorSpace (AdditiveGroup, VectorSpace)
 import Downhill.BVar (BVar (BVar))
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, MScalar, Tang)
+    HasGrad (Grad, Tang)
   )
 import Downhill.Linear.BackGrad (inlineNode)
 import Downhill.Linear.Expr (BasicVector (VecBuilder, identityBuilder, sumBuilder))
@@ -30,7 +30,7 @@ instance BasicVector a => BasicVector (MyWrapper a) where
   sumBuilder (MyWrapper x) = MyWrapper (sumBuilder x)
   identityBuilder (MyWrapper a) = MyWrapper (identityBuilder a)
 
-instance Dual s da a => Dual s (MyWrapper da) (MyWrapper a) where
+instance Dual da a => Dual (MyWrapper da) (MyWrapper a) where
   evalGrad (MyWrapper da) (MyWrapper a) = evalGrad da a
 
 instance MetricTensor p a => MetricTensor (MyWrapper p) (MyWrapper a) where
@@ -38,7 +38,6 @@ instance MetricTensor p a => MetricTensor (MyWrapper p) (MyWrapper a) where
   sqrNorm (MyWrapper m) (MyWrapper x) = sqrNorm @p m x
 
 instance HasGrad a => HasGrad (MyWrapper a) where
-  type MScalar (MyWrapper a) = MScalar a
   type Tang (MyWrapper a) = MyWrapper (Tang a)
   type Grad (MyWrapper a) = MyWrapper (Grad a)
 

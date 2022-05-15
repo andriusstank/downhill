@@ -13,10 +13,10 @@
 module DownhillTest.Bilinear where
 
 import Data.AffineSpace ((.+^))
-import Data.VectorSpace (AdditiveGroup, VectorSpace ((*^)), (^+^))
+import Data.VectorSpace (AdditiveGroup, VectorSpace ((*^), Scalar), (^+^))
 import Downhill.BVar (BVar (bvarValue))
 import qualified Downhill.BVar as BVar
-import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar))
+import Downhill.Grad (Dual (evalGrad), HasGrad (Grad), MScalar)
 import Hedgehog
   ( Gen,
     Property,
@@ -45,9 +45,12 @@ testBilinear ::
     AdditiveGroup u,
     Show z,
     AdditiveGroup z,
-    Dual (MScalar z) (Grad u) u,
-    Eq (MScalar z),
-    Dual (MScalar z) (Grad z) z, Show (MScalar z), Dual (MScalar z) (Grad v) v) =>
+    Dual (Grad u) u,
+    Eq (Scalar u),
+    Show (Scalar u),
+    Scalar u ~ Scalar z,
+    Scalar v ~ Scalar z,
+    Dual (Grad z) z, Show (MScalar z), Dual (Grad v) v) =>
   (u -> v -> z) ->
   (forall r. BVar r u -> BVar r v -> BVar r z) ->
   Gen u ->

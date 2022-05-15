@@ -31,8 +31,8 @@ import Data.VectorSpace (AdditiveGroup, VectorSpace ((*^)))
 import Downhill.BVar (BVar (BVar, bvarValue), backprop, constant, var)
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, MScalar, Tang),
-    HasGradAffine
+    HasGrad (Grad, Tang),
+    HasGradAffine, MScalar
   )
 import Downhill.Linear.Expr (BasicVector, DenseVector (DenseVector))
 import Downhill.Linear.Lift (lift1_dense)
@@ -63,16 +63,14 @@ instance AffineSpace Point where
   Point x y .+^ Vector dx dy = Point (x .+^ dx) (y .+^ dy)
   Point x1 y1 .-. Point x2 y2 = Vector (x1 .-. x2) (y1 .-. y2)
 
-instance Dual Double Vector Gradient where
+instance Dual Vector Gradient where
   evalGrad (Gradient dx dy) (Vector x y) = dx * x + dy * y
 
 instance HasGrad Vector where
-  type MScalar Vector = Double
   type Tang Vector = Vector
   type Grad Vector = Gradient
 
 instance HasGrad Point where
-  type MScalar Point = Double
   type Tang Point = Vector
   type Grad Point = Gradient
 

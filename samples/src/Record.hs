@@ -17,13 +17,13 @@ how it's done.
 
 module Main (main, splitRecord, joinRecord) where
 
-import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace)
+import Data.VectorSpace (AdditiveGroup ((^+^)), VectorSpace (Scalar))
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar))
 import Downhill.Grad
   ( Dual (evalGrad),
     GradBuilder,
-    HasGrad (Grad, MScalar, Tang)
+    HasGrad (Grad, Tang), MScalar
   )
 import Downhill.Linear.Expr (BasicVector (VecBuilder, identityBuilder, sumBuilder), maybeToMonoid)
 import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
@@ -52,7 +52,7 @@ instance (BasicVector a, BasicVector b) => BasicVector (MyRecord a b) where
       b = maybeToMonoid (fieldB <$> r)
   identityBuilder (MyRecord a b) = Just (MyRecord (identityBuilder a) (identityBuilder b))
 
-instance (Dual s da a, Dual s db b) => Dual s (MyRecord da db) (MyRecord a b) where
+instance (Scalar a ~ Scalar b, Dual da a, Dual db b) => Dual (MyRecord da db) (MyRecord a b) where
   evalGrad (MyRecord da db) (MyRecord a b) = evalGrad da a ^+^ evalGrad db b
 
 instance
@@ -66,7 +66,6 @@ instance
   sqrNorm (MyRecord m1 m2) (MyRecord x1 x2) = sqrNorm @a m1 x1 ^+^ sqrNorm @b m2 x2
 
 instance (HasGrad a, HasGrad b, MScalar a ~ MScalar b) => HasGrad (MyRecord a b) where
-  type MScalar (MyRecord a b) = MScalar a
   type Tang (MyRecord a b) = MyRecord (Tang a) (Tang b)
   type Grad (MyRecord a b) = MyRecord (Grad a) (Grad b)
 

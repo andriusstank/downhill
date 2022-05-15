@@ -11,14 +11,14 @@ module Downhill.Metric
 where
 
 import Data.VectorSpace ((^+^))
-import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, MScalar, Tang))
+import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, Tang), MScalar)
 
 -- | @MetricTensor@ converts gradients to vectors.
 --
 -- It is really inverse of a metric tensor, because it maps cotangent
 -- space into tangent space. Gradient descent doesn't need metric tensor,
 -- it needs inverse.
-class Dual (MScalar p) (Tang p) (Grad p) => MetricTensor p g where
+class Dual (Tang p) (Grad p) => MetricTensor p g where
   -- | @m@ must be symmetric:
   --
   -- @evalGrad x (evalMetric m y) = evalGrad y (evalMetric m x)@
@@ -26,7 +26,7 @@ class Dual (MScalar p) (Tang p) (Grad p) => MetricTensor p g where
 
   -- | @innerProduct m x y = evalGrad x (evalMetric m y)@
   innerProduct :: g -> Grad p -> Grad p -> MScalar p
-  innerProduct g x y = evalGrad @(MScalar p) @(Tang p) @(Grad p) x (evalMetric @p g y)
+  innerProduct g x y = evalGrad @(Tang p) @(Grad p) x (evalMetric @p g y)
 
   -- | @sqrNorm m x = innerProduct m x x@
   sqrNorm :: g -> Grad p -> MScalar p

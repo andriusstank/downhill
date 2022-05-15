@@ -37,8 +37,8 @@ import Data.VectorSpace
 import qualified Data.VectorSpace as VectorSpace
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, MScalar, Tang),
-    HasGradAffine,
+    HasGrad (Grad, Tang),
+    HasGradAffine, MScalar
   )
 import Downhill.Linear.BackGrad
   ( BackGrad (..),
