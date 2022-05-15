@@ -5,7 +5,6 @@ import Test.Tasty.HUnit (Assertion, testCase, (@?=))
 import qualified Test.Tasty as Tasty
 import Downhill.BVar.Num (NumBVar(..), backpropNum, constant, var, numbvarValue, AsNum)
 import DownhillTest.Traversable(recordTest)
-import DownhillTest.TH (thTest)
 import DownhillTest.Bilinear(bilinearTests)
 
 basicTests = testGroup "Basic tests"
@@ -21,6 +20,6 @@ basicTests = testGroup "Basic tests"
             in backpropNum ((2+3*x) * (5+7*x)) @?= 29 + 42 * numbvarValue x
 
 tests :: TestTree
-tests = testGroup "Tests" [basicTests, recordTest, thTest, bilinearTests]
+tests = testGroup "Tests" [basicTests, recordTest, bilinearTests]
 
 main = defaultMain tests

@@ -33,8 +33,7 @@ library
                        Downhill.BVar.Num
                        Downhill.BVar.Prelude,
                        Downhill.BVar.Traversable,
-                       Downhill.Metric,
-                       Downhill.TH
+                       Downhill.Metric
   -- other-modules:
   -- other-extensions:
   build-depends:       base                  >= 4.12.0.0 && <4.17,
@@ -55,9 +54,7 @@ test-suite downhill-test
   main-is:             Main.hs
   other-modules:       DownhillTest.Point,
                        DownhillTest.Traversable,
-                       DownhillTest.TH,
-                       DownhillTest.Bilinear,
-                       DownhillTest.TestTHOptions
+                       DownhillTest.Bilinear
   build-depends:       base,
                        downhill,
                        tasty, tasty-hunit, tasty-hedgehog,

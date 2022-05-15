@@ -33,7 +33,6 @@ import qualified Hedgehog.Gen as Gen
 import qualified Hedgehog.Range as Range
 import GHC.Generics (Generic)
 import Downhill.Linear.Expr (BasicVector, DenseVector (DenseVector))
-import Downhill.TH (BVarOptions (..), defaultBVarOptions, mkHasGradInstances)
 
 testBilinear ::
   ( Show u,
@@ -72,13 +71,6 @@ data Vector = Vector Integer Integer
 
 instance AdditiveGroup Vector
 instance VectorSpace Vector
-
-mkHasGradInstances
-  defaultBVarOptions
-  [d|
-    instance HasGrad Vector where
-      type MScalar Vector = Integer
-    |]
 
 bilinearIntMulProperty :: Property
 bilinearIntMulProperty = testBilinear ((*) @Integer) (*) genInt genInt genInt

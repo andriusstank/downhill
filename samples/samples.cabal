@@ -34,11 +34,6 @@ executable newtype
   import:              all-samples
   main-is:             Newtype.hs
 
-executable th
-  import:              all-samples
-  main-is:             TH.hs
-  build-depends:       lens, template-haskell
-
 executable traversable
   import:              all-samples
   main-is:             Traversable.hs
