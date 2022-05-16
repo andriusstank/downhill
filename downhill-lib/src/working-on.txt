@@ -1,3 +1,7 @@
+manifolds-core
+TotalMap for vector spaces in Traversable.hs
+
+
 Lists?
 Vectors!?  vector-sized package.
 
@@ -6,7 +10,3 @@ Records. Generics? HKT, template haskell?
 Bidirectional linear function - for forward and reverse mode.
 
 inspection-testing package to test if inlineNode really inlines.
-
-splitBVar, joinBVar, AffineSpace, SemiManifold in TH.
-
-fields to ignore in TH. generate patterns

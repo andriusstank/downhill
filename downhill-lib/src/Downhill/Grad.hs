@@ -43,25 +43,19 @@ class
 
 type MScalar p = Scalar (Tang p)
 
--- | @HasGrad@ is a collection of types and constraints that are useful
--- in many places. It helps to keep type signatures short.
+-- | Differentiable functions don't need to be constrained to vector spaces, they
+-- can be defined on other smooth manifolds, too.
 class
   ( Dual (Tang p) (Grad p),
-    BasicVector (Tang p),
     BasicVector (Grad p),
-    Scalar (Tang p) ~ MScalar p,
-    Scalar (Grad p) ~ MScalar p
+    Scalar (Tang p) ~ Scalar (Grad p)
   ) =>
   HasGrad p
   where
-  -- | Scalar of @Tang p@ and @Grad p@.
-  --type MScalar p :: Type
-
-  -- | Tangent vector of manifold @p@. If p is 'AffineSpace', @Tang p@ should
-  -- be @'Diff' p@. If @p@ is 'VectorSpace', @Tang p@ might be the same as @p@ itself.
+  -- | Tangent space.
   type Tang p :: Type
 
-  -- | Dual of tangent space of @p@.
+  -- | Cotangent space.
   type Grad p :: Type
 
 type GradBuilder v = VecBuilder (Grad v)
