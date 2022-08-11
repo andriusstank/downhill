@@ -14,7 +14,7 @@ module Downhill.Metric
 where
 
 import Data.VectorSpace ((^+^))
-import Downhill.Grad (Dual (evalGrad), HasGrad (Grad, Tang), MScalar)
+import Downhill.Grad (Dual (evalGrad), Manifold(..), MScalar)
 
 -- | @MetricTensor@ converts gradients to vectors.
 --

@@ -13,8 +13,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Downhill.Grad
-  ( Dual (..),
-    HasGrad (..), MScalar,
+  ( Dual (..), HilbertSpace(..),
+    Manifold(..), HasGrad, MScalar,
     GradBuilder,
     HasGradAffine,
   )
@@ -30,6 +30,7 @@ import GHC.Generics (Generic (Rep, from), K1 (K1), M1 (M1), U1 (U1), V1, (:*:) (
 class
   ( 
     Scalar v ~ Scalar dv,
+    --Grad (Scalar v) ~ Scalar v,
     AdditiveGroup (Scalar v),
     VectorSpace v,
     VectorSpace dv
@@ -41,22 +42,32 @@ class
   default evalGrad :: (GDual (Scalar v) (Rep v) (Rep dv), Generic dv, Generic v) => dv -> v -> Scalar v
   evalGrad dv v = gevalGrad (from dv) (from v)
 
+-- | u <.> v = evalDual (riesz u) v
+-- | du <.> dv = evalDual du (coriesz dv)
+class Dual v dv => HilbertSpace v dv where
+  riesz :: v -> dv
+  coriesz :: dv -> v
+
+
 type MScalar p = Scalar (Tang p)
 
--- | Differentiable functions don't need to be constrained to vector spaces, they
--- can be defined on other smooth manifolds, too.
 class
   ( Dual (Tang p) (Grad p),
-    BasicVector (Grad p),
-    Scalar (Tang p) ~ Scalar (Grad p)
+    Scalar (Tang p) ~ Scalar (Grad p),
+    Tang (Tang p) ~ Tang p,
+    Grad (Tang p) ~ Grad p
   ) =>
-  HasGrad p
+  Manifold p
   where
   -- | Tangent space.
   type Tang p :: Type
 
   -- | Cotangent space.
   type Grad p :: Type
+
+-- | Differentiable functions don't need to be constrained to vector spaces, they
+-- can be defined on other smooth manifolds, too.
+type HasGrad p = (Manifold p, BasicVector (Grad p))
 
 type GradBuilder v = VecBuilder (Grad v)
 
@@ -72,7 +83,7 @@ type HasGradAffine p =
 instance Dual Integer Integer where
   evalGrad = (*)
 
-instance HasGrad Integer where
+instance Manifold Integer where
   type Tang Integer = Integer
   type Grad Integer = Integer
 
@@ -87,7 +98,7 @@ instance
     HasGrad b,
     MScalar b ~ MScalar a
   ) =>
-  HasGrad (a, b)
+  Manifold (a, b)
   where
   type Grad (a, b) = (Grad a, Grad b)
   type Tang (a, b) = (Tang a, Tang b)
@@ -99,7 +110,7 @@ instance
     MScalar b ~ MScalar a,
     MScalar c ~ MScalar a
   ) =>
-  HasGrad (a, b, c)
+  Manifold (a, b, c)
   where
   type Grad (a, b, c) = (Grad a, Grad b, Grad c)
   type Tang (a, b, c) = (Tang a, Tang b, Tang c)
@@ -107,14 +118,14 @@ instance
 instance Dual Float Float where
   evalGrad = (*)
 
-instance HasGrad Float where
+instance Manifold Float where
   type Grad Float = Float
   type Tang Float = Float
 
 instance Dual Double Double where
   evalGrad = (*)
 
-instance HasGrad Double where
+instance Manifold Double where
   type Grad Double = Double
   type Tang Double = Double
 

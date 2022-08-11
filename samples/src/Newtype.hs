@@ -15,8 +15,7 @@ module Main (main, unwrapBVar, wrapBVar) where
 import Data.VectorSpace (AdditiveGroup, VectorSpace)
 import Downhill.BVar (BVar (BVar))
 import Downhill.Grad
-  ( Dual (evalGrad),
-    HasGrad (Grad, Tang)
+  ( Dual (evalGrad), Manifold(Tang, Grad)
   )
 import Downhill.Linear.BackGrad (inlineNode)
 import Downhill.Linear.Expr (BasicVector (VecBuilder, identityBuilder, sumBuilder))
@@ -37,7 +36,7 @@ instance MetricTensor p a => MetricTensor (MyWrapper p) (MyWrapper a) where
   evalMetric (MyWrapper m) (MyWrapper x) = MyWrapper (evalMetric @p m x)
   sqrNorm (MyWrapper m) (MyWrapper x) = sqrNorm @p m x
 
-instance HasGrad a => HasGrad (MyWrapper a) where
+instance Manifold a => Manifold (MyWrapper a) where
   type Tang (MyWrapper a) = MyWrapper (Tang a)
   type Grad (MyWrapper a) = MyWrapper (Grad a)
 

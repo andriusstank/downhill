@@ -63,7 +63,7 @@ import qualified Data.VectorSpace as VectorSpace
 import Downhill.BVar (BVar (BVar, bvarGrad, bvarValue), backprop, var)
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, Tang)
+    Manifold (Grad, Tang), HasGrad
   )
 import Downhill.Linear.BackGrad (BackGrad (BackGrad), castBackGrad, realNode)
 import Downhill.Linear.Expr
@@ -92,13 +92,17 @@ instance MetricTensor p g => MetricTensor (TraversableVar f p) (TraversableMetri
   evalMetric (TraversableMetric m) (IntmapVector da) =
     IntmapVector (IntMap.map (evalMetric @p @g m) da)
 
-instance HasGrad a => HasGrad (TraversableVar f a) where
+instance Manifold a => Manifold (TraversableVar f a) where
   type Tang (TraversableVar f a) = IntmapVector f (Tang a)
   type Grad (TraversableVar f a) = IntmapVector f (Grad a)
 
 -- | @IntmapVector@ serves as a gradient of 'TraversableVar'.
 newtype IntmapVector (f :: Type -> Type) v = IntmapVector {unIntmapVector :: IntMap v}
   deriving (Show)
+
+instance Manifold v => Manifold (IntmapVector f v) where
+  type Tang (IntmapVector f v) = IntmapVector f (Tang v)
+  type Grad (IntmapVector f v) = IntmapVector f (Grad v)
 
 instance AdditiveGroup a => AdditiveGroup (IntmapVector f a) where
   zeroV = IntmapVector IntMap.empty

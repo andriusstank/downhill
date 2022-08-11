@@ -34,7 +34,7 @@ import Downhill.BVar (BVar (bvarValue), backprop)
 import qualified Downhill.BVar as BVar
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, Tang)
+    Manifold (Grad, Tang)
   )
 import Downhill.Linear.Expr (BasicVector (..))
 import Downhill.Metric (MetricTensor (evalMetric))
@@ -49,7 +49,7 @@ newtype AsNum a = AsNum {unAsNum :: a}
 instance Num a => Dual (AsNum a) (AsNum a) where
   evalGrad = (*)
 
-instance Num a => HasGrad (AsNum a) where
+instance Num a => Manifold (AsNum a) where
   type Grad (AsNum a) = AsNum a
   type Tang (AsNum a) = AsNum a
 

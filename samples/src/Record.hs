@@ -24,7 +24,7 @@ import Downhill.BVar (BVar (BVar))
 import Downhill.Grad
   ( Dual (evalGrad),
     GradBuilder,
-    HasGrad (Grad, Tang), MScalar
+    Manifold (Grad, Tang), MScalar
   )
 import Downhill.Linear.Expr (BasicVector (VecBuilder, identityBuilder, sumBuilder), maybeToMonoid)
 import Downhill.Linear.Lift (lift1_sparse, lift2_sparse)
@@ -66,7 +66,7 @@ instance
   evalMetric (MyRecord m1 m2) (MyRecord x1 x2) = MyRecord (evalMetric @a m1 x1) (evalMetric @b m2 x2)
   sqrNorm (MyRecord m1 m2) (MyRecord x1 x2) = sqrNorm @a m1 x1 ^+^ sqrNorm @b m2 x2
 
-instance (HasGrad a, HasGrad b, MScalar a ~ MScalar b) => HasGrad (MyRecord a b) where
+instance (Manifold a, Manifold b, MScalar a ~ MScalar b) => Manifold (MyRecord a b) where
   type Tang (MyRecord a b) = MyRecord (Tang a) (Tang b)
   type Grad (MyRecord a b) = MyRecord (Grad a) (Grad b)
 

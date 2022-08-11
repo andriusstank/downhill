@@ -32,7 +32,7 @@ import Data.VectorSpace (AdditiveGroup, VectorSpace ((*^)))
 import Downhill.BVar (BVar (BVar, bvarValue), backprop, constant, var)
 import Downhill.Grad
   ( Dual (evalGrad),
-    HasGrad (Grad, Tang),
+    Manifold (Grad, Tang),
     HasGradAffine, MScalar
   )
 import Downhill.Linear.Expr (BasicVector, DenseVector (DenseVector))
@@ -67,11 +67,11 @@ instance AffineSpace Point where
 instance Dual Vector Gradient where
   evalGrad (Gradient dx dy) (Vector x y) = dx * x + dy * y
 
-instance HasGrad Vector where
+instance Manifold Vector where
   type Tang Vector = Vector
   type Grad Vector = Gradient
 
-instance HasGrad Point where
+instance Manifold Point where
   type Tang Point = Vector
   type Grad Point = Gradient
 
@@ -116,7 +116,7 @@ type PlainScalar z =
     Grad z ~ z,
     BasicVector z,
     Num z,
-    HasGrad z
+    Manifold z
   )
 
 affineStep ::

@@ -16,7 +16,7 @@ module Main(main) where
 
 import Downhill.BVar.Traversable (backpropTraversable_GradOnly, TraversableVar)
 import Downhill.BVar (BVar)
-import Downhill.Grad (HasGrad)
+import Downhill.Grad (Manifold)
 
 data MyRecord a = MyRecord
   { mrPair :: (a, a),
@@ -24,7 +24,7 @@ data MyRecord a = MyRecord
   }
   deriving (Eq, Functor, Foldable, Traversable, Show)
 
-deriving via (TraversableVar MyRecord a) instance HasGrad a => HasGrad (MyRecord a)
+deriving via (TraversableVar MyRecord a) instance Manifold a => Manifold (MyRecord a)
 
 -- This version is less general than _myRecordGrad'. It shows that
 -- type of function to be differentiated does not need to mention BVar.

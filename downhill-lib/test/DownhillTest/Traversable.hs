@@ -8,7 +8,7 @@ module DownhillTest.Traversable(recordTest) where
 
 import Downhill.BVar.Traversable (TraversableVar (TraversableVar), backpropTraversable, splitTraversable)
 import Downhill.BVar (BVar (BVar), backprop, var)
-import Downhill.Grad (HasGrad (Grad))
+import Downhill.Grad (Manifold (Grad), HasGrad)
 import Test.Tasty (TestTree)
 import Test.Tasty.HUnit (testCase, (@?=))
 
@@ -18,7 +18,7 @@ data MyRecord a = MyRecord
   }
   deriving (Eq, Functor, Foldable, Traversable, Show)
 
-deriving via (TraversableVar MyRecord a) instance HasGrad a => HasGrad (MyRecord a)
+deriving via (TraversableVar MyRecord a) instance Manifold a => Manifold (MyRecord a)
 
 test_r :: MyRecord Integer
 test_r = MyRecord (10, 11) [12, 13, 14]

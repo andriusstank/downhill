@@ -9,7 +9,7 @@ module Main where
 import GHC.Generics (Generic)
 import Downhill.Linear.Expr (BasicVector(..))
 import Data.Monoid.Generic (GenericSemigroup (..))
-import Downhill.Grad (Dual, HasGrad(..))
+import Downhill.Grad (Dual, Manifold(..))
 import Data.VectorSpace (AdditiveGroup(..), VectorSpace(..))
 
 data MyRecord = MyRecord {
@@ -33,7 +33,7 @@ instance Dual MyRecord MyRecord where
 instance BasicVector MyRecord where
   type VecBuilder MyRecord = Maybe MyRecordBuilder
 
-instance HasGrad MyRecord where
+instance Manifold MyRecord where
   type Tang MyRecord = MyRecord
   type Grad MyRecord = MyRecord
 
