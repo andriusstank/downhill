@@ -14,6 +14,7 @@ how it's done.
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Main (main, splitRecord, joinRecord) where
 
