@@ -30,7 +30,6 @@ import GHC.Generics (Generic (Rep, from), K1 (K1), M1 (M1), U1 (U1), V1, (:*:) (
 class
   ( 
     Scalar v ~ Scalar dv,
-    --Grad (Scalar v) ~ Scalar v,
     AdditiveGroup (Scalar v),
     VectorSpace v,
     VectorSpace dv
@@ -53,9 +52,7 @@ type MScalar p = Scalar (Tang p)
 
 class
   ( Dual (Tang p) (Grad p),
-    Scalar (Tang p) ~ Scalar (Grad p),
-    Tang (Tang p) ~ Tang p,
-    Grad (Tang p) ~ Grad p
+    Scalar (Tang p) ~ Scalar (Grad p)
   ) =>
   Manifold p
   where

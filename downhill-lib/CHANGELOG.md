@@ -1,5 +1,8 @@
 # Revision history for downhill
 
+## 0.4.0.0
+* `Manifold` class
+
 ## 0.2.0.0
 * `MetricTensor` is no longer required to be a `VectorSpace`
 * `T2`, `T3` pattern synonyms for `BVar`

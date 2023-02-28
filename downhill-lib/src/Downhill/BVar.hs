@@ -141,18 +141,21 @@ instance
   evalGrad (BVar dv d_dv) (BVar v d_v) = BVar (evalGrad dv v) (lift2_dense (*^ v) (*^ dv) d_dv d_v)
 
 instance
-  ( HasGrad (MScalar v),
-    HasGrad (Tang v),
-    HasGrad (Grad v),
-    Grad (Grad v) ~ Tang v,
-    Tang (Grad v) ~ Grad v,
-    Grad (Scalar (Grad v)) ~ Scalar (Grad v),
-    Manifold v
+  ( HasGrad (MScalar p),
+    HasGrad (Tang p),
+    HasGrad (Grad p),
+    Grad (Grad p) ~ Tang p,
+    Tang (Grad p) ~ Grad p,
+    Tang (Tang p) ~ Tang p,
+    Grad (Tang p) ~ Grad p,
+    Grad (MScalar p) ~ MScalar p,
+    Scalar (Grad p) ~ Scalar (Tang p),
+    Manifold p
   ) =>
-  Manifold (BVar r v)
+  Manifold (BVar r p)
   where
-  type Tang (BVar r v) = BVar r (Tang v)
-  type Grad (BVar r v) = BVar r (Grad v)
+  type Tang (BVar r p) = BVar r (Tang p)
+  type Grad (BVar r p) = BVar r (Grad p)
 
 instance
   ( HilbertSpace v dv,
@@ -196,9 +199,6 @@ constant x = BVar x zeroV
 -- | A variable with identity derivative.
 var :: a -> BVar (Grad a) a
 var x = BVar x (realNode ExprVar)
-
--- backprop :: forall a p. (HasGrad p, BasicVector a) => BVar a p -> GradBuilder p -> a
--- backprop (BVar _y0 x) = BP.backprop x
 
 -- | Reverse mode differentiation.
 backprop :: forall r a. (HasGrad a, BasicVector r) => BVar r a -> Grad a -> r
