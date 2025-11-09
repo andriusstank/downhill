@@ -1,23 +1,45 @@
-{-# LANGUAGE  NoImplicitPrelude  #-}
-module DownhillTest.AD(adTests)
-where
-import NumHask.Prelude
-import Test.HUnit (Assertion, (@=?))
-import Test.Hspec (describe, it, SpecWith)
-import Downhill.Linear.AD (AD, adDense)
-import Downhill.Linear.Builder (Dense)
-import Downhill.Linear.Fun (LinearFun(..))
-import Downhill.Internal.Graph.Bigraph (DenseBigraph)
+{-# LANGUAGE NoImplicitPrelude #-}
 
-zeroTest :: Assertion
-zeroTest = do
+module DownhillTest.AD (adTests)
+where
+
+import Downhill.Linear.AD (AD, Graph, ad, dense1, identityAD)
+import Downhill.Linear.Fun (LinearFun (..), ScalarMulFun (..))
+import Downhill.Orphans ()
+import NumHask.Prelude
+import Test.HUnit ((@=?))
+import Test.Hspec (SpecWith, describe, it)
+
+zeroTest :: SpecWith ()
+zeroTest = it "zero" $ do
     let
-        z :: AD (Dense Int) (Dense Int)
-        z = zero
-        dz :: DenseBigraph Int Int
-        dz = adDense z
-    dz <*| 0 @=? 0
-    0 |*> dz @=? 0
+        f :: Graph Int Int
+        f = ad zero
+    f <*| 0 @=? 0
+    0 |*> f @=? 0
+
+mulTest :: SpecWith ()
+mulTest = it "mul" $ do
+    let
+        f :: Graph Int Int
+        f = ad (dense1 (ScalarMulFun 2) identityAD)
+    f <*| 3 @=? 6
+    3 |*> f @=? 6
+
+sumTest :: SpecWith ()
+sumTest = it "sum" $ do
+    let
+        f1, f2 :: AD Int Int
+        f1 = dense1 (ScalarMulFun 2) identityAD
+        f2 = dense1 (ScalarMulFun 3) identityAD
+        f :: Graph Int Int
+        f = ad (f1 + f2)
+    f <*| 7 @=? 35
+    7 |*> f @=? 35
+    return ()
 
 adTests :: SpecWith ()
-adTests = describe "zero" (it "?" zeroTest)
+adTests = describe "AD" $ do
+    zeroTest
+    mulTest
+    sumTest

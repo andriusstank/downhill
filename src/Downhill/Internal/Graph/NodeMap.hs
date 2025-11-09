@@ -49,7 +49,7 @@ import Data.Data (Proxy (Proxy))
 import Data.Kind (Type)
 import Data.Reflection (Reifies (reflect), reify)
 import Downhill.Internal.Graph.OpenMap (OpenKey, OpenMap, SomeOpenItem (SomeOpenItem))
-import qualified Downhill.Internal.Graph.OpenMap as OpenMap
+import Downhill.Internal.Graph.OpenMap qualified  as OpenMap
 import Prelude (Maybe (Just, Nothing), const, error, (.), (<$>))
 
 type role NodeKey nominal nominal

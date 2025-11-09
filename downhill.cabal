@@ -23,8 +23,8 @@ library
         Downhill.Internal.Graph.OpenGraph
         Downhill.Internal.Graph.OpenMap
         Downhill.Internal.Graph.NodeMap
+        Downhill.Internal.Graph.UniGraph
         Downhill.Internal.Graph.Graph
-        Downhill.Internal.Graph.Bigraph
         Downhill.Linear.Builder
         Downhill.Linear.Expr
         Downhill.Linear.Fun

@@ -1,6 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Downhill.Linear.Builder (
   HasBuilder (..),
@@ -72,3 +73,9 @@ instance (Additive a) => HasBuilder (Dense a) where
   identityBuilder (Dense v) = DenseBuilder (Just v)
 
 type instance DualOf (Dense a) = Dense (DualOf a)
+
+deriving via Dense Int instance HasBuilder Int
+deriving via Dense Integer instance HasBuilder Integer
+deriving via Dense Float instance HasBuilder Float
+deriving via Dense Double instance HasBuilder Double
+

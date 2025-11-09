@@ -129,10 +129,6 @@ instance
     type Scalar (Generically a) = FromJust (GScalar (Rep a))
     Generically v |* a = Generically (to (gvmul (from v) a))
 
-instance MultiplicativeAction Double where
-    type Scalar Double = Double
-    (|*) = (*)
-
 instance
     ( MultiplicativeAction a
     , MultiplicativeAction b
@@ -154,3 +150,19 @@ deriving via
     instance
         (MultiplicativeAction a, MultiplicativeAction b, Scalar a ~ Scalar b) =>
         MultiplicativeAction (a, b)
+
+instance MultiplicativeAction Int where
+    type Scalar Int = Int
+    (|*) = (*)
+
+instance MultiplicativeAction Integer where
+    type Scalar Integer = Integer
+    (|*) = (*)
+
+instance MultiplicativeAction Float where
+    type Scalar Float = Float
+    (|*) = (*)
+
+instance MultiplicativeAction Double where
+    type Scalar Double = Double
+    (|*) = (*)

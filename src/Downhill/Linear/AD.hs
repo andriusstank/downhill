@@ -3,15 +3,17 @@
 
 module Downhill.Linear.AD (
     AD (..),
-    Bigraph,
+    Graph,
     ad,
-    adDense
+    adDense,
+    identityAD,
+    dense1, dense2
 )
 where
 
-import Downhill.Internal.Graph.Bigraph (Bigraph, DenseBigraph (DenseBigraph), buildBigraph)
+import Downhill.Internal.Graph.Graph (Graph, DenseBigraph (DenseBigraph), buildBigraph)
 import Downhill.Linear.Builder (Dense, HasBuilder (..))
-import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum), Term (Term), VecPair (VecPair), idBiFun)
+import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum, ExprVar), Term (Term), VecPair (VecPair), idBiFun)
 import Downhill.Linear.Fun (DualOf, IdFun (IdFun), LinearFun ((<*|), (|*>)))
 import NumHask.Prelude
 
@@ -21,6 +23,9 @@ newtype AD (a :: Type) (v :: Type)
           BiFun ('VecPair v (DualOf v)) x ->
           Term ('VecPair a (DualOf a)) x
         )
+
+identityAD :: AD a a
+identityAD = realNode ExprVar
 
 realNode :: (dv ~ DualOf v) => Expr ('VecPair a (DualOf a)) ('VecPair v dv) -> AD a v
 realNode x = AD (\(BiFun f g) -> Term (BiFun f g) x)
@@ -32,6 +37,22 @@ denseTerm ::
     ) =>
     f -> AD r u -> Term ('VecPair r (DualOf r)) ('VecPair v (DualOf v))
 denseTerm f (AD x) = x $ BiFun (identityBuilder . (f <*|)) (identityBuilder . (|*> f))
+
+dense1 ::
+    ( LinearFun f u v
+    , HasBuilder v
+    , HasBuilder (DualOf v)
+    , HasBuilder (DualOf u)
+    ) =>
+    f ->
+    AD r u ->
+    AD r v
+dense1 f1 x =
+    realNode
+        ( ExprSum
+            [ denseTerm f1 x
+            ]
+        )
 
 dense2 ::
     ( LinearFun f1 u1 v
@@ -65,7 +86,7 @@ ad ::
     , HasBuilder (DualOf z)
     , HasBuilder (DualOf a)
     ) =>
-    AD a z -> Bigraph a z
+    AD a z -> Graph a z
 ad (AD f) = buildBigraph [f idBiFun]
 
 adDense ::

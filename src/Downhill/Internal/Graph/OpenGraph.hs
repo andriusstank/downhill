@@ -66,7 +66,7 @@ runTreeBuilder rs_x = runStateT (unTreeCache rs_x) OpenMap.empty
 
 {- | Computational graph under construction. "Open" refers to the set of the nodes – new nodes can be
 added to this graph. Once the graph is complete the set of nodes will be frozen
-and the type of the graph will become 'Graph' ("Downhill.Internal.Graph" module).
+and the type of the graph will become 'UniGraph' ("Downhill.Internal.UniGraph" module).
 -}
 data OpenGraph a z = OpenGraph (OpenNode a z) (OpenMap (OpenNode a))
 

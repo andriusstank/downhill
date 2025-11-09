@@ -1,13 +1,16 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE UndecidableInstances #-}
 module Downhill.Linear.Fun(
     DualOf,
     LinearFun(..),
     SomeLinearFun(..),
-    IdFun(..)
+    IdFun(..),
+    ScalarMulFun(..)
 )
 where
-import Data.Kind
+import NumHask.Prelude
 
 type family DualOf (v :: Type) :: Type
 
@@ -41,3 +44,15 @@ instance LinearFun (IdFun a) a a where
   IdFun <*| x = x
   x |*> IdFun = x
 
+
+newtype ScalarMulFun v = ScalarMulFun (Scalar v)
+
+instance
+  ( MultiplicativeAction v
+  , MultiplicativeAction (DualOf v)
+  , Scalar (DualOf v) ~ Scalar v
+  ) =>
+  LinearFun (ScalarMulFun v) v v
+  where
+  ScalarMulFun a <*| v = a *| v
+  dv |*> ScalarMulFun a = a *| dv
