@@ -11,6 +11,10 @@ import Data.Kind
 
 type family DualOf (v :: Type) :: Type
 
+type instance DualOf Int = Int
+type instance DualOf Integer = Integer
+type instance DualOf Float = Float
+type instance DualOf Double = Double
 type instance DualOf (a, b) = (DualOf a, DualOf b)
 type instance DualOf (a, b, c) = (DualOf a, DualOf b, DualOf c)
 
@@ -36,3 +40,4 @@ data IdFun (a :: Type) = IdFun
 instance LinearFun (IdFun a) a a where
   IdFun <*| x = x
   x |*> IdFun = x
+

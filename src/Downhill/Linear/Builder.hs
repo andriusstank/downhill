@@ -1,13 +1,16 @@
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE DerivingVia #-}
 
 module Downhill.Linear.Builder (
   HasBuilder (..),
+  Dense (..),
+  DenseBuilder (..),
 ) where
 
-import Data.Kind (Type)
-import Data.Maybe (fromMaybe)
 import Downhill.Orphans ()
-import NumHask.Algebra.Additive (Additive, Sum (Sum, getSum))
+import NumHask.Prelude
+import Downhill.Linear.Fun (DualOf)
 
 class (Additive v, Monoid (VecBuilder v)) => HasBuilder v where
   -- | @VecBuilder v@ is a sparse representation of vector @v@. Edges of a computational graph
@@ -55,3 +58,17 @@ instance (HasBuilder a, HasBuilder b, HasBuilder c) => HasBuilder (a, b, c) wher
   sumBuilder (Nothing, Just y) = sumTriple y
   sumBuilder (Just x, Just z) = sumTriple (identityTriple (getSum x) <> z)
   identityBuilder x = (Just (Sum x), Nothing)
+
+newtype Dense a = Dense {unDense :: a}
+  deriving (Additive, Subtractive, Multiplicative, Num, Eq) via a
+  deriving Show
+
+newtype DenseBuilder a = DenseBuilder {unDenseBuilder :: Maybe a}
+  deriving (Semigroup, Monoid) via (Maybe (Sum a))
+
+instance (Additive a) => HasBuilder (Dense a) where
+  type VecBuilder (Dense a) = DenseBuilder a
+  sumBuilder (DenseBuilder x )= Dense (fromMaybe zero x)
+  identityBuilder (Dense v) = DenseBuilder (Just v)
+
+type instance DualOf (Dense a) = Dense (DualOf a)

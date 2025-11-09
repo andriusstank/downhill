@@ -20,6 +20,7 @@ module Downhill.Internal.Graph.Bigraph (
   FwdFun (..),
   BackFun (..),
   buildBigraph,
+  DenseBigraph(..)
 )
 where
 
@@ -37,7 +38,7 @@ import Downhill.Internal.Graph.Graph qualified as Graph
 import Downhill.Internal.Graph.NodeMap (IsNodeSet, NodeMap)
 import Downhill.Internal.Graph.NodeMap qualified as NodeMap
 import Downhill.Internal.Graph.OpenGraph (recoverSharing)
-import Downhill.Linear.Builder (HasBuilder (..))
+import Downhill.Linear.Builder (HasBuilder (..), Dense (Dense, unDense))
 import Downhill.Linear.Expr (
   BiFun (..),
   GradType,
@@ -145,3 +146,9 @@ evalGraph3 (Graph nodes finalNode) dz = evalNode finalNode
 instance LinearFun (Bigraph a z) a z where
   Bigraph fwd' _back <*| x = evalGraph2 fwd' x
   x |*> Bigraph _fwd back' = evalGraph3 back' x
+
+newtype DenseBigraph a z = DenseBigraph { unDenseBigraph :: Bigraph (Dense a) (Dense z) }
+
+instance LinearFun (DenseBigraph a z) a z where
+  DenseBigraph f <*| x = unDense (f <*| Dense x)
+  x |*> DenseBigraph f = unDense (Dense x |*> f)
