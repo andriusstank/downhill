@@ -38,8 +38,21 @@ sumTest = it "sum" $ do
     7 |*> f @=? 35
     return ()
 
+minusTest :: SpecWith ()
+minusTest = it "minus" $ do
+    let
+        f1, f2 :: AD Int Int
+        f1 = dense1 (ScalarMulFun 5) identityAD
+        f2 = dense1 (ScalarMulFun 3) identityAD
+        f :: Graph Int Int
+        f = ad (f1 - f2)
+    f <*| 7 @=? 14
+    7 |*> f @=? 14
+    return ()
+
 adTests :: SpecWith ()
 adTests = describe "AD" $ do
     zeroTest
     mulTest
     sumTest
+    minusTest

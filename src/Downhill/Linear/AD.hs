@@ -14,7 +14,7 @@ where
 import Downhill.Internal.Graph.Graph (Graph, DenseBigraph (DenseBigraph), buildBigraph)
 import Downhill.Linear.Builder (Dense, HasBuilder (..))
 import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum, ExprVar), Term (Term), VecPair (VecPair), idBiFun)
-import Downhill.Linear.Fun (DualOf, IdFun (IdFun), LinearFun ((<*|), (|*>)))
+import Downhill.Linear.Fun (DualOf, IdFun (IdFun), LinearFun ((<*|), (|*>)), NegateFun (NegateFun))
 import NumHask.Prelude
 
 newtype AD (a :: Type) (v :: Type)
@@ -78,6 +78,10 @@ dense2 f1 f2 x y =
 instance (HasBuilder v, HasBuilder (DualOf v)) => Additive (AD r v) where
     zero = realNode (ExprSum [])
     (+) = dense2 IdFun IdFun
+
+instance (HasBuilder v, HasBuilder (DualOf v), Subtractive v, Subtractive (DualOf v)) => Subtractive (AD r v) where
+    negate = dense1 NegateFun
+    (-) = dense2 IdFun NegateFun
 
 ad ::
     forall a z.

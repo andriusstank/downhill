@@ -7,6 +7,7 @@ module Downhill.Linear.Fun(
     LinearFun(..),
     SomeLinearFun(..),
     IdFun(..),
+    NegateFun(..),
     ScalarMulFun(..)
 )
 where
@@ -43,6 +44,12 @@ data IdFun (a :: Type) = IdFun
 instance LinearFun (IdFun a) a a where
   IdFun <*| x = x
   x |*> IdFun = x
+
+data NegateFun (a :: Type) = NegateFun
+
+instance (Subtractive a, Subtractive (DualOf a)) => LinearFun (NegateFun a) a a where
+  NegateFun <*| x = negate x
+  x |*> NegateFun = negate x
 
 
 newtype ScalarMulFun v = ScalarMulFun (Scalar v)
