@@ -1,5 +1,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Downhill.Linear.AD (
     AD (..),
@@ -7,13 +9,16 @@ module Downhill.Linear.AD (
     ad,
     adDense,
     identityAD,
-    dense1, dense2
+    realNode, realNode', sparseNode, inlineNode,
+    dense1, dense2,
+    pattern T2
+
 )
 where
 
 import Downhill.Internal.Graph.Graph (Graph, DenseBigraph (DenseBigraph), buildBigraph)
-import Downhill.Linear.Builder (Dense, HasBuilder (..))
-import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum, ExprVar), Term (Term), VecPair (VecPair), idBiFun)
+import Downhill.Linear.Builder (Dense, HasBuilder (..), Sparse (unSparse))
+import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum, ExprVar), Term (Term), VecPair (VecPair), idBiFun, TangType, GradType)
 import Downhill.Linear.Fun (DualOf, IdFun (IdFun), LinearFun ((<*|), (|*>)), NegateFun (NegateFun))
 import NumHask.Prelude
 
@@ -27,8 +32,15 @@ newtype AD (a :: Type) (v :: Type)
 identityAD :: AD a a
 identityAD = realNode ExprVar
 
-realNode :: (dv ~ DualOf v) => Expr ('VecPair a (DualOf a)) ('VecPair v dv) -> AD a v
+realNode :: Expr ('VecPair a (DualOf a)) ('VecPair v (DualOf v)) -> AD a v
 realNode x = AD (\(BiFun f g) -> Term (BiFun f g) x)
+
+realNode' ::
+  ( 
+    VecBuilder (DualOf v) ~ VecBuilder dv'
+  ) =>
+  Expr ('VecPair a (DualOf a)) ('VecPair v dv') -> AD a v
+realNode' y = AD (\(BiFun f g) -> Term (BiFun f g) y)
 
 denseTerm ::
     ( LinearFun f u v
@@ -82,6 +94,99 @@ instance (HasBuilder v, HasBuilder (DualOf v)) => Additive (AD r v) where
 instance (HasBuilder v, HasBuilder (DualOf v), Subtractive v, Subtractive (DualOf v)) => Subtractive (AD r v) where
     negate = dense1 NegateFun
     (-) = dense2 IdFun NegateFun
+
+data SparseFun (u :: VecPair) (v :: VecPair) = SparseFun
+  { _fwd :: VecBuilder (TangType u) -> VecBuilder (TangType v)
+  , _back :: VecBuilder (GradType v) -> VecBuilder (GradType u)
+  }
+
+flipSparseFun :: SparseFun ('VecPair u du) ('VecPair v dv) -> SparseFun ('VecPair dv v) ('VecPair du u)
+flipSparseFun (SparseFun fwd back) = SparseFun back fwd
+
+sparseTerm ::
+  (HasBuilder v, HasBuilder u, du ~ DualOf u, dv ~ DualOf v) =>
+  SparseFun ('VecPair u du) ('VecPair v dv) ->
+  AD r u ->
+  Term ('VecPair r (DualOf r)) ('VecPair v (Sparse dv))
+sparseTerm (SparseFun f1 g1) (AD df) = df $ BiFun (f1 . identityBuilder) (g1 . unSparse)
+
+sparseNode ::
+  forall r u du v dv.
+  (HasBuilder v, HasBuilder u, HasBuilder dv, du ~ DualOf u, dv ~ DualOf v) =>
+  SparseFun ('VecPair u du) ('VecPair v dv) ->
+  AD r u ->
+  AD r v
+sparseNode f x = realNode' (ExprSum [sparseTerm f x])
+
+inlineNode ::
+  forall r u v.
+  (u -> v) ->
+  (VecBuilder (DualOf v) -> VecBuilder (DualOf u)) ->
+  AD r u ->
+  AD r v
+inlineNode f1 g1 (AD g) = AD go
+ where
+  go ::
+    forall x.
+    BiFun ('VecPair v (DualOf v)) x ->
+    Term ('VecPair r (DualOf r)) x
+  go (BiFun f2 g2) = g $ BiFun (f2 . f1) (g1 . g2)
+
+
+maybeToMonoid :: (Monoid m) => Maybe m -> m
+maybeToMonoid = fromMaybe mempty
+
+fstFun :: forall a da b db. (HasBuilder a, HasBuilder b, HasBuilder db) => SparseFun ('VecPair (a, b) (da, db)) ('VecPair a da)
+fstFun = SparseFun fwd back
+ where
+  fwd :: VecBuilder (a, b) -> VecBuilder a
+  fwd (x, y) = maybeToMonoid (xPart <> (fst <$> y))
+   where
+    xPart :: Maybe (VecBuilder a)
+    xPart = identityBuilder . fst . getSum <$> x
+  back :: VecBuilder da -> (Maybe (Sum (da, db)), Maybe (VecBuilder da, VecBuilder db))
+  back x = (Nothing, Just (x, mempty))
+
+sndFun :: forall a da b db. (HasBuilder a, HasBuilder b, HasBuilder da) => SparseFun ('VecPair (a, b) (da, db)) ('VecPair b db)
+sndFun = SparseFun fwd back
+ where
+  fwd :: VecBuilder (a, b) -> VecBuilder b
+  fwd (x, y) = maybeToMonoid (xPart <> (snd <$> y))
+   where
+    xPart :: Maybe (VecBuilder b)
+    xPart = identityBuilder . snd . getSum <$> x
+  back :: VecBuilder db -> (Maybe (Sum (da, db)), Maybe (VecBuilder da, VecBuilder db))
+  back x = (Nothing, Just (mempty, x))
+
+splitPair ::
+  forall r a da b db.
+  (HasBuilder a, HasBuilder b, HasBuilder db, HasBuilder da, da ~ DualOf a, db ~ DualOf b) =>
+  AD r (a, b) ->
+  (AD r a, AD r b)
+splitPair x = (sparseNode fstFun x, sparseNode sndFun x)
+
+joinPair ::
+  forall r a da b db.
+  (HasBuilder a, HasBuilder b, HasBuilder da, HasBuilder db, db ~ DualOf b, da ~ DualOf a) =>
+  (AD r a, AD r b) -> AD r (a, b)
+joinPair (x, y) = realNode' (ExprSum [t1, t2])
+ where
+  t1, t2 :: Term ('VecPair r (DualOf r)) ('VecPair (a, b) (Sparse (da, db)))
+  t1 = sparseTerm (flipSparseFun fstFun) x
+  t2 = sparseTerm (flipSparseFun sndFun) y
+
+
+{-# COMPLETE T2 #-}
+pattern T2 ::
+  forall r a da b db.
+  (HasBuilder a, HasBuilder b, HasBuilder da, HasBuilder db, da ~ DualOf a, db ~ DualOf b) =>
+  AD r a -> AD r b -> AD r (a, b)
+pattern T2 a b <-
+  (splitPair -> (a, b))
+  where
+    T2 a b = joinPair (a, b)
+
+
 
 ad ::
     forall a z.

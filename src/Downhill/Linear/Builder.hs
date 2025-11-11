@@ -5,8 +5,8 @@
 
 module Downhill.Linear.Builder (
   HasBuilder (..),
-  Dense (..),
-  DenseBuilder (..),
+  Dense (..), DenseBuilder (..),
+  Sparse(..)
 ) where
 
 import Downhill.Orphans ()
@@ -79,3 +79,17 @@ deriving via Dense Integer instance HasBuilder Integer
 deriving via Dense Float instance HasBuilder Float
 deriving via Dense Double instance HasBuilder Double
 
+
+newtype Sparse v = Sparse
+  { unSparse :: VecBuilder v}
+
+deriving via (VecBuilder v) instance (Semigroup (VecBuilder v)) => Semigroup (Sparse v)
+
+instance (Monoid (VecBuilder v)) => Additive (Sparse v) where
+  zero = Sparse mempty
+  Sparse x + Sparse y = Sparse (x <> y)
+
+instance (Monoid (VecBuilder v)) => HasBuilder (Sparse v) where
+  type VecBuilder (Sparse v) = VecBuilder v
+  sumBuilder = Sparse
+  identityBuilder (Sparse x) = x
