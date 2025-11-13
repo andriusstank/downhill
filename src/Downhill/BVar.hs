@@ -16,7 +16,6 @@ import Downhill.Linear.AD qualified as AD
 import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Fun (DualOf)
 import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold (..))
-import Downhill.VSpace (VSpace)
 import NumHask.Prelude
 
 -- | Variable is a value paired with derivative.
@@ -62,11 +61,28 @@ instance (IsScalar a, HasGrad a, ExpField a) => ExpField (BVar r a) where
     log (BVar x dx) = BVar (log x) (recip x *| dx)
 
 instance (FromRational a, HasGrad a) => FromRational (BVar r a) where
-  fromRational x = constant (fromRational x)
+    fromRational x = constant (fromRational x)
 
 instance (FromInteger a, HasGrad a) => FromInteger (BVar r a) where
-  fromInteger x = constant (fromInteger x)
+    fromInteger x = constant (fromInteger x)
 
+instance (IsScalar a, HasGrad a, ExpField a, TrigField a) => TrigField (BVar r a) where
+    pi = BVar pi zero
+    sin (BVar x dx) = BVar (sin x) (cos x *| dx)
+    cos (BVar x dx) = BVar (cos x) (negate (sin x) *| dx)
+    asin (BVar x dx) = BVar (asin x) (rsqrt (one - sqr x) *| dx)
+    acos (BVar x dx) = BVar (acos x) (negate (rsqrt (one - sqr x)) *| dx)
+    atan (BVar x dx) = BVar (atan x) (recip (one + sqr x) *| dx)
+    sinh (BVar x dx) = BVar (sinh x) (cosh x *| dx)
+    cosh (BVar x dx) = BVar (cosh x) (sinh x *| dx)
+    asinh (BVar x dx) = BVar (asinh x) (rsqrt (one + sqr x) *| dx)
+    acosh (BVar x dx) = BVar (acosh x) (rsqrt (sqr x - one) *| dx)
+    atanh (BVar x dx) = BVar (atanh x) (recip (one - sqr x) *| dx)
+
+    -- TODO: test
+    atan2 (BVar y0 dy) (BVar x0 dx) = BVar (atan2 y0 x0) ((x0 / d) *| dy - (y0 / d) *| dx)
+      where
+        d = (x0 ^ 2) + (y0 ^ 2)
 
 -- | A variable with derivative of zero.
 constant :: forall r a. (HasBuilder (Grad a), HasBuilder (Tang a)) => a -> BVar r a

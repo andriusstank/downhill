@@ -15,7 +15,7 @@ import Downhill.BVar (BVar, DFun (DFun))
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.Fun (LinearFun (..))
 import NumHask.Prelude
-import Test.HUnit (Assertion, assert, assertString, (@=?))
+import Test.HUnit (Assertion, assertString)
 import Test.Hspec (SpecWith, describe, it)
 import Downhill.Manifold (HasGrad)
 
@@ -70,11 +70,10 @@ defaultOptions :: NumDiffOpts
 defaultOptions = NumDiffOpts{h = 1.0e-9, tol = 1.0e-6, args = [-1.5, -0.5, 0.75]}
 
 positiveOptions :: NumDiffOpts
-positiveOptions = NumDiffOpts{h = 1.0e-9, tol = 1.0e-6, args = [1.5, 0.5, 0.75]}
+positiveOptions = defaultOptions{args = [1.5, 0.5, 0.75]}
 
 class Unconstrained a
 instance Unconstrained a
-
 
 {-# ANN diffTests "HLint: ignore Redundant fromInteger" #-}
 
@@ -90,3 +89,16 @@ diffTests = describe "Diff" $ do
     it "/" $ testFun2 @Divisive defaultOptions (/)
     it "exp" $ testFun @ExpField defaultOptions exp
     it "sqrt" $ testFun @ExpField positiveOptions sqrt
+
+
+    it "sin" $ testFun @TrigField defaultOptions sin
+    it "cos" $ testFun @TrigField defaultOptions cos
+    it "asin" $ testFun @TrigField defaultOptions{args=[-0.25, 0.0, 0.5]} asin
+    it "acos" $ testFun @TrigField defaultOptions{args=[-0.25, 0.0, 0.5]} acos
+    it "atan" $ testFun @TrigField defaultOptions atan
+    it "sinh" $ testFun @TrigField defaultOptions sinh
+    it "cosh" $ testFun @TrigField defaultOptions cosh
+    it "asinh" $ testFun @TrigField defaultOptions asinh
+    it "acosh" $ testFun @TrigField defaultOptions{args=[1.25, 1.5, 2.0]} acosh
+    it "atanh" $ testFun @TrigField defaultOptions{args=[-0.25, 0.0, 0.5]} atanh
+    it "atan2" $ testFun2 @TrigField defaultOptions atan2

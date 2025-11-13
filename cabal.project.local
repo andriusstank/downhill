@@ -1,2 +1,4 @@
 ignore-project: False
 tests: True
+packages: .
+          ../numhask
