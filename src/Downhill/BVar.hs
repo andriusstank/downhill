@@ -5,7 +5,7 @@ module Downhill.BVar (
     BVar (..),
     constant,
     var,
-    DFun(..),
+    DFun (..),
     backprop,
     ad,
 )
@@ -15,7 +15,7 @@ import Downhill.Linear.AD (AD, Graph, identityAD)
 import Downhill.Linear.AD qualified as AD
 import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Fun (DualOf)
-import Downhill.Manifold (Grad, Manifold (..))
+import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold (..))
 import Downhill.VSpace (VSpace)
 import NumHask.Prelude
 
@@ -41,19 +41,32 @@ instance
     negate (BVar y0 dy) = BVar (negate y0) (negate dy)
     (BVar f0 df) - (BVar g0 dg) = BVar (f0 - g0) (df - dg)
 
-instance
-    ( Multiplicative a
-    , HasBuilder (Grad a)
-    , Scalar (Grad a) ~ a
-    , Scalar (Tang a) ~ a
-    , HasBuilder a
-    , HasBuilder (Tang a)
-    , VSpace (Tang a)
-    ) =>
-    Multiplicative (BVar r a)
-    where
+instance (IsScalar a, HasGrad a) => Multiplicative (BVar r a) where
     (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (f0 *| dg + g0 *| df)
     one = BVar one zero
+
+sqr :: (Multiplicative a) => a -> a
+sqr x = x * x
+
+rsqrt :: (ExpField a) => a -> a
+rsqrt x = recip (sqrt x)
+
+instance (IsScalar a, HasGrad a, Divisive a) => Divisive (BVar r a) where
+    recip (BVar x dx) = BVar (recip x) (df *| dx)
+      where
+        df = negate (recip (sqr x))
+    BVar x dx / BVar y dy = BVar (x / y) ((recip y *| dx) - ((x / sqr y) *| dy))
+
+instance (IsScalar a, HasGrad a, ExpField a) => ExpField (BVar r a) where
+    exp (BVar x dx) = BVar (exp x) (exp x *| dx)
+    log (BVar x dx) = BVar (log x) (recip x *| dx)
+
+instance (FromRational a, HasGrad a) => FromRational (BVar r a) where
+  fromRational x = constant (fromRational x)
+
+instance (FromInteger a, HasGrad a) => FromInteger (BVar r a) where
+  fromInteger x = constant (fromInteger x)
+
 
 -- | A variable with derivative of zero.
 constant :: forall r a. (HasBuilder (Grad a), HasBuilder (Tang a)) => a -> BVar r a
@@ -63,7 +76,7 @@ constant x = BVar x zero
 var :: a -> BVar (Tang a) a
 var x = BVar x identityAD
 
-newtype DFun a b f = DFun (a -> (b, f))
+newtype DFun a b f = DFun {unDFun :: a -> (b, f)}
 
 backprop ::
     forall r a.

@@ -23,7 +23,6 @@ class
   default (|*|) :: (GDual (Scalar v) (Rep v) (Rep (DualOf v)), Generic (DualOf v), Generic v) => DualOf v -> v -> Scalar v
   dv |*| v = gevalGrad (from dv) (from v)
 
-
 instance (Scalar a ~ Scalar b, VSpace a, VSpace b) => VSpace (a, b) where
   (a, b) |*| (x, y) = a |*| x + b |*| y
 
@@ -49,3 +48,12 @@ instance GDual s V1 V1 where
 
 instance (Additive s) => GDual s U1 U1 where
   gevalGrad U1 = zero
+
+instance VSpace Float where
+  (|*|) = (*)
+instance VSpace Double where
+  (|*|) = (*)
+instance VSpace Int where
+  (|*|) = (*)
+instance VSpace Integer where
+  (|*|) = (*)

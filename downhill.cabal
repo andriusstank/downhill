@@ -48,6 +48,7 @@ test-suite downhill-test
     default-language: GHC2024
     other-modules:
         DownhillTest.AD
+        DownhillTest.Diff
     -- other-extensions:
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
