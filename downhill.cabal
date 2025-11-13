@@ -29,6 +29,9 @@ library
         Downhill.Linear.Expr
         Downhill.Linear.Fun
         Downhill.Linear.AD
+        Downhill.VSpace
+        Downhill.Manifold
+        Downhill.BVar
         Downhill.Orphans
     -- other-modules:
     -- other-extensions:

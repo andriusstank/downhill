@@ -2,6 +2,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Downhill.Linear.AD (
     AD (..),
@@ -19,8 +20,9 @@ where
 import Downhill.Internal.Graph.Graph (Graph, DenseBigraph (DenseBigraph), buildBigraph)
 import Downhill.Linear.Builder (Dense, HasBuilder (..), Sparse (unSparse))
 import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum, ExprVar), Term (Term), VecPair (VecPair), idBiFun, TangType, GradType)
-import Downhill.Linear.Fun (DualOf, IdFun (IdFun), LinearFun ((<*|), (|*>)), NegateFun (NegateFun))
+import Downhill.Linear.Fun (DualOf, IdFun (IdFun), LinearFun ((<*|), (|*>)), NegateFun (NegateFun), ScalarMulFun (ScalarMulFun))
 import NumHask.Prelude
+import Downhill.VSpace (VSpace)
 
 newtype AD (a :: Type) (v :: Type)
     = AD
@@ -94,6 +96,16 @@ instance (HasBuilder v, HasBuilder (DualOf v)) => Additive (AD r v) where
 instance (HasBuilder v, HasBuilder (DualOf v), Subtractive v, Subtractive (DualOf v)) => Subtractive (AD r v) where
     negate = dense1 NegateFun
     (-) = dense2 IdFun NegateFun
+
+instance
+  ( HasBuilder v
+  , HasBuilder (DualOf v)
+  , VSpace v
+  ) =>
+  MultiplicativeAction (AD r v)
+  where
+  type Scalar (AD r v) = Scalar v
+  v |* x = dense1 (ScalarMulFun x) v
 
 data SparseFun (u :: VecPair) (v :: VecPair) = SparseFun
   { _fwd :: VecBuilder (TangType u) -> VecBuilder (TangType v)
