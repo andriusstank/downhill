@@ -17,6 +17,7 @@ import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Fun (DualOf)
 import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold (..))
 import NumHask.Prelude
+import Prelude qualified
 
 -- | Variable is a value paired with derivative.
 data BVar r a = BVar
@@ -83,6 +84,40 @@ instance (IsScalar a, HasGrad a, ExpField a, TrigField a) => TrigField (BVar r a
     atan2 (BVar y0 dy) (BVar x0 dx) = BVar (atan2 y0 x0) ((x0 / d) *| dy - (y0 / d) *| dx)
       where
         d = (x0 ^ 2) + (y0 ^ 2)
+
+instance (IsScalar a, Num a, HasGrad a) => Num (BVar r a) where
+    (BVar f0 df) + (BVar g0 dg) = BVar (f0 + g0) (df + dg)
+    (BVar f0 df) - (BVar g0 dg) = BVar (f0 - g0) (df - dg)
+    (BVar f0 df) * (BVar g0 dg) = BVar (f0 Prelude.* g0) (f0 *| dg + g0 *| df)
+    negate (BVar f0 df) = BVar (negate f0) (negate df)
+    abs (BVar f0 df) = BVar (Prelude.abs f0) (Prelude.signum f0 *| df)
+    signum (BVar f0 _) = BVar (Prelude.signum f0) zero
+    fromInteger x = BVar (Prelude.fromInteger x) zero
+
+instance (IsScalar a, Fractional a, HasGrad a) => Fractional (BVar r a) where
+    fromRational x = BVar (Prelude.fromRational x) zero
+    recip (BVar x dx) = BVar (Prelude.recip x) (df *| dx)
+      where
+        df = negate (Prelude.recip (sqr x))
+    BVar x dx / BVar y dy = BVar (x Prelude./ y) ((Prelude.recip y *| dx) - ((x Prelude./ sqr y) *| dy))
+
+prsqrt :: (Floating a) => a -> a
+prsqrt x = Prelude.recip (Prelude.sqrt x)
+
+instance (IsScalar a, Floating a, HasGrad a) => Floating (BVar r a) where
+    pi = BVar Prelude.pi zero
+    exp (BVar x dx) = BVar (Prelude.exp x) (Prelude.exp x *| dx)
+    log (BVar x dx) = BVar (Prelude.log x) (Prelude.recip x *| dx)
+    sin (BVar x dx) = BVar (Prelude.sin x) (Prelude.cos x *| dx)
+    cos (BVar x dx) = BVar (Prelude.cos x) (negate (Prelude.sin x) *| dx)
+    asin (BVar x dx) = BVar (Prelude.asin x) (prsqrt (1 - sqr x) *| dx)
+    acos (BVar x dx) = BVar (Prelude.acos x) (negate (prsqrt (1 - sqr x)) *| dx)
+    atan (BVar x dx) = BVar (Prelude.atan x) (Prelude.recip (1 + sqr x) *| dx)
+    sinh (BVar x dx) = BVar (Prelude.sinh x) (Prelude.cosh x *| dx)
+    cosh (BVar x dx) = BVar (Prelude.cosh x) (Prelude.sinh x *| dx)
+    asinh (BVar x dx) = BVar (Prelude.asinh x) (prsqrt (1 + sqr x) *| dx)
+    acosh (BVar x dx) = BVar (Prelude.acosh x) (prsqrt (sqr x - 1) *| dx)
+    atanh (BVar x dx) = BVar (Prelude.atanh x) (Prelude.recip (1 - sqr x) *| dx)
 
 -- | A variable with derivative of zero.
 constant :: forall r a. (HasBuilder (Grad a), HasBuilder (Tang a)) => a -> BVar r a
