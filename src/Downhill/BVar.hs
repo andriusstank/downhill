@@ -5,7 +5,7 @@ module Downhill.BVar (
     BVar (..),
     constant,
     var,
-    DFun (..),
+    Graph, DFun (..),
     backprop,
     ad,
 )

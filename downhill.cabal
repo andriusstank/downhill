@@ -29,6 +29,8 @@ library
         Downhill.Linear.Expr
         Downhill.Linear.Fun
         Downhill.Linear.AD
+        Downhill.Tree.FieldWrapper
+        Downhill.Tree.Record
         Downhill.VSpace
         Downhill.Manifold
         Downhill.BVar
@@ -39,7 +41,8 @@ library
                       numhask,
                       transformers,
                       unordered-containers,
-                      reflection
+                      reflection,
+                      singletons
     hs-source-dirs:   src
     default-language: GHC2024
 
@@ -49,6 +52,7 @@ test-suite downhill-test
     other-modules:
         DownhillTest.AD
         DownhillTest.Diff
+        DownhillTest.Record
     -- other-extensions:
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
@@ -57,4 +61,5 @@ test-suite downhill-test
         base,
         downhill,
         numhask,
+        singletons, singletons-base,
         hspec, hspec-expectations, HUnit
