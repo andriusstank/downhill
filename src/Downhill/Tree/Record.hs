@@ -1,23 +1,27 @@
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Downhill.Tree.Record (
-    IsRecord(..), fillRecordI
+    IsRecord (..),
+    fillRecordI,
+    mapRecordI,
 )
 where
-import GHC.Generics (Generic (Rep, to, from), M1 (M1), K1 (K1), R, (:*:) ((:*:)), U1 (U1))
-import Data.Singletons (Sing, type (@@), type (~>), Apply, Proxy, SingI (sing), withSingI)
+
 import Data.Kind (Type)
-import Downhill.Tree.FieldWrapper (FieldWrapper (unFieldWrapper))
+import Data.Singletons (Apply, Proxy, Sing, SingI (sing), withSingI, type (@@), type (~>))
+import Downhill.Tree.FieldWrapper (FieldWrapper (FieldWrapper, unFieldWrapper))
+import GHC.Generics (Generic (Rep, from, to), K1 (K1), M1 (M1), R, U1 (U1), (:*:) ((:*:)))
 
 data ProxyField :: leafShape -> Type
 type instance Apply ProxyField sh = Proxy sh
 
 class IsRecord (record :: (fieldType ~> Type) -> Type) where
     fillRecord :: (forall sh. Sing sh -> f @@ sh) -> record f
-    default fillRecord :: forall f.
+    default fillRecord ::
+        forall f.
         ( Generic (record f)
         , GFillRecord (Rep (record ProxyField)) f (Rep (record f))
         ) =>
@@ -26,7 +30,8 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
     fillRecord f = to $ fillGRecord @(Rep (record ProxyField)) @f f
 
     mapRecord :: (forall sh. Sing sh -> a @@ sh -> b @@ sh) -> record a -> record b
-    default mapRecord :: forall a b.
+    default mapRecord ::
+        forall a b.
         ( Generic (record a)
         , Generic (record b)
         , GMapRecord
@@ -41,11 +46,17 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         record b
     mapRecord f = to . mapGRecord @(Rep (record ProxyField)) @a @b f . from
 
-fillRecordI :: forall record f. IsRecord record => (forall sh. SingI sh => FieldWrapper f sh) -> record f
+fillRecordI :: forall record f. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper f sh) -> record f
 fillRecordI f = fillRecord g
-    where
-        g :: forall sh. Sing sh -> f @@ sh
-        g sh = unFieldWrapper (withSingI sh (f @sh))
+  where
+    g :: forall sh. Sing sh -> f @@ sh
+    g sh = unFieldWrapper (withSingI sh (f @sh))
+
+mapRecordI :: forall record a b. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper a sh -> FieldWrapper b sh) -> record a -> record b
+mapRecordI f = mapRecord g
+  where
+    g :: forall sh. Sing sh -> a @@ sh -> b @@ sh
+    g sh = unFieldWrapper . withSingI sh (f @sh) . FieldWrapper
 
 {-
     -- TODO: rename to zipWith
@@ -123,8 +134,6 @@ fillRecordI f = fillRecord g
     recordGetters = to (getGetters @'[] @(Rep (record (FieldGetter record))))
 -}
 
-
-
 -------------- Fill --------------
 
 class GFillRecord metaTT tt (grecord :: Type -> Type) where
@@ -138,29 +147,15 @@ instance (GFillRecord mf tt f, GFillRecord mg tt g) => GFillRecord (mf :*: mg) t
 instance GFillRecord U1 f U1 where
     fillGRecord _ = U1
 
-
 -------------- Map --------------
 
 class GMapRecord metaTT ttA ttB (gtree1 :: Type -> Type) (gtree2 :: Type -> Type) where
     mapGRecord :: (forall sh. Sing sh -> ttA @@ sh -> ttB @@ sh) -> gtree1 x -> gtree2 x
 instance GMapRecord U1 ttA ttB U1 U1 where
     mapGRecord _ U1 = U1
-
 instance (GMapRecord metaTT ttA ttB f1 f2) => GMapRecord (M1 i c metaTT) ttA ttB (M1 i c f1) (M1 i c f2) where
     mapGRecord f (M1 x) = M1 (mapGRecord @metaTT @ttA @ttB f x)
-
-instance
-    ( SingI sh
-    , f1 ~ ttA @@ sh
-    , f2 ~ ttB @@ sh
-    ) =>
-    GMapRecord
-        (K1 R (Proxy sh))
-        ttA
-        ttB
-        (K1 R f1)
-        (K1 R f2)
-    where
+instance (SingI sh, f1 ~ ttA @@ sh, f2 ~ ttB @@ sh) => GMapRecord (K1 R (Proxy sh)) ttA ttB (K1 R f1) (K1 R f2) where
     mapGRecord f (K1 x) = K1 (f (sing @sh) x)
 
 instance (GMapRecord mf tt1 tt2 f1 f2, GMapRecord mg tt1 tt2 g1 g2) => GMapRecord (mf :*: mg) tt1 tt2 (f1 :*: g1) (f2 :*: g2) where
