@@ -1,23 +1,21 @@
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Downhill.Tree.Record (
-    IsRecord (..),
-    fillRecordI,
-    mapRecordI,
+    IsRecord (..)
 )
 where
 
-import Data.Kind (Type)
-import Data.Singletons (Apply, Proxy, Sing, SingI (sing), withSingI, type (@@), type (~>))
-import Downhill.Tree.FieldWrapper (FieldWrapper (FieldWrapper, unFieldWrapper))
-import GHC.Generics (Generic (Rep, from, to), K1 (K1), M1 (M1), R, U1 (U1), (:*:) ((:*:)))
+import Data.Singletons (Apply, Proxy, Sing, SingI (sing), type (@@), type (~>))
+import NumHask.Prelude
 
 data ProxyField :: leafShape -> Type
 type instance Apply ProxyField sh = Proxy sh
 
+type IsRecord :: forall {fieldType}. ((fieldType ~> Type) -> Type) -> Constraint
 class IsRecord (record :: (fieldType ~> Type) -> Type) where
     fillRecord :: (forall sh. Sing sh -> f @@ sh) -> record f
     default fillRecord ::
@@ -46,22 +44,8 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         record b
     mapRecord f = to . mapGRecord @(Rep (record ProxyField)) @a @b f . from
 
-fillRecordI :: forall record f. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper f sh) -> record f
-fillRecordI f = fillRecord g
-  where
-    g :: forall sh. Sing sh -> f @@ sh
-    g sh = unFieldWrapper (withSingI sh (f @sh))
-
-mapRecordI :: forall record a b. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper a sh -> FieldWrapper b sh) -> record a -> record b
-mapRecordI f = mapRecord g
-  where
-    g :: forall sh. Sing sh -> a @@ sh -> b @@ sh
-    g sh = unFieldWrapper . withSingI sh (f @sh) . FieldWrapper
-
-{-
-    -- TODO: rename to zipWith
-    zipRecord :: ZipFieldFun a b c -> record a -> record b -> record c
-    default zipRecord ::
+    zipRecord :: (forall sh. Sing sh -> a @@ sh -> b @@ sh -> c @@ sh) -> record a -> record b -> record c
+    default zipRecord :: forall a b c.
         ( Generic (record a)
         , Generic (record b)
         , Generic (record c)
@@ -74,11 +58,32 @@ mapRecordI f = mapRecord g
             (Rep (record b))
             (Rep (record c))
         ) =>
-        ZipFieldFun a b c ->
+        (forall sh. Sing sh -> a @@ sh -> b @@ sh -> c @@ sh) ->
         record a ->
         record b ->
         record c
-    zipRecord = genericRecordZip
+    zipRecord f x y = to (zipGRecord @(Rep (record ProxyField)) @a @b @c f (from x) (from y))
+
+{-
+fillRecordI :: forall record f. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper f sh) -> record f
+fillRecordI f = fillRecord g
+  where
+    g :: forall sh. Sing sh -> f @@ sh
+    g sh = unFieldWrapper (withSingI sh (f @sh))
+
+mapRecordI :: forall record a b. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper a sh -> FieldWrapper b sh) -> record a -> record b
+mapRecordI f = mapRecord g
+  where
+    g :: forall sh. Sing sh -> a @@ sh -> b @@ sh
+    g sh = unFieldWrapper . withSingI sh (f @sh) . FieldWrapper
+-}
+
+--type RecField :: ((fieldType ~> Type) -> Type) ~> Type
+--data RecField record
+--type 
+
+{-
+    -- TODO: rename to zipWith
 
     foldRecord :: (Monoid m) => FoldFieldFun tt m -> record tt -> m
     default foldRecord ::
@@ -160,3 +165,37 @@ instance (SingI sh, f1 ~ ttA @@ sh, f2 ~ ttB @@ sh) => GMapRecord (K1 R (Proxy s
 
 instance (GMapRecord mf tt1 tt2 f1 f2, GMapRecord mg tt1 tt2 g1 g2) => GMapRecord (mf :*: mg) tt1 tt2 (f1 :*: g1) (f2 :*: g2) where
     mapGRecord f (x :*: y) = mapGRecord @mf @tt1 @tt2 f x :*: mapGRecord @mg @tt1 @tt2 f y
+
+
+
+-------------- Zip --------------
+
+class GZipRecord metaTT a b c (gtree1 :: Type -> Type) (gtree2 :: Type -> Type) (gtree3 :: Type -> Type) where
+    zipGRecord :: (forall sh. Sing sh -> a @@ sh -> b @@ sh -> c @@ sh) -> gtree1 x -> gtree2 x -> gtree3 x
+
+instance GZipRecord U1 ttA ttB ttC U1 U1 U1 where
+    zipGRecord _ U1 U1 = U1
+
+instance (GZipRecord metaTT ttA ttB ttC fA fB fC) => GZipRecord (M1 i c metaTT) ttA ttB ttC (M1 i c fA) (M1 i c fB) (M1 iz c fC) where
+    zipGRecord f (M1 x) (M1 y) = M1 (zipGRecord @metaTT @ttA @ttB @ttC f x y)
+
+instance
+    ( SingI sh
+    , fA ~ ttA @@ sh
+    , fB ~ ttB @@ sh
+    , fC ~ ttC @@ sh
+    ) =>
+    GZipRecord
+        (K1 R (Proxy sh))
+        ttA
+        ttB
+        ttC
+        (K1 R fA)
+        (K1 R fB)
+        (K1 R fC)
+    where
+    zipGRecord f (K1 x) (K1 y) = K1 (f (sing @sh) x y)
+
+instance (GZipRecord mf tt1 tt2 tt3 f1 f2 f3, GZipRecord mg tt1 tt2 tt3 g1 g2 g3) => GZipRecord (mf :*: mg) tt1 tt2 tt3 (f1 :*: g1) (f2 :*: g2) (f3 :*: g3) where
+    zipGRecord f (x1 :*: x2) (y1 :*: y2) = zipGRecord @mf @tt1 @tt2 @tt3 f x1 y1 :*: zipGRecord @mg @tt1 @tt2 @tt3 f x2 y2
+
