@@ -1,15 +1,18 @@
-{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE GHC2024 #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module DownhillTest.Record (recordTests)
 where
 
+import Data.Singletons (Apply, SingI (sing), TyCon1, type (@@), type (~>))
+import Data.Tuple.Singletons (STuple0 (STuple0))
 import Downhill.Tree.FieldWrapper (FieldWrapper (..))
+import Downhill.Tree.Record (FieldGetter, IsRecord (..), Record, recordField)
 import NumHask.Prelude hiding (Field)
-import Prelude.Singletons (Apply, STuple0 (STuple0), SingI (sing), type (@@), type (~>))
 import Test.HUnit (Assertion, (@=?))
 import Test.Hspec (SpecWith, describe, it)
-import Downhill.Tree.Record (IsRecord(..), Record)
 
 data MonoLeaf a :: () ~> Type
 type instance Apply (MonoLeaf a) '() = a
@@ -28,7 +31,10 @@ instance (SingI sh, Multiplicative a) => Multiplicative (FieldWrapper (MonoLeaf 
 
 type Field f = f @@ '()
 
-data MyRecord (f :: () ~> Type) = MyRecord (Field f) (Field f)
+data MyRecord (f :: () ~> Type) = MyRecord
+    { fieldA :: Field f
+    , fieldB :: Field f
+    }
     deriving (Generic)
 
 instance IsRecord MyRecord
@@ -57,7 +63,20 @@ testPlus = FieldWrapper (MyRecord 8 10) @=? (x + y)
     x = FieldWrapper (MyRecord 3 4)
     y = FieldWrapper (MyRecord 5 6)
 
+testField :: Assertion
+testField =
+    do
+        recordField getters.fieldA x @=? 3
+        recordField getters.fieldB x @=? 4
+  where
+    x :: MyRecord (MonoLeaf Int)
+    x = MyRecord 3 4
+
+    getters :: MyRecord (TyCon1 (FieldGetter MyRecord))
+    getters = recordGetters
+
 recordTests :: SpecWith ()
 recordTests = describe "Record" $ do
     it "fill" (testFill1 >> testFill2)
     it "plus" testPlus
+    it "getter" testField

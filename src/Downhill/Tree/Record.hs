@@ -1,7 +1,10 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE ImpredicativeTypes #-}
+{-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Downhill.Tree.Record (
@@ -10,15 +13,28 @@ module Downhill.Tree.Record (
     fillRecord,
     mapRecord,
     zipRecord,
+    FieldGetter (..),
+    recordField
 )
 where
 
-import Data.Singletons (Apply, Proxy, Sing, SingI (sing), type (@@), type (~>), withSingI)
+import Data.Singletons (Apply, Proxy, Sing, SingI (sing), withSingI, type (@@), type (~>), TyCon1)
+import Downhill.Tree.FieldWrapper (AdditiveField, FieldScalar, FieldWrapper (..), MultiplicativeActionField, MultiplicativeField, SubtractiveField)
 import NumHask.Prelude
-import Downhill.Tree.FieldWrapper (FieldWrapper (..), AdditiveField, SubtractiveField, MultiplicativeField, FieldScalar, MultiplicativeActionField)
 
 data ProxyField :: leafShape -> Type
 type instance Apply ProxyField sh = Proxy sh
+
+newtype FieldGetter record sh = FieldGetter (forall f. record f -> f @@ sh)
+
+recordField :: FieldGetter record sh -> record f -> f @@ sh
+recordField (FieldGetter f) = f
+
+--data FieldGetter (record :: (sh ~> Type) -> Type) :: sh ~> Type
+--type GetterField record = TyCon1 (FieldGetter record)
+--type instance Apply (FieldGetter record) sh = FieldGetter record sh
+
+-- type instance Apply (FieldGetter record) sh = forall f. record f -> f @@ sh
 
 type IsRecord :: forall {fieldType}. ((fieldType ~> Type) -> Type) -> Constraint
 class IsRecord (record :: (fieldType ~> Type) -> Type) where
@@ -69,6 +85,14 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         record b ->
         record c
     zipRecordEx f x y = to (zipGRecord @(Rep (record ProxyField)) @a @b @c f (from x) (from y))
+
+    recordGetters :: record (TyCon1 (FieldGetter record))
+    default recordGetters ::
+        ( Generic (record (TyCon1 (FieldGetter record)))
+        , GettersSubtree '[] (Rep (record (TyCon1 (FieldGetter record))))
+        ) =>
+        record (TyCon1 (FieldGetter record))
+    recordGetters = to (getGetters @'[] @(Rep (record (TyCon1 (FieldGetter record)))))
 
 {-
 fillRecordI :: forall record f. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper f sh) -> record f
@@ -195,7 +219,7 @@ instance (IsRecord record, MultiplicativeField field) => Multiplicative (FieldWr
 
 instance (IsRecord record, MultiplicativeActionField field) => MultiplicativeAction (FieldWrapper (Record record) field) where
     type Scalar (FieldWrapper (Record record) field) = FieldScalar field
-    v |* a = mapRecord (|*a) v
+    v |* a = mapRecord (|* a) v
 
 -------------- Fill --------------
 
@@ -254,3 +278,59 @@ instance
 
 instance (GZipRecord mf tt1 tt2 tt3 f1 f2 f3, GZipRecord mg tt1 tt2 tt3 g1 g2 g3) => GZipRecord (mf :*: mg) tt1 tt2 tt3 (f1 :*: g1) (f2 :*: g2) (f3 :*: g3) where
     zipGRecord f (x1 :*: x2) (y1 :*: y2) = zipGRecord @mf @tt1 @tt2 @tt3 f x1 y1 :*: zipGRecord @mg @tt1 @tt2 @tt3 f x2 y2
+
+-------------- Getters --------------
+
+data GenericFieldIndexStep = GfisLeft | GfisRight | GfisIntoM1 Type Meta | GfisIntoK1
+
+class GettersSubtree (prefix :: [GenericFieldIndexStep]) (gettresRep :: Type -> Type) where
+    getGetters :: forall x. gettresRep x
+
+instance (GettersSubtree (GfisIntoM1 i c ': path) f) => GettersSubtree path (M1 i c f) where
+    getGetters = M1 (getGetters @(GfisIntoM1 i c ': path) @f)
+
+instance (GettersSubtree (GfisLeft ': path) f, GettersSubtree (GfisRight ': path) g) => GettersSubtree path (f :*: g) where
+    getGetters = getGetters @(GfisLeft ': path) @f :*: getGetters @(GfisRight ': path) @g
+
+instance GettersSubtree path U1 where
+    getGetters = U1
+
+class GenericRecordHasField record (path :: [GenericFieldIndexStep]) subtree where
+    gettersGPolyRecord :: (forall x. record x -> subtree)
+
+instance GenericRecordHasField (K1 R f) '[GfisIntoK1] f where
+    gettersGPolyRecord (K1 x) = x
+
+instance (GenericRecordHasField f path x) => GenericRecordHasField (f :*: g) (GfisLeft ': path) x where
+    gettersGPolyRecord (x :*: _) = gettersGPolyRecord @f @path x
+
+instance (GenericRecordHasField g path x) => GenericRecordHasField (f :*: g) (GfisRight ': path) x where
+    gettersGPolyRecord (_ :*: y) = gettersGPolyRecord @g @path y
+
+instance (GenericRecordHasField f path x) => GenericRecordHasField (M1 i c f) (GfisIntoM1 i c ': path) x where
+    gettersGPolyRecord (M1 x) = gettersGPolyRecord @f @path x
+
+class
+    ( Generic (record leaf)
+    , GenericRecordHasField (Rep (record leaf)) (ReverseList rpath '[ 'GfisIntoK1]) (leaf @@ fieldSh)
+    ) =>
+    GenericRecordHasField' record leaf (rpath :: [GenericFieldIndexStep]) fieldSh fieldRep
+
+instance
+    ( Generic (record leaf)
+    , GenericRecordHasField (Rep (record leaf)) (ReverseList rpath '[ 'GfisIntoK1]) (leaf @@ fieldSh)
+    ) =>
+    GenericRecordHasField' record leaf rpath fieldSh fieldRep
+
+type family ReverseList (x :: [k]) (y :: [k]) where
+    ReverseList '[] y = y
+    ReverseList (x ': xs) y = ReverseList xs (x ': y)
+
+instance
+    (forall leaf. GenericRecordHasField' record leaf path sh (K1 R (FieldGetter record sh))) =>
+    GettersSubtree path (K1 R (FieldGetter record sh))
+    where
+    getGetters = K1 (FieldGetter go)
+      where
+        go :: forall leaf. record leaf -> leaf @@ sh
+        go = gettersGPolyRecord @(Rep (record leaf)) @(ReverseList path '[ 'GfisIntoK1]) . from
