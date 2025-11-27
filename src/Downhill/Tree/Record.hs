@@ -1,34 +1,39 @@
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Downhill.Tree.Record (
-    IsRecord (..)
+    IsRecord (..),
+    Record,
+    fillRecord,
+    mapRecord,
+    zipRecord,
 )
 where
 
-import Data.Singletons (Apply, Proxy, Sing, SingI (sing), type (@@), type (~>))
+import Data.Singletons (Apply, Proxy, Sing, SingI (sing), type (@@), type (~>), withSingI)
 import NumHask.Prelude
+import Downhill.Tree.FieldWrapper (FieldWrapper (..), AdditiveField, SubtractiveField, MultiplicativeField, FieldScalar, MultiplicativeActionField)
 
 data ProxyField :: leafShape -> Type
 type instance Apply ProxyField sh = Proxy sh
 
 type IsRecord :: forall {fieldType}. ((fieldType ~> Type) -> Type) -> Constraint
 class IsRecord (record :: (fieldType ~> Type) -> Type) where
-    fillRecord :: (forall sh. Sing sh -> f @@ sh) -> record f
-    default fillRecord ::
+    fillRecordEx :: (forall sh. Sing sh -> f @@ sh) -> record f
+    default fillRecordEx ::
         forall f.
         ( Generic (record f)
         , GFillRecord (Rep (record ProxyField)) f (Rep (record f))
         ) =>
         (forall sh. Sing sh -> f @@ sh) ->
         record f
-    fillRecord f = to $ fillGRecord @(Rep (record ProxyField)) @f f
+    fillRecordEx f = to $ fillGRecord @(Rep (record ProxyField)) @f f
 
-    mapRecord :: (forall sh. Sing sh -> a @@ sh -> b @@ sh) -> record a -> record b
-    default mapRecord ::
+    mapRecordEx :: (forall sh. Sing sh -> a @@ sh -> b @@ sh) -> record a -> record b
+    default mapRecordEx ::
         forall a b.
         ( Generic (record a)
         , Generic (record b)
@@ -42,10 +47,11 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         (forall sh. Sing sh -> a @@ sh -> b @@ sh) ->
         record a ->
         record b
-    mapRecord f = to . mapGRecord @(Rep (record ProxyField)) @a @b f . from
+    mapRecordEx f = to . mapGRecord @(Rep (record ProxyField)) @a @b f . from
 
-    zipRecord :: (forall sh. Sing sh -> a @@ sh -> b @@ sh -> c @@ sh) -> record a -> record b -> record c
-    default zipRecord :: forall a b c.
+    zipRecordEx :: (forall sh. Sing sh -> a @@ sh -> b @@ sh -> c @@ sh) -> record a -> record b -> record c
+    default zipRecordEx ::
+        forall a b c.
         ( Generic (record a)
         , Generic (record b)
         , Generic (record c)
@@ -62,7 +68,7 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         record a ->
         record b ->
         record c
-    zipRecord f x y = to (zipGRecord @(Rep (record ProxyField)) @a @b @c f (from x) (from y))
+    zipRecordEx f x y = to (zipGRecord @(Rep (record ProxyField)) @a @b @c f (from x) (from y))
 
 {-
 fillRecordI :: forall record f. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper f sh) -> record f
@@ -78,9 +84,9 @@ mapRecordI f = mapRecord g
     g sh = unFieldWrapper . withSingI sh (f @sh) . FieldWrapper
 -}
 
---type RecField :: ((fieldType ~> Type) -> Type) ~> Type
---data RecField record
---type 
+-- type RecField :: ((fieldType ~> Type) -> Type) ~> Type
+-- data RecField record
+-- type
 
 {-
     -- TODO: rename to zipWith
@@ -139,6 +145,58 @@ mapRecordI f = mapRecord g
     recordGetters = to (getGetters @'[] @(Rep (record (FieldGetter record))))
 -}
 
+data Record (r :: (fieldType ~> Type) -> Type) :: (fieldType ~> Type) ~> Type
+type instance Apply (Record r) field = r field
+
+fillRecord ::
+    forall record f.
+    (IsRecord record) =>
+    (forall sh. (SingI sh) => FieldWrapper f sh) ->
+    FieldWrapper (Record record) f
+fillRecord f = FieldWrapper (fillRecordEx g)
+  where
+    g :: forall sh. Sing sh -> f @@ sh
+    g sh = unFieldWrapper (withSingI sh (f @sh))
+
+mapRecord ::
+    forall record a b.
+    (IsRecord record) =>
+    (forall sh. (SingI sh) => FieldWrapper a sh -> FieldWrapper b sh) ->
+    FieldWrapper (Record record) a ->
+    FieldWrapper (Record record) b
+mapRecord f (FieldWrapper x) = FieldWrapper (mapRecordEx g x)
+  where
+    g :: forall sh. Sing sh -> a @@ sh -> b @@ sh
+    g sh = unFieldWrapper . withSingI sh (f @sh) . FieldWrapper
+
+zipRecord ::
+    forall record a b c.
+    (IsRecord record) =>
+    (forall sh. (SingI sh) => FieldWrapper a sh -> FieldWrapper b sh -> FieldWrapper c sh) ->
+    FieldWrapper (Record record) a ->
+    FieldWrapper (Record record) b ->
+    FieldWrapper (Record record) c
+zipRecord f (FieldWrapper x) (FieldWrapper y) = FieldWrapper (zipRecordEx g x y)
+  where
+    g :: forall sh. Sing sh -> a @@ sh -> b @@ sh -> c @@ sh
+    g sh x' y' = unFieldWrapper (withSingI sh (f @sh (FieldWrapper x') (FieldWrapper y')))
+
+instance (IsRecord record, AdditiveField field) => Additive (FieldWrapper (Record record) field) where
+    zero = fillRecord zero
+    (+) = zipRecord (+)
+
+instance (IsRecord record, SubtractiveField field) => Subtractive (FieldWrapper (Record record) field) where
+    negate = mapRecord negate
+    (-) = zipRecord (-)
+
+instance (IsRecord record, MultiplicativeField field) => Multiplicative (FieldWrapper (Record record) field) where
+    one = fillRecord one
+    (*) = zipRecord (*)
+
+instance (IsRecord record, MultiplicativeActionField field) => MultiplicativeAction (FieldWrapper (Record record) field) where
+    type Scalar (FieldWrapper (Record record) field) = FieldScalar field
+    v |* a = mapRecord (|*a) v
+
 -------------- Fill --------------
 
 class GFillRecord metaTT tt (grecord :: Type -> Type) where
@@ -165,8 +223,6 @@ instance (SingI sh, f1 ~ ttA @@ sh, f2 ~ ttB @@ sh) => GMapRecord (K1 R (Proxy s
 
 instance (GMapRecord mf tt1 tt2 f1 f2, GMapRecord mg tt1 tt2 g1 g2) => GMapRecord (mf :*: mg) tt1 tt2 (f1 :*: g1) (f2 :*: g2) where
     mapGRecord f (x :*: y) = mapGRecord @mf @tt1 @tt2 f x :*: mapGRecord @mg @tt1 @tt2 f y
-
-
 
 -------------- Zip --------------
 
@@ -198,4 +254,3 @@ instance
 
 instance (GZipRecord mf tt1 tt2 tt3 f1 f2 f3, GZipRecord mg tt1 tt2 tt3 g1 g2 g3) => GZipRecord (mf :*: mg) tt1 tt2 tt3 (f1 :*: g1) (f2 :*: g2) (f3 :*: g3) where
     zipGRecord f (x1 :*: x2) (y1 :*: y2) = zipGRecord @mf @tt1 @tt2 @tt3 f x1 y1 :*: zipGRecord @mg @tt1 @tt2 @tt3 f x2 y2
-

@@ -31,6 +31,7 @@ library
         Downhill.Linear.AD
         Downhill.Tree.FieldWrapper
         Downhill.Tree.Record
+        Downhill.Tree.Tree
         Downhill.VSpace
         Downhill.Manifold
         Downhill.BVar
@@ -42,7 +43,8 @@ library
                       transformers,
                       unordered-containers,
                       reflection,
-                      singletons
+                      singletons,
+                      constraints
     hs-source-dirs:   src
     default-language: GHC2024
 
