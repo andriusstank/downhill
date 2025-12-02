@@ -6,6 +6,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE NoFieldSelectors #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 
 module Downhill.Tree.Record (
     IsRecord (..),
@@ -25,12 +28,14 @@ import Downhill.Linear.Builder (HasBuilder (..))
 import Downhill.Tree.FieldWrapper (AdditiveField, FieldScalar, FieldWrapper (..), MultiplicativeActionField, MultiplicativeField, SubtractiveField)
 import NumHask.Prelude
 import Control.Monad.ST.Strict (runST, ST)
-import Data.STRef.Strict (STRef)
+import Data.STRef.Strict (STRef, newSTRef, modifySTRef, readSTRef)
+import Data.HashSet (fromMap)
+import GHC.Records (HasField(getField))
 
 data ProxyField :: leafShape -> Type
 type instance Apply ProxyField sh = Proxy sh
 
-newtype FieldGetter record sh = FieldGetter (forall f. record f -> f @@ sh)
+newtype FieldGetter record sh = FieldGetter { get :: forall f. record f -> f @@ sh }
 
 recordField :: FieldGetter record sh -> record f -> f @@ sh
 recordField (FieldGetter f) = f
@@ -74,8 +79,8 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         record b
     mapRecordEx f = to . mapGRecord @(Rep (record ProxyField)) @a @b f . from
 
-    traverseRecordEx :: Applicative f => (forall sh. Sing sh -> a @@ sh -> f (b @@ sh)) -> record a -> f (record b)
-    default traverseRecordEx ::
+    mapRecordExA :: Applicative f => (forall sh. Sing sh -> a @@ sh -> f (b @@ sh)) -> record a -> f (record b)
+    default mapRecordExA ::
         forall f a b. Applicative f => 
         ( Generic (record a)
         , Generic (record b)
@@ -89,7 +94,7 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         (forall sh. Sing sh -> a @@ sh -> f (b @@ sh)) ->
         record a ->
         f (record b)
-    traverseRecordEx f = fmap to . traverseGRecord @(Rep (record ProxyField)) @a @b f . from
+    mapRecordExA f = fmap to . traverseGRecord @(Rep (record ProxyField)) @a @b f . from
 
     zipRecordEx :: (forall sh. Sing sh -> a @@ sh -> b @@ sh -> c @@ sh) -> record a -> record b -> record c
     default zipRecordEx ::
@@ -229,6 +234,17 @@ mapRecord f (FieldWrapper x) = FieldWrapper (mapRecordEx g x)
     g :: forall sh. Sing sh -> a @@ sh -> b @@ sh
     g sh = unFieldWrapper . withSingI sh (f @sh) . FieldWrapper
 
+mapRecordA ::
+    forall f record a b.
+    (IsRecord record, Applicative f) =>
+    (forall sh. (SingI sh) => FieldWrapper a sh -> f (FieldWrapper b sh)) ->
+    FieldWrapper (Record record) a ->
+    f (FieldWrapper (Record record) b)
+mapRecordA f (FieldWrapper x) = FieldWrapper <$> mapRecordExA g x
+  where
+    g :: forall sh. Sing sh -> a @@ sh -> f (b @@ sh)
+    g sh = fmap unFieldWrapper . withSingI sh (f @sh) . FieldWrapper
+
 zipRecord ::
     forall record a b c.
     (IsRecord record) =>
@@ -258,12 +274,15 @@ instance (IsRecord record, MultiplicativeActionField field) => MultiplicativeAct
     v |* a = mapRecord (|* a) v
 
 data FieldBuilder record field
-    = forall sh. FieldBuilder
+    = forall sh. SingI sh => FieldBuilder
         (FieldGetter record sh)
         (VecBuilder (FieldWrapper field sh))
 
 data FieldAccum s (field :: sh ~> Type) :: sh ~> Type
 type instance Apply (FieldAccum s field) sh = STRef s (VecBuilder (FieldWrapper field sh))
+
+maybeToMonoid :: Monoid a => Maybe a -> a
+maybeToMonoid = fromMaybe mempty
 
 instance
     ( AdditiveField field
@@ -278,17 +297,24 @@ instance
             , DList (FieldBuilder record field)
             )
     identityBuilder x = (Just (Sum x), mempty)
-    sumBuilder (densePart, fields) = FieldWrapper (runST go)
-        where
-            go :: ST s (record field)
-            go = do
-                FieldWrapper accum <- initRecord
-                _
-            initRecord :: () => ST s (FieldWrapper (Record record) (FieldAccum s field))
-            initRecord = case densePart of
-                Nothing -> fillRecordA _
-                Just _ -> _
-
+    sumBuilder (getSum . maybeToMonoid -> densePart, mayFields) = case toList mayFields of
+        [] -> densePart -- don't descend into fields, keep identityBuilder quick
+        fields -> FieldWrapper (runST go)
+            where
+                go :: forall s. ST s (record field)
+                go = do
+                    FieldWrapper accum <- initRecord
+                    let bump ::  FieldBuilder record field -> ST s ()
+                        bump (FieldBuilder field builder) = modifySTRef (recordField field accum) (<> builder)
+                        sumField :: forall sh. Sing sh -> STRef s (VecBuilder (FieldWrapper field sh)) -> ST s (Apply field sh)
+                        sumField sh = withSingI sh $ fmap (unFieldWrapper . sumBuilder @(FieldWrapper field sh) ) . readSTRef
+                    traverse_ bump fields
+                    mapRecordExA sumField accum
+                initRecord :: ST s (FieldWrapper (Record record) (FieldAccum s field))
+                initRecord = mapRecordA (fmap FieldWrapper . newSTRef . identityBuilder) densePart
+     {-   
+     FieldWrapper (runST go)
+        -}
 -------------- Fill --------------
 
 class GFillRecord metaTT tt (grecord :: Type -> Type) where
