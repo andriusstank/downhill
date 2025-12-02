@@ -44,7 +44,8 @@ library
                       unordered-containers,
                       reflection,
                       singletons,
-                      constraints
+                      constraints,
+                      dlist
     hs-source-dirs:   src
     default-language: GHC2024
 
