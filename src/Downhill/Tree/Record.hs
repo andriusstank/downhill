@@ -24,18 +24,16 @@ where
 
 import Control.Monad.ST.Strict (ST, runST)
 import Data.DList (DList)
-import Data.HashSet (fromMap)
 import Data.STRef.Strict (STRef, modifySTRef, newSTRef, readSTRef)
 import Data.Singletons (Apply, Proxy, Sing, SingI (sing), TyCon1, withSingI, type (@@), type (~>))
 import Downhill.Linear.Builder (HasBuilder (..))
 import Downhill.Tree.FieldWrapper (AdditiveField, FieldScalar, FieldWrapper (..), MultiplicativeActionField, MultiplicativeField, SubtractiveField)
-import GHC.Records (HasField (getField))
 import NumHask.Prelude
 
 data ProxyField :: leafShape -> Type
 type instance Apply ProxyField sh = Proxy sh
 
-newtype FieldGetter record sh = FieldGetter {get :: forall f. record f -> f @@ sh}
+data FieldGetter record sh = (SingI sh) => FieldGetter {get :: forall f. record f -> f @@ sh}
 
 recordField :: FieldGetter record sh -> record f -> f @@ sh
 recordField (FieldGetter f) = f
@@ -277,8 +275,10 @@ instance (IsRecord record, MultiplicativeActionField field) => MultiplicativeAct
 
 data FieldBuilder record field = forall sh. FieldBuilder (FieldGetter record sh) (VecBuilder (FieldWrapper field sh))
 
-data AccumCell s (field :: k ~> Type) (sh :: k) = (SingI sh) => AccumCell (STRef s (VecBuilder (FieldWrapper field sh)))
-type FieldAccum s (field :: sh ~> Type) = TyCon1 (AccumCell s field)
+-- newtype AccumCell s (field :: k ~> Type) (sh :: k) = AccumCell (STRef s (VecBuilder (FieldWrapper field sh)))
+-- type FieldAccum s (field :: sh ~> Type) = TyCon1 (AccumCell s field)
+data FieldAccum s (field :: sh ~> Type) :: sh ~> Type
+type instance Apply (FieldAccum s field) sh = STRef s (VecBuilder (FieldWrapper field sh))
 
 maybeToMonoid :: (Monoid a) => Maybe a -> a
 maybeToMonoid = fromMaybe mempty
@@ -304,17 +304,22 @@ instance
         fields -> runST go
           where
             initField :: (SingI sh) => FieldWrapper field sh -> ST s (FieldWrapper (FieldAccum s field) sh)
-            initField x = FieldWrapper . AccumCell <$> newSTRef (identityBuilder x)
-            bumpField :: AccumCell s field sh -> VecBuilder (FieldWrapper field sh) -> ST s ()
-            bumpField (AccumCell accField) x = modifySTRef accField (<> x)
+            initField x = FieldWrapper <$> newSTRef (identityBuilder x)
+            bumpField ::
+                FieldWrapper (Record record) (FieldAccum s field) ->
+                FieldGetter record sh ->
+                VecBuilder (FieldWrapper field sh) ->
+                ST s ()
+            bumpField (FieldWrapper accum) field x = case field of
+                FieldGetter _ -> modifySTRef (recordField field accum) (<> x)
             sumField :: (SingI sh) => FieldWrapper (FieldAccum s field) sh -> ST s (FieldWrapper field sh)
-            sumField (FieldWrapper (AccumCell x)) = sumBuilder <$> readSTRef x
+            sumField (FieldWrapper x) = sumBuilder <$> readSTRef x
             go :: forall s. ST s (FieldWrapper (Record record) field)
             go = do
                 accum <- mapRecordA initField densePart
                 let
                     bump' :: FieldBuilder record field -> ST s ()
-                    bump' (FieldBuilder field builder) = bumpField (recordFieldI field accum) builder
+                    bump' (FieldBuilder field builder) = bumpField accum field builder
                 traverse_ bump' fields
                 mapRecordA sumField accum
 
@@ -434,7 +439,7 @@ type family ReverseList (x :: [k]) (y :: [k]) where
     ReverseList (x ': xs) y = ReverseList xs (x ': y)
 
 instance
-    (forall leaf. GenericRecordHasField' record leaf path sh (K1 R (FieldGetter record sh))) =>
+    (SingI sh, forall leaf. GenericRecordHasField' record leaf path sh (K1 R (FieldGetter record sh))) =>
     GettersSubtree path (K1 R (FieldGetter record sh))
     where
     getGetters = K1 (FieldGetter go)
