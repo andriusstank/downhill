@@ -275,13 +275,10 @@ instance (IsRecord record, MultiplicativeActionField field) => MultiplicativeAct
     type Scalar (FieldWrapper (Record record) field) = FieldScalar field
     v |* a = mapRecord (|* a) v
 
-data FieldBuilder record field
-    = forall sh. (SingI sh) => FieldBuilder
-        (FieldGetter record sh)
-        (VecBuilder (FieldWrapper field sh))
+data FieldBuilder record field = forall sh. FieldBuilder (FieldGetter record sh) (VecBuilder (FieldWrapper field sh))
 
-data FieldAccum s (field :: sh ~> Type) :: sh ~> Type
-type instance Apply (FieldAccum s field) sh = STRef s (VecBuilder (FieldWrapper field sh))
+data AccumCell s (field :: k ~> Type) (sh :: k) = (SingI sh) => AccumCell (STRef s (VecBuilder (FieldWrapper field sh)))
+type FieldAccum s (field :: sh ~> Type) = TyCon1 (AccumCell s field)
 
 maybeToMonoid :: (Monoid a) => Maybe a -> a
 maybeToMonoid = fromMaybe mempty
@@ -306,47 +303,21 @@ instance
         [] -> densePart -- don't descend into fields, keep identityBuilder quick
         fields -> runST go
           where
-            {- explicit
-            go :: forall s. ST s (record field)
-            go = do
-                accum <- initRecord
-                let bump :: FieldBuilder record field -> ST s ()
-                    bump (FieldBuilder field builder) = modifySTRef (recordField field accum) (<> builder)
-                traverse_ bump fields
-                mapRecordExA sumSTField accum
-            initRecord :: ST s (record (FieldAccum s field))
-            initRecord = mapRecordExA initSTField (unFieldWrapper densePart)
-              where
-                initSTField :: forall s sh. Sing sh -> field @@ sh -> ST s (STRef s (VecBuilder (FieldWrapper field sh)))
-                initSTField sh = newSTRef . withSingI sh initField . FieldWrapper
-                  where
-                    initField :: (SingI sh) => FieldWrapper field sh -> VecBuilder (FieldWrapper field sh)
-                    initField = identityBuilder @(FieldWrapper field sh)
-            sumSTField :: forall sh s. Sing sh -> STRef s (VecBuilder (FieldWrapper field sh)) -> ST s (field @@ sh)
-            sumSTField sh = fmap (withSingI sh sumField) . readSTRef
-              where
-                sumField :: (SingI sh) => VecBuilder (FieldWrapper field sh) -> field @@ sh
-                sumField = unFieldWrapper . sumBuilder @(FieldWrapper field sh)
-            -}
-            {- implicit -}
+            initField :: (SingI sh) => FieldWrapper field sh -> ST s (FieldWrapper (FieldAccum s field) sh)
+            initField x = FieldWrapper . AccumCell <$> newSTRef (identityBuilder x)
+            bumpField :: AccumCell s field sh -> VecBuilder (FieldWrapper field sh) -> ST s ()
+            bumpField (AccumCell accField) x = modifySTRef accField (<> x)
+            sumField :: (SingI sh) => FieldWrapper (FieldAccum s field) sh -> ST s (FieldWrapper field sh)
+            sumField (FieldWrapper (AccumCell x)) = sumBuilder <$> readSTRef x
             go :: forall s. ST s (FieldWrapper (Record record) field)
             go = do
-                accum <- initRecord
-                let bump :: FieldBuilder record field -> ST s ()
-                    bump (FieldBuilder field builder) = modifySTRef (recordFieldI field accum) (<> builder)
-                traverse_ bump fields
-                mapRecordA sumSTField accum
-            initRecord :: ST s (FieldWrapper (Record record) (FieldAccum s field))
-            initRecord = mapRecordA initSTField densePart
-              where
-                initSTField :: (SingI sh) => FieldWrapper field sh -> ST s (FieldWrapper (FieldAccum s field) sh)
-                initSTField x = FieldWrapper <$> newSTRef (identityBuilder x)
-            sumSTField :: (SingI sh) => FieldWrapper (FieldAccum s field) sh -> ST s (FieldWrapper field sh)
-            sumSTField (FieldWrapper x) = sumBuilder <$> readSTRef x
+                accum <- mapRecordA initField densePart
+                let
+                    bump' :: FieldBuilder record field -> ST s ()
+                    bump' (FieldBuilder field builder) = bumpField (recordFieldI field accum) builder
+                traverse_ bump' fields
+                mapRecordA sumField accum
 
-{-
-FieldWrapper (runST go)
-   -}
 -------------- Fill --------------
 
 class GFillRecord metaTT tt (grecord :: Type -> Type) where
