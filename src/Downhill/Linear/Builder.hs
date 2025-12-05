@@ -6,7 +6,8 @@
 module Downhill.Linear.Builder (
   HasBuilder (..),
   Dense (..), DenseBuilder (..),
-  Sparse(..)
+  Sparse(..),
+  maybeToMonoid
 ) where
 
 import Downhill.Orphans ()
