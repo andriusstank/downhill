@@ -19,6 +19,7 @@ module Downhill.Tree.Record (
     fillRecordA,
     FieldGetter (..),
     recordField,
+    fieldView,
     RecordBuilder,
     fieldBuilder,
 )
@@ -261,7 +262,6 @@ zipRecord f (FieldWrapper x) (FieldWrapper y) = FieldWrapper (zipRecordEx g x y)
     g sh x' y' = unFieldWrapper (withSingI sh (f @sh (FieldWrapper x') (FieldWrapper y')))
 
 fieldView ::
-    forall record a sh r.
     (IsRecord record) =>
     ((SingI sh) => FieldWrapper a sh -> r) ->
     FieldGetter record sh ->
@@ -292,9 +292,6 @@ fieldBuilder getter builder = RecordBuilder Nothing (DList.singleton (FieldBuild
 
 data FieldAccum s (field :: sh ~> Type) :: sh ~> Type
 type instance Apply (FieldAccum s field) sh = STRef s (VecBuilder (FieldWrapper field sh))
-
-recordFieldI :: FieldGetter record sh -> FieldWrapper (Record record) f -> f @@ sh
-recordFieldI f = recordField f . unFieldWrapper
 
 data RecordBuilder record field = RecordBuilder
     { densePart :: Maybe (Sum (FieldWrapper (Record record) field))

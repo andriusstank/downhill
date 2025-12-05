@@ -8,15 +8,14 @@ where
 
 import Data.Singletons (Apply, SingI (sing), TyCon1, type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
+import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
 import Downhill.Tree.FieldWrapper (FieldWrapper (..))
-import Downhill.Tree.Record (FieldGetter, IsRecord (..), Record, recordField, RecordBuilder)
+import Downhill.Tree.Record (FieldGetter, IsRecord (..), Record, RecordBuilder, fieldBuilder, recordField)
 import NumHask.Prelude hiding (Field)
 import Test.HUnit (Assertion, (@=?))
 import Test.Hspec (SpecWith, describe, it)
-import Downhill.Linear.Builder (HasBuilder(..), maybeToMonoid)
-import Downhill.Tree.Record (fieldBuilder, FieldGetter (FieldGetter))
 
-data MonoLeaf (a::Type) :: () ~> Type
+data MonoLeaf (a :: Type) :: () ~> Type
 type instance Apply (MonoLeaf a) '() = a
 
 instance (SingI sh, Additive a) => Additive (FieldWrapper (MonoLeaf a) sh) where
@@ -50,7 +49,6 @@ instance (Additive a, SingI sh) => HasBuilder (FieldWrapper (MonoLeaf a) sh) whe
         STuple0 -> FieldWrapper . getSum . maybeToMonoid
     identityBuilder = case sing @sh of
         STuple0 -> Just . Sum . unFieldWrapper
-
 
 testFill1 :: Assertion
 testFill1 = fillRecordEx f @=? (MyRecord 3 3 :: MyRecord (MonoLeaf Int))
