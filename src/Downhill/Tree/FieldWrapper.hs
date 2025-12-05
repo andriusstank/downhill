@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE DerivingVia #-}
 
 module Downhill.Tree.FieldWrapper (
   FieldWrapper (..),
@@ -9,12 +10,14 @@ module Downhill.Tree.FieldWrapper (
   SubtractiveField,
   MultiplicativeField,
   FieldScalar,
-  MultiplicativeActionField
+  MultiplicativeActionField,
+  DenseFieldWrapper(..)
 )
 where
 
 import Data.Singletons (SingI, type (@@), type (~>))
 import NumHask.Prelude
+import Downhill.Linear.Builder (HasBuilder(..), maybeToMonoid)
 
 newtype FieldWrapper field sh = FieldWrapper {unFieldWrapper :: field @@ sh}
 
@@ -51,3 +54,13 @@ instance
     , forall sh. (SingI sh) => MultiplicativeActionFieldSh field sh
     ) =>
     MultiplicativeActionField field
+
+newtype DenseFieldWrapper field sh = DenseFieldWrapper {unDenseFieldWrapper :: field @@ sh}
+
+deriving via (FieldWrapper field sh) instance (Additive (FieldWrapper field sh)) => Additive (DenseFieldWrapper field sh)
+
+instance (Additive (FieldWrapper field sh)) => HasBuilder (DenseFieldWrapper field sh) where
+    type VecBuilder (DenseFieldWrapper field sh) = Maybe (Sum (FieldWrapper field sh))
+    sumBuilder = DenseFieldWrapper . unFieldWrapper . getSum . maybeToMonoid
+    identityBuilder = Just . Sum . FieldWrapper . unDenseFieldWrapper
+

@@ -1,6 +1,8 @@
 {-# LANGUAGE GHC2024 #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module DownhillTest.Record (recordTests)
@@ -8,8 +10,8 @@ where
 
 import Data.Singletons (Apply, SingI (sing), TyCon1, type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
-import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
-import Downhill.Tree.FieldWrapper (FieldWrapper (..))
+import Downhill.Linear.Builder (HasBuilder (..))
+import Downhill.Tree.FieldWrapper (FieldWrapper (..), DenseFieldWrapper(..))
 import Downhill.Tree.Record (FieldGetter, IsRecord (..), Record, RecordBuilder, fieldBuilder, recordField)
 import NumHask.Prelude hiding (Field)
 import Test.HUnit (Assertion, (@=?))
@@ -42,13 +44,10 @@ instance IsRecord MyRecord
 deriving instance (Eq a) => Eq (MyRecord (MonoLeaf a))
 deriving instance (Show a) => Show (MyRecord (MonoLeaf a))
 
--- TODO: derive this via something
-instance (Additive a, SingI sh) => HasBuilder (FieldWrapper (MonoLeaf a) sh) where
-    type VecBuilder (FieldWrapper (MonoLeaf a) sh) = Maybe (Sum a)
-    sumBuilder = case sing @sh of
-        STuple0 -> FieldWrapper . getSum . maybeToMonoid
-    identityBuilder = case sing @sh of
-        STuple0 -> Just . Sum . unFieldWrapper
+deriving via
+    (DenseFieldWrapper (MonoLeaf a) sh)
+    instance
+        (Additive a, SingI sh) => HasBuilder (FieldWrapper (MonoLeaf a) sh)
 
 testFill1 :: Assertion
 testFill1 = fillRecordEx f @=? (MyRecord 3 3 :: MyRecord (MonoLeaf Int))
@@ -91,7 +90,7 @@ builderTests = it "builderTests" $ do
         fs :: MyRecord (TyCon1 (FieldGetter MyRecord))
         fs = recordGetters
         mkBuilder :: FieldGetter MyRecord '() -> Int -> RecordBuilder MyRecord (MonoLeaf Int)
-        mkBuilder field value = fieldBuilder field (Just (Sum value))
+        mkBuilder field value = fieldBuilder field (Just (Sum (FieldWrapper value)))
     sumBuilder mempty @=? mkRecord 0 0
     sumBuilder (identityBuilder (mkRecord 3 4)) @=? mkRecord 3 4
     sumBuilder (mkBuilder fs.fieldA 5) @=? mkRecord 5 0
