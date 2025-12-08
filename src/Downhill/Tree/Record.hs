@@ -14,6 +14,7 @@ module Downhill.Tree.Record (
     IsRecord (..),
     Record,
     fillRecord,
+    foldMapRecord,
     mapRecord,
     zipRecord,
     fillRecordA,
@@ -22,20 +23,42 @@ module Downhill.Tree.Record (
     fieldView,
     RecordBuilder,
     fieldBuilder,
+    ConstField,
 )
 where
 
 import Control.Monad.ST.Strict (ST, runST)
+import Data.Constraint (Dict (..))
 import Data.DList (DList)
 import Data.DList qualified as DList
+import Data.Function.Singletons (type (.@#@$))
 import Data.STRef.Strict (STRef, modifySTRef, newSTRef, readSTRef)
 import Data.Singletons (Apply, Proxy, Sing, SingI (sing), TyCon1, withSingI, type (@@), type (~>))
+import Downhill.BVar (BVar (..))
+import Downhill.Linear.AD (sparseNode)
 import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
-import Downhill.Tree.FieldWrapper (AdditiveField, FieldScalar, FieldWrapper (..), MultiplicativeActionField, MultiplicativeField, SubtractiveField)
+import Downhill.Linear.Fun (DualOf)
+import Downhill.Manifold (Manifold (..))
+import Downhill.Tree.FieldWrapper (
+    AdditiveField,
+    FieldDualOf,
+    FieldScalar,
+    FieldTang,
+    FieldWrapper (..),
+    ManifoldField,
+    MultiplicativeActionField,
+    MultiplicativeField,
+    SubtractiveField,
+    VSpaceField,
+ )
+import Downhill.VSpace (VSpace (..))
 import NumHask.Prelude
 
 data ProxyField :: leafShape -> Type
 type instance Apply ProxyField sh = Proxy sh
+
+data ConstField a :: leafShape -> Type
+type instance Apply (ConstField a) sh = a
 
 data FieldGetter record sh = FieldGetter {sh :: Sing sh, get :: forall f. record f -> f @@ sh}
 
@@ -64,6 +87,21 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         (forall sh. Sing sh -> g (f @@ sh)) ->
         g (record f)
     fillRecordExA = fmap to . fillGRecordA @(Rep (record ProxyField)) @f
+
+    foldMapRecordEx :: (Monoid m) => (forall sh. Sing sh -> a @@ sh -> m) -> record a -> m
+    default foldMapRecordEx ::
+        forall a m.
+        (Monoid m) =>
+        ( Generic (record a)
+        , GFillRecord
+            (Rep (record ProxyField))
+            a
+            (Rep (record a))
+        ) =>
+        (forall sh. Sing sh -> a @@ sh -> m) ->
+        record a ->
+        m
+    foldMapRecordEx f = foldMapGRecord @(Rep (record ProxyField)) @a f . from
 
     mapRecordEx :: (forall sh. Sing sh -> a @@ sh -> b @@ sh) -> record a -> record b
     default mapRecordEx ::
@@ -227,6 +265,17 @@ fillRecordA f = FieldWrapper <$> fillRecordExA g
     g :: forall sh. Sing sh -> g (f @@ sh)
     g sh = unFieldWrapper <$> withSingI sh (f @sh)
 
+foldMapRecord ::
+    forall record f m.
+    (IsRecord record, Monoid m) =>
+    (forall sh. (SingI sh) => FieldWrapper f sh -> m) ->
+    FieldWrapper (Record record) f ->
+    m
+foldMapRecord f (FieldWrapper x) = foldMapRecordEx go x
+  where
+    go :: forall sh. Sing sh -> f @@ sh -> m
+    go sh = withSingI sh (f @sh . FieldWrapper)
+
 mapRecord ::
     forall record a b.
     (IsRecord record) =>
@@ -339,23 +388,64 @@ instance
                 traverse_ bump' fields
                 mapRecordA sumField accum
 
+type instance DualOf (FieldWrapper (Record record) a) = FieldWrapper (Record record) (FieldDualOf a)
+
+instance (VSpaceField a, IsRecord record) => VSpace (FieldWrapper (Record record) a) where
+    dv |*| v = getSum (foldMapRecord sumField y)
+      where
+        sumField :: FieldWrapper (ConstField (Sum (FieldScalar a))) sh -> Sum (FieldScalar a)
+        sumField = unFieldWrapper
+        y :: FieldWrapper (Record record) (ConstField (Sum (FieldScalar a)))
+        y = zipRecord zipField dv v
+          where
+            zipField ::
+                SingI sh=>
+                FieldWrapper (FieldDualOf a) sh ->
+                FieldWrapper a sh ->
+                FieldWrapper (ConstField (Sum (FieldScalar a))) sh
+            zipField x' y' = FieldWrapper (Sum (x' |*| y'))
+
+{-
+instance ManifoldField a => Manifold (FieldWrapper (Record record) a) where
+    type Tang (FieldWrapper (Record record) a) = FieldWrapper (Record record) (FieldTang a)
+-}
+
+check :: Dict (ManifoldField (Record a))
+check = Dict
+
+{-
+bvarField ::
+    forall record a sh r.
+    (IsRecord record, ManifoldField a) =>
+    BVar r (FieldWrapper (Record record) a) -> FieldGetter record sh -> BVar r (FieldWrapper a sh)
+bvarField (BVar x dx) field = fieldView go field x
+  where
+    go :: (SingI sh) => FieldWrapper a sh -> BVar r (FieldWrapper a sh)
+    go x = BVar x (sparseNode _ dx)
+-}
+
 -------------- Fill --------------
 
 class GFillRecord metaTT tt (grecord :: Type -> Type) where
     fillGRecord :: (forall sh. Sing sh -> tt @@ sh) -> grecord x
     fillGRecordA :: (Applicative f) => (forall sh. Sing sh -> f (tt @@ sh)) -> f (grecord x)
+    foldMapGRecord :: (Monoid m) => (forall sh. Sing sh -> tt @@ sh -> m) -> grecord x -> m
 instance (GFillRecord metaTT tt record) => GFillRecord (M1 i c metaTT) tt (M1 i c record) where
     fillGRecord f = M1 (fillGRecord @metaTT @tt f)
     fillGRecordA f = M1 <$> fillGRecordA @metaTT @tt f
+    foldMapGRecord f (M1 x) = foldMapGRecord @metaTT @tt f x
 instance (SingI sh, f ~ tt @@ sh) => GFillRecord (K1 R (Proxy sh)) tt (K1 R f) where
     fillGRecord f = K1 (f (sing @sh))
     fillGRecordA f = K1 <$> f (sing @sh)
+    foldMapGRecord f (K1 x) = f (sing @sh) x
 instance (GFillRecord mf tt f, GFillRecord mg tt g) => GFillRecord (mf :*: mg) tt (f :*: g) where
     fillGRecord f = fillGRecord @mf @tt f :*: fillGRecord @mg @tt f
     fillGRecordA f = liftA2 (:*:) (fillGRecordA @mf @tt f) (fillGRecordA @mg @tt f)
+    foldMapGRecord f (x :*: y) = foldMapGRecord @mf @tt f x <> foldMapGRecord @mg @tt f y
 instance GFillRecord U1 f U1 where
     fillGRecord _ = U1
     fillGRecordA _ = pure U1
+    foldMapGRecord _ U1 = mempty
 
 -------------- Map --------------
 
