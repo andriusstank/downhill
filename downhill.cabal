@@ -43,7 +43,7 @@ library
                       transformers,
                       unordered-containers,
                       reflection,
-                      singletons,
+                      singletons, singletons-base,
                       constraints,
                       dlist
     hs-source-dirs:   src

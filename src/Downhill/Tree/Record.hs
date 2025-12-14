@@ -28,14 +28,11 @@ module Downhill.Tree.Record (
 where
 
 import Control.Monad.ST.Strict (ST, runST)
-import Data.Constraint (Dict (..))
 import Data.DList (DList)
 import Data.DList qualified as DList
-import Data.Function.Singletons (type (.@#@$))
+import Data.Function.Singletons ()
 import Data.STRef.Strict (STRef, modifySTRef, newSTRef, readSTRef)
 import Data.Singletons (Apply, Proxy, Sing, SingI (sing), TyCon1, withSingI, type (@@), type (~>))
-import Downhill.BVar (BVar (..))
-import Downhill.Linear.AD (sparseNode)
 import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
 import Downhill.Linear.Fun (DualOf)
 import Downhill.Manifold (Manifold (..))
@@ -242,14 +239,24 @@ mapRecordI f = mapRecord g
     recordGetters = to (getGetters @'[] @(Rep (record (FieldGetter record))))
 -}
 
-data Record (r :: (fieldType ~> Type) -> Type) :: (fieldType ~> Type) ~> Type
-type instance Apply (Record r) field = r field
+{-# ANN ShR "HLint: ignore Use newtype instead of data" #-}
+data ShR field = ShR ((field ~> Type) -> Type)
+data SShR (sh :: ShR field) where
+    SShR :: forall record. (IsRecord record) => SShR ('ShR record)
+
+type instance Sing = SShR
+
+instance (IsRecord record) => SingI ('ShR record) where
+    sing = SShR
+
+data Record (f :: field ~> Type) :: ShR field ~> Type
+type instance Apply (Record field) ('ShR record) = record field
 
 fillRecord ::
     forall record f.
     (IsRecord record) =>
     (forall sh. (SingI sh) => FieldWrapper f sh) ->
-    FieldWrapper (Record record) f
+    FieldWrapper (Record f) ('ShR record)
 fillRecord f = FieldWrapper (fillRecordEx g)
   where
     g :: forall sh. Sing sh -> f @@ sh
@@ -259,29 +266,30 @@ fillRecordA ::
     forall record f g.
     (IsRecord record, Applicative g) =>
     (forall sh. (SingI sh) => g (FieldWrapper f sh)) ->
-    g (FieldWrapper (Record record) f)
+    g (FieldWrapper (Record f) ('ShR record))
 fillRecordA f = FieldWrapper <$> fillRecordExA g
   where
     g :: forall sh. Sing sh -> g (f @@ sh)
     g sh = unFieldWrapper <$> withSingI sh (f @sh)
 
 foldMapRecord ::
-    forall record f m.
-    (IsRecord record, Monoid m) =>
-    (forall sh. (SingI sh) => FieldWrapper f sh -> m) ->
-    FieldWrapper (Record record) f ->
+    forall sh f m.
+    (SingI sh, Monoid m) =>
+    (forall sh'. (SingI sh) => FieldWrapper f sh' -> m) ->
+    FieldWrapper (Record f) sh ->
     m
-foldMapRecord f (FieldWrapper x) = foldMapRecordEx go x
+foldMapRecord f (FieldWrapper x) = case sing @sh of
+    SShR -> foldMapRecordEx go x
   where
-    go :: forall sh. Sing sh -> f @@ sh -> m
-    go sh = withSingI sh (f @sh . FieldWrapper)
+    go :: forall sh'. Sing sh' -> f @@ sh' -> m
+    go sh = withSingI sh (f @sh' . FieldWrapper)
 
 mapRecord ::
     forall record a b.
     (IsRecord record) =>
     (forall sh. (SingI sh) => FieldWrapper a sh -> FieldWrapper b sh) ->
-    FieldWrapper (Record record) a ->
-    FieldWrapper (Record record) b
+    FieldWrapper (Record a) ('ShR record) ->
+    FieldWrapper (Record b) ('ShR record)
 mapRecord f (FieldWrapper x) = FieldWrapper (mapRecordEx g x)
   where
     g :: forall sh. Sing sh -> a @@ sh -> b @@ sh
@@ -291,62 +299,69 @@ mapRecordA ::
     forall f record a b.
     (IsRecord record, Applicative f) =>
     (forall sh. (SingI sh) => FieldWrapper a sh -> f (FieldWrapper b sh)) ->
-    FieldWrapper (Record record) a ->
-    f (FieldWrapper (Record record) b)
+    FieldWrapper (Record a) ('ShR record) ->
+    f (FieldWrapper (Record b) ('ShR record))
 mapRecordA f (FieldWrapper x) = FieldWrapper <$> mapRecordExA g x
   where
     g :: forall sh. Sing sh -> a @@ sh -> f (b @@ sh)
     g sh = fmap unFieldWrapper . withSingI sh (f @sh) . FieldWrapper
 
 zipRecord ::
-    forall record a b c.
-    (IsRecord record) =>
-    (forall sh. (SingI sh) => FieldWrapper a sh -> FieldWrapper b sh -> FieldWrapper c sh) ->
-    FieldWrapper (Record record) a ->
-    FieldWrapper (Record record) b ->
-    FieldWrapper (Record record) c
-zipRecord f (FieldWrapper x) (FieldWrapper y) = FieldWrapper (zipRecordEx g x y)
+    forall sh a b c.
+    (SingI sh) =>
+    (forall sh'. (SingI sh') => FieldWrapper a sh' -> FieldWrapper b sh' -> FieldWrapper c sh') ->
+    FieldWrapper (Record a) sh ->
+    FieldWrapper (Record b) sh ->
+    FieldWrapper (Record c) sh
+zipRecord f (FieldWrapper x) (FieldWrapper y) = case sing @sh of
+    SShR -> FieldWrapper (zipRecordEx g x y)
   where
-    g :: forall sh. Sing sh -> a @@ sh -> b @@ sh -> c @@ sh
-    g sh x' y' = unFieldWrapper (withSingI sh (f @sh (FieldWrapper x') (FieldWrapper y')))
+    g :: forall sh'. Sing sh' -> a @@ sh' -> b @@ sh' -> c @@ sh'
+    g sh x' y' = unFieldWrapper (withSingI sh (f @sh' (FieldWrapper x') (FieldWrapper y')))
 
 fieldView ::
     (IsRecord record) =>
     ((SingI sh) => FieldWrapper a sh -> r) ->
     FieldGetter record sh ->
-    FieldWrapper (Record record) a ->
+    FieldWrapper (Record a) ('ShR record) ->
     r
 fieldView f (FieldGetter sh field) (FieldWrapper record) = withSingI sh $ f (FieldWrapper (field record))
 
-instance (IsRecord record, AdditiveField field) => Additive (FieldWrapper (Record record) field) where
-    zero = fillRecord zero
-    (+) = zipRecord (+)
+instance (SingI sh, AdditiveField field) => Additive (FieldWrapper (Record field) sh) where
+    zero = case sing @sh of
+        SShR -> fillRecord zero
+    (+) = case sing @sh of
+        SShR -> zipRecord (+)
 
-instance (IsRecord record, SubtractiveField field) => Subtractive (FieldWrapper (Record record) field) where
-    negate = mapRecord negate
-    (-) = zipRecord (-)
+instance (SingI sh, SubtractiveField field) => Subtractive (FieldWrapper (Record field) sh) where
+    negate = case sing @sh of
+        SShR -> mapRecord negate
+    (-) = case sing @sh of
+        SShR -> zipRecord (-)
 
-instance (IsRecord record, MultiplicativeField field) => Multiplicative (FieldWrapper (Record record) field) where
-    one = fillRecord one
-    (*) = zipRecord (*)
+instance (SingI sh, MultiplicativeField field) => Multiplicative (FieldWrapper (Record field) sh) where
+    one = case sing @sh of
+        SShR -> fillRecord one
+    (*) = case sing @sh of
+        SShR -> zipRecord (*)
 
-instance (IsRecord record, MultiplicativeActionField field) => MultiplicativeAction (FieldWrapper (Record record) field) where
-    type Scalar (FieldWrapper (Record record) field) = FieldScalar field
-    v |* a = mapRecord (|* a) v
+instance (SingI sh, MultiplicativeActionField field) => MultiplicativeAction (FieldWrapper (Record field) sh) where
+    type Scalar (FieldWrapper (Record field) sh) = FieldScalar field
+    v |* a = case sing @sh of
+        SShR -> mapRecord (|* a) v
 
 data FieldBuilder record field = forall sh. FieldBuilder (FieldGetter record sh) (VecBuilder (FieldWrapper field sh))
 
-fieldBuilder :: FieldGetter record sh -> VecBuilder (FieldWrapper field sh) -> VecBuilder (FieldWrapper (Record record) field)
+fieldBuilder :: FieldGetter record sh -> VecBuilder (FieldWrapper field sh) -> VecBuilder (FieldWrapper (Record field) ('ShR record))
 fieldBuilder getter builder = RecordBuilder Nothing (DList.singleton (FieldBuilder getter builder))
 
 data FieldAccum s (field :: sh ~> Type) :: sh ~> Type
 type instance Apply (FieldAccum s field) sh = STRef s (VecBuilder (FieldWrapper field sh))
 
 data RecordBuilder record field = RecordBuilder
-    { densePart :: Maybe (Sum (FieldWrapper (Record record) field))
+    { densePart :: Maybe (Sum (FieldWrapper (Record field) ('ShR record)))
     , fields :: DList (FieldBuilder record field)
     }
-
 instance (IsRecord record, AdditiveField field) => Semigroup (RecordBuilder record field) where
     RecordBuilder x1 y1 <> RecordBuilder x2 y2 = RecordBuilder (x1 <> x2) (y1 <> y2)
 
@@ -355,7 +370,7 @@ instance (IsRecord record, AdditiveField field) => Monoid (RecordBuilder record 
 
 sumDensePart ::
     (IsRecord record, forall sh. (SingI sh) => HasBuilder (FieldWrapper field sh)) =>
-    Maybe (Sum (FieldWrapper (Record record) field)) -> FieldWrapper (Record record) field
+    Maybe (Sum (FieldWrapper (Record field) ('ShR record))) -> FieldWrapper (Record field) ('ShR record)
 sumDensePart = getSum . maybeToMonoid
 
 instance
@@ -363,10 +378,10 @@ instance
     , IsRecord record
     , forall sh. (SingI sh) => HasBuilder (FieldWrapper field sh)
     ) =>
-    HasBuilder (FieldWrapper (Record record) field)
+    HasBuilder (FieldWrapper (Record field) ('ShR record))
     where
     type
-        VecBuilder (FieldWrapper (Record record) field) =
+        VecBuilder (FieldWrapper (Record field) ('ShR record)) =
             RecordBuilder record field
     identityBuilder x = RecordBuilder (Just (Sum x)) mempty
     sumBuilder rb = case toList rb.fields of
@@ -379,7 +394,7 @@ instance
             bumpField x' (FieldWrapper y) = modifySTRef y (<> x')
             sumField :: (SingI sh) => FieldWrapper (FieldAccum s field) sh -> ST s (FieldWrapper field sh)
             sumField (FieldWrapper x) = sumBuilder <$> readSTRef x
-            go :: forall s. ST s (FieldWrapper (Record record) field)
+            go :: forall s. ST s (FieldWrapper (Record field) ('ShR record))
             go = do
                 accum <- mapRecordA initField (sumDensePart rb.densePart)
                 let
@@ -388,31 +403,48 @@ instance
                 traverse_ bump' fields
                 mapRecordA sumField accum
 
-type instance DualOf (FieldWrapper (Record record) a) = FieldWrapper (Record record) (FieldDualOf a)
+type instance FieldScalar (Record a) = FieldScalar a
+type instance FieldDualOf (Record a) = Record (FieldDualOf a)
 
-instance (VSpaceField a, IsRecord record) => VSpace (FieldWrapper (Record record) a) where
-    dv |*| v = getSum (foldMapRecord sumField y)
+type instance DualOf (FieldWrapper (Record a) sh) = FieldWrapper (Record (FieldDualOf a)) sh
+
+instance (VSpaceField a, SingI sh) => VSpace (FieldWrapper (Record a) sh) where
+    dv |*| v = getSum (foldMapRecord @sh @(ConstField (Sum (FieldScalar a))) @(Sum (FieldScalar a)) sumField y)
       where
-        sumField :: FieldWrapper (ConstField (Sum (FieldScalar a))) sh -> Sum (FieldScalar a)
+        sumField :: forall sh'. FieldWrapper (ConstField (Sum (FieldScalar a))) sh' -> Sum (FieldScalar a)
         sumField = unFieldWrapper
-        y :: FieldWrapper (Record record) (ConstField (Sum (FieldScalar a)))
-        y = zipRecord zipField dv v
-          where
-            zipField ::
-                SingI sh=>
-                FieldWrapper (FieldDualOf a) sh ->
-                FieldWrapper a sh ->
-                FieldWrapper (ConstField (Sum (FieldScalar a))) sh
-            zipField x' y' = FieldWrapper (Sum (x' |*| y'))
+        y :: FieldWrapper (Record (ConstField (Sum (FieldScalar a)))) sh
+        y = case sing @sh of
+            SShR -> zipRecord zipField dv v
+              where
+                zipField ::
+                    (SingI sh') =>
+                    FieldWrapper (FieldDualOf a) sh' ->
+                    FieldWrapper a sh' ->
+                    FieldWrapper (ConstField (Sum (FieldScalar a))) sh'
+                zipField x' y' = FieldWrapper (Sum (x' |*| y'))
 
-{-
-instance ManifoldField a => Manifold (FieldWrapper (Record record) a) where
-    type Tang (FieldWrapper (Record record) a) = FieldWrapper (Record record) (FieldTang a)
--}
+data TangSym :: Type ~> Type
+type instance Apply TangSym a = Tang a
 
-check :: Dict (ManifoldField (Record a))
-check = Dict
+--data TangRecord (r :: (fieldType ~> Type) -> Type) :: (fieldType ~> Type) ~> Type
+--type instance Apply (TangRecord r) field = r (TangSym .@#@$$$ field)
 
+type instance FieldTang (Record a) = Record (FieldTang a)
+
+instance
+    ( ManifoldField a
+    , SingI sh
+    , Subtractive (FieldScalar (FieldTang a))
+    ) =>
+    Manifold (FieldWrapper (Record a) sh)
+    where
+    type Tang (FieldWrapper (Record a) sh) = FieldWrapper (Record (FieldTang a)) sh
+    (.+~^) = zipRecord (.+~^)
+    (.-~^) = zipRecord (.-~^)
+
+
+-- type instance DualOf (FieldWrapper (Record a) sh) = FieldWrapper (Record (FieldDualOf a)) sh
 {-
 bvarField ::
     forall record a sh r.
