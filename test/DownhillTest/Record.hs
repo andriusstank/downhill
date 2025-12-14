@@ -97,7 +97,7 @@ builderTests = it "builderTests" $ do
         mkRecord x y = FieldWrapper (MyRecord x y)
         fs :: MyRecord (TyCon1 (FieldGetter MyRecord))
         fs = recordGetters
-        mkBuilder :: FieldGetter MyRecord '() -> Int -> RecordBuilder MyRecord (MonoLeaf Int)
+        mkBuilder :: FieldGetter MyRecord '() -> Int -> RecordBuilder ('ShR MyRecord) (MonoLeaf Int)
         mkBuilder field value = fieldBuilder field (Just (Sum (FieldWrapper value)))
     sumBuilder mempty @=? mkRecord 0 0
     sumBuilder (identityBuilder (mkRecord 3 4)) @=? mkRecord 3 4

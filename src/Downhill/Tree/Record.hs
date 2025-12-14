@@ -12,7 +12,8 @@
 
 module Downhill.Tree.Record (
     IsRecord (..),
-    Record, ShR(..),
+    Record,
+    ShR (..),
     fillRecord,
     foldMapRecord,
     mapRecord,
@@ -33,9 +34,11 @@ import Data.DList qualified as DList
 import Data.Function.Singletons ()
 import Data.STRef.Strict (STRef, modifySTRef, newSTRef, readSTRef)
 import Data.Singletons (Apply, Proxy, Sing, SingI (sing), TyCon1, withSingI, type (@@), type (~>))
+import Downhill.BVar (BVar (BVar))
+import Downhill.Linear.AD (SparseFun (..), sparseNode)
 import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
+import Downhill.Linear.Expr (VecPair (..))
 import Downhill.Linear.Fun (DualOf)
-import Downhill.Linear.Expr(VecPair(..))
 import Downhill.Manifold (Manifold (..))
 import Downhill.Tree.FieldWrapper (
     AdditiveField,
@@ -51,8 +54,6 @@ import Downhill.Tree.FieldWrapper (
  )
 import Downhill.VSpace (VSpace (..))
 import NumHask.Prelude
-import Downhill.BVar (BVar (BVar))
-import Downhill.Linear.AD (sparseNode, SparseFun(..))
 
 data ProxyField :: leafShape -> Type
 type instance Apply ProxyField sh = Proxy sh
@@ -361,50 +362,60 @@ fieldBuilder getter builder = RecordBuilder Nothing (DList.singleton (FieldBuild
 data FieldAccum s (field :: sh ~> Type) :: sh ~> Type
 type instance Apply (FieldAccum s field) sh = STRef s (VecBuilder (FieldWrapper field sh))
 
-data RecordBuilder record field = RecordBuilder
-    { densePart :: Maybe (Sum (FieldWrapper (Record field) ('ShR record)))
-    , fields :: DList (FieldBuilder record field)
-    }
+data RecordBuilder sh field where
+    RecordBuilder ::
+        (Maybe (Sum (FieldWrapper (Record field) ('ShR record)))) ->
+        (DList (FieldBuilder record field)) ->
+        RecordBuilder ('ShR record) field
 
-instance (IsRecord record, AdditiveField field) => Semigroup (RecordBuilder record field) where
+instance (SingI sh, AdditiveField field) => Semigroup (RecordBuilder sh field) where
     RecordBuilder x1 y1 <> RecordBuilder x2 y2 = RecordBuilder (x1 <> x2) (y1 <> y2)
 
-instance (IsRecord record, AdditiveField field) => Monoid (RecordBuilder record field) where
-    mempty = RecordBuilder mempty mempty
+instance (SingI sh, AdditiveField field) => Monoid (RecordBuilder sh field) where
+    mempty = case sing @sh of SShR -> RecordBuilder mempty mempty
 
 sumDensePart ::
     (IsRecord record, forall sh. (SingI sh) => HasBuilder (FieldWrapper field sh)) =>
     Maybe (Sum (FieldWrapper (Record field) ('ShR record))) -> FieldWrapper (Record field) ('ShR record)
 sumDensePart = getSum . maybeToMonoid
 
+sumRBuilder ::
+    forall field record.
+    (IsRecord record, forall sh. (SingI sh) => HasBuilder (FieldWrapper field sh)) =>
+    RecordBuilder ('ShR record) field -> FieldWrapper (Record field) ('ShR record)
+sumRBuilder (RecordBuilder densePart fields) = case toList fields of
+    [] -> sumDensePart densePart -- don't descend into fields, keep identityBuilder quick
+    _ -> runST go
+      where
+        initField :: (SingI sh) => FieldWrapper field sh -> ST s (FieldWrapper (FieldAccum s field) sh)
+        initField x = FieldWrapper <$> newSTRef (identityBuilder x)
+        bumpField :: (SingI sh) => VecBuilder (FieldWrapper field sh) -> FieldWrapper (FieldAccum s field) sh -> ST s ()
+        bumpField x' (FieldWrapper y) = modifySTRef y (<> x')
+        sumField :: (SingI sh) => FieldWrapper (FieldAccum s field) sh -> ST s (FieldWrapper field sh)
+        sumField (FieldWrapper x) = sumBuilder <$> readSTRef x
+        go :: forall s. ST s (FieldWrapper (Record field) ('ShR record))
+        go = do
+            accum <- mapRecordA initField (sumDensePart densePart)
+            let
+                bump' :: FieldBuilder record field -> ST s ()
+                bump' (FieldBuilder field builder) = fieldView (bumpField builder) field accum
+            traverse_ bump' fields
+            mapRecordA sumField accum
+
 instance
     ( AdditiveField field
-    , IsRecord record
-    , forall sh. (SingI sh) => HasBuilder (FieldWrapper field sh)
+    , SingI sh
+    , forall sh'. (SingI sh') => HasBuilder (FieldWrapper field sh')
     ) =>
-    HasBuilder (FieldWrapper (Record field) ('ShR record))
+    HasBuilder (FieldWrapper (Record field) sh)
     where
     type
-        VecBuilder (FieldWrapper (Record field) ('ShR record)) = RecordBuilder record field
-    identityBuilder x = RecordBuilder (Just (Sum x)) mempty
-    sumBuilder rb = case toList rb.fields of
-        [] -> sumDensePart rb.densePart -- don't descend into fields, keep identityBuilder quick
-        fields -> runST go
-          where
-            initField :: (SingI sh) => FieldWrapper field sh -> ST s (FieldWrapper (FieldAccum s field) sh)
-            initField x = FieldWrapper <$> newSTRef (identityBuilder x)
-            bumpField :: (SingI sh) => VecBuilder (FieldWrapper field sh) -> FieldWrapper (FieldAccum s field) sh -> ST s ()
-            bumpField x' (FieldWrapper y) = modifySTRef y (<> x')
-            sumField :: (SingI sh) => FieldWrapper (FieldAccum s field) sh -> ST s (FieldWrapper field sh)
-            sumField (FieldWrapper x) = sumBuilder <$> readSTRef x
-            go :: forall s. ST s (FieldWrapper (Record field) ('ShR record))
-            go = do
-                accum <- mapRecordA initField (sumDensePart rb.densePart)
-                let
-                    bump' :: FieldBuilder record field -> ST s ()
-                    bump' (FieldBuilder field builder) = fieldView (bumpField builder) field accum
-                traverse_ bump' fields
-                mapRecordA sumField accum
+        VecBuilder (FieldWrapper (Record field) sh) =
+            RecordBuilder sh field
+    identityBuilder x = case sing @sh of
+        SShR -> RecordBuilder (Just (Sum x)) mempty
+    sumBuilder = case sing @sh of
+        SShR -> sumRBuilder
 
 type instance FieldScalar (Record a) = FieldScalar a
 type instance FieldDualOf (Record a) = Record (FieldDualOf a)
@@ -430,8 +441,8 @@ instance (VSpaceField a, SingI sh) => VSpace (FieldWrapper (Record a) sh) where
 data TangSym :: Type ~> Type
 type instance Apply TangSym a = Tang a
 
---data TangRecord (r :: (fieldType ~> Type) -> Type) :: (fieldType ~> Type) ~> Type
---type instance Apply (TangRecord r) field = r (TangSym .@#@$$$ field)
+-- data TangRecord (r :: (fieldType ~> Type) -> Type) :: (fieldType ~> Type) ~> Type
+-- type instance Apply (TangRecord r) field = r (TangSym .@#@$$$ field)
 
 type instance FieldTang (Record a) = Record (FieldTang a)
 
