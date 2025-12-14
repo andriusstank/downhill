@@ -11,8 +11,16 @@ where
 import Data.Singletons (Apply, SingI (sing), TyCon1, type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
 import Downhill.Linear.Builder (HasBuilder (..))
-import Downhill.Tree.FieldWrapper (FieldWrapper (..), DenseFieldWrapper(..))
-import Downhill.Tree.Record (FieldGetter, IsRecord (..), Record, RecordBuilder, fieldBuilder, recordField)
+import Downhill.Tree.FieldWrapper (DenseFieldWrapper (..), FieldWrapper (..))
+import Downhill.Tree.Record (
+    FieldGetter,
+    IsRecord (..),
+    Record,
+    RecordBuilder,
+    ShR (..),
+    fieldBuilder,
+    recordField,
+ )
 import NumHask.Prelude hiding (Field)
 import Test.HUnit (Assertion, (@=?))
 import Test.Hspec (SpecWith, describe, it)
@@ -61,13 +69,13 @@ testFill2 = fillRecordEx f @=? (MyRecord 1 1 :: MyRecord (MonoLeaf Int))
     f :: STuple0 sh -> MonoLeaf Int @@ sh
     f STuple0 = one
 
-deriving instance Show (FieldWrapper (Record MyRecord) (MonoLeaf Int))
-deriving instance Eq (FieldWrapper (Record MyRecord) (MonoLeaf Int))
+deriving instance Show (FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord))
+deriving instance Eq (FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord))
 
 testPlus :: Assertion
 testPlus = FieldWrapper (MyRecord 8 10) @=? (x + y)
   where
-    x, y :: FieldWrapper (Record MyRecord) (MonoLeaf Int)
+    x, y :: FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord)
     x = FieldWrapper (MyRecord 3 4)
     y = FieldWrapper (MyRecord 5 6)
 
@@ -85,7 +93,7 @@ testField =
 
 builderTests :: SpecWith ()
 builderTests = it "builderTests" $ do
-    let mkRecord :: Int -> Int -> FieldWrapper (Record MyRecord) (MonoLeaf Int)
+    let mkRecord :: Int -> Int -> FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord)
         mkRecord x y = FieldWrapper (MyRecord x y)
         fs :: MyRecord (TyCon1 (FieldGetter MyRecord))
         fs = recordGetters

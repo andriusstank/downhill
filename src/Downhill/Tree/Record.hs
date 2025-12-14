@@ -12,7 +12,7 @@
 
 module Downhill.Tree.Record (
     IsRecord (..),
-    Record,
+    Record, ShR(..),
     fillRecord,
     foldMapRecord,
     mapRecord,
