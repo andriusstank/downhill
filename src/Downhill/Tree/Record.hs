@@ -35,6 +35,7 @@ import Data.STRef.Strict (STRef, modifySTRef, newSTRef, readSTRef)
 import Data.Singletons (Apply, Proxy, Sing, SingI (sing), TyCon1, withSingI, type (@@), type (~>))
 import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
 import Downhill.Linear.Fun (DualOf)
+import Downhill.Linear.Expr(VecPair(..))
 import Downhill.Manifold (Manifold (..))
 import Downhill.Tree.FieldWrapper (
     AdditiveField,
@@ -50,6 +51,8 @@ import Downhill.Tree.FieldWrapper (
  )
 import Downhill.VSpace (VSpace (..))
 import NumHask.Prelude
+import Downhill.BVar (BVar (BVar))
+import Downhill.Linear.AD (sparseNode, SparseFun(..))
 
 data ProxyField :: leafShape -> Type
 type instance Apply ProxyField sh = Proxy sh
@@ -362,6 +365,7 @@ data RecordBuilder record field = RecordBuilder
     { densePart :: Maybe (Sum (FieldWrapper (Record field) ('ShR record)))
     , fields :: DList (FieldBuilder record field)
     }
+
 instance (IsRecord record, AdditiveField field) => Semigroup (RecordBuilder record field) where
     RecordBuilder x1 y1 <> RecordBuilder x2 y2 = RecordBuilder (x1 <> x2) (y1 <> y2)
 
@@ -381,8 +385,7 @@ instance
     HasBuilder (FieldWrapper (Record field) ('ShR record))
     where
     type
-        VecBuilder (FieldWrapper (Record field) ('ShR record)) =
-            RecordBuilder record field
+        VecBuilder (FieldWrapper (Record field) ('ShR record)) = RecordBuilder record field
     identityBuilder x = RecordBuilder (Just (Sum x)) mempty
     sumBuilder rb = case toList rb.fields of
         [] -> sumDensePart rb.densePart -- don't descend into fields, keep identityBuilder quick
@@ -443,19 +446,24 @@ instance
     (.+~^) = zipRecord (.+~^)
     (.-~^) = zipRecord (.-~^)
 
-
--- type instance DualOf (FieldWrapper (Record a) sh) = FieldWrapper (Record (FieldDualOf a)) sh
 {-
 bvarField ::
     forall record a sh r.
     (IsRecord record, ManifoldField a) =>
-    BVar r (FieldWrapper (Record record) a) -> FieldGetter record sh -> BVar r (FieldWrapper a sh)
+    BVar r (FieldWrapper (Record a) ('ShR record)) -> FieldGetter record sh -> BVar r (FieldWrapper a sh)
 bvarField (BVar x dx) field = fieldView go field x
   where
     go :: (SingI sh) => FieldWrapper a sh -> BVar r (FieldWrapper a sh)
-    go x = BVar x (sparseNode _ dx)
+    go x = BVar x (sparseNode f dx)
+        where
+            f :: SparseFun
+               ('VecPair
+                  (FieldWrapper (Record (FieldTang a)) ('ShR record))
+                  (FieldWrapper (Record (FieldDualOf (FieldTang a))) ('ShR record)))
+               ('VecPair
+                  (Tang (FieldWrapper a sh)) (DualOf (Tang (FieldWrapper a sh))))
+            f = 1
 -}
-
 -------------- Fill --------------
 
 class GFillRecord metaTT tt (grecord :: Type -> Type) where

@@ -10,6 +10,7 @@ module Downhill.Linear.AD (
     ad,
     adDense,
     identityAD,
+    SparseFun(..),
     realNode, realNode', sparseNode, inlineNode,
     dense1, dense2,
     pattern T2
@@ -108,9 +109,9 @@ instance
   v |* x = dense1 (ScalarMulFun x) v
 
 data SparseFun (u :: VecPair) (v :: VecPair) = SparseFun
-  { _fwd :: VecBuilder (TangType u) -> VecBuilder (TangType v)
-  , _back :: VecBuilder (GradType v) -> VecBuilder (GradType u)
-  }
+  (VecBuilder (TangType u) -> VecBuilder (TangType v))
+  (VecBuilder (GradType v) -> VecBuilder (GradType u))
+
 
 flipSparseFun :: SparseFun ('VecPair u du) ('VecPair v dv) -> SparseFun ('VecPair dv v) ('VecPair du u)
 flipSparseFun (SparseFun fwd back) = SparseFun back fwd
