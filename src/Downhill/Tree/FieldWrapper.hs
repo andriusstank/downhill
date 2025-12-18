@@ -66,6 +66,8 @@ instance
 
 type family FieldDualOf (a :: k ~> Type) :: k ~> Type
 
+type instance DualOf (FieldWrapper field sh) = FieldWrapper (FieldDualOf field) sh
+
 class
     ( VSpace (FieldWrapper field sh)
     , DualOf (FieldWrapper field sh) ~ FieldWrapper (FieldDualOf field) sh

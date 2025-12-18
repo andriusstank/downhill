@@ -13,7 +13,7 @@
 module Downhill.Tree.Record (
     IsRecord (..),
     Record,
-    ShR (..),
+    ShR (..), SShR(..),
     fillRecord,
     foldMapRecord,
     mapRecord,
@@ -420,8 +420,6 @@ instance
 type instance FieldScalar (Record a) = FieldScalar a
 type instance FieldDualOf (Record a) = Record (FieldDualOf a)
 
-type instance DualOf (FieldWrapper (Record a) sh) = FieldWrapper (Record (FieldDualOf a)) sh
-
 instance (VSpaceField a, SingI sh) => VSpace (FieldWrapper (Record a) sh) where
     dv |*| v = getSum (foldMapRecord @sh @(ConstField (Sum (FieldScalar a))) @(Sum (FieldScalar a)) sumField y)
       where
@@ -458,11 +456,11 @@ instance
     (.-~^) = zipRecord (.-~^)
 
 {-
-bvarField ::
+getBVarField ::
     forall record a sh r.
     (IsRecord record, ManifoldField a) =>
     BVar r (FieldWrapper (Record a) ('ShR record)) -> FieldGetter record sh -> BVar r (FieldWrapper a sh)
-bvarField (BVar x dx) field = fieldView go field x
+getBVarField (BVar x dx) field = fieldView go field x
   where
     go :: (SingI sh) => FieldWrapper a sh -> BVar r (FieldWrapper a sh)
     go x = BVar x (sparseNode f dx)
@@ -475,6 +473,7 @@ bvarField (BVar x dx) field = fieldView go field x
                   (Tang (FieldWrapper a sh)) (DualOf (Tang (FieldWrapper a sh))))
             f = 1
 -}
+
 -------------- Fill --------------
 
 class GFillRecord metaTT tt (grecord :: Type -> Type) where

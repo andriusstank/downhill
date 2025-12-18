@@ -13,9 +13,6 @@ type MScalar p = Scalar (Tang p)
 
 class
   ( VSpace (Tang p)
-  , Subtractive (MScalar p)
-  , Subtractive (Tang p)
-  , Subtractive (Grad p)
   ) =>
   Manifold p
   where
