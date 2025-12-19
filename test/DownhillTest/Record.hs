@@ -69,14 +69,14 @@ testField =
     x = MyRecord 3 4
 
     getters :: MyRecord (TyCon1 (FieldGetter MyRecord))
-    getters = recordGetters
+    getters = recordGettersEx
 
 builderTests :: SpecWith ()
 builderTests = it "builderTests" $ do
     let mkRecord :: Int -> Int -> FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord)
         mkRecord x y = FieldWrapper (MyRecord x y)
         fs :: MyRecord (TyCon1 (FieldGetter MyRecord))
-        fs = recordGetters
+        fs = recordGettersEx
         mkBuilder :: FieldGetter MyRecord '() -> Int -> RecordBuilder ('ShR MyRecord) (MonoLeaf Int)
         mkBuilder field value = fieldBuilder field (Just (Sum (FieldWrapper value)))
     sumBuilder mempty @=? mkRecord 0 0

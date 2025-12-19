@@ -24,6 +24,7 @@ module Downhill.Tree.Record (
     foldZipRecordEx,
     foldZipRecord,
     fillRecordA,
+    recordGetters,
     FieldGetter (..),
     recordField,
     fieldView,
@@ -48,16 +49,20 @@ import Downhill.Manifold (Manifold (..))
 import Downhill.Tree.FieldWrapper (
     AdditiveField,
     FieldDualOf,
+    FieldGrad,
     FieldScalar,
     FieldTang,
     FieldWrapper (..),
+    HasBuilderField,
     ManifoldField,
+    ManifoldFieldSh,
     MultiplicativeActionField,
     MultiplicativeField,
     SubtractiveField,
-    VSpaceField, HasBuilderField, ManifoldFieldSh, FieldGrad,
+    VSpaceField,
  )
 import Downhill.VSpace (VSpace (..))
+import GHC.Records (HasField (getField))
 import NumHask.Prelude
 
 data ProxyField :: leafShape -> Type
@@ -165,13 +170,13 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         record c
     zipRecordEx f x y = to (zipGRecord @(Rep (record ProxyField)) @a @b @c f (from x) (from y))
 
-    recordGetters :: record (TyCon1 (FieldGetter record))
-    default recordGetters ::
+    recordGettersEx :: record (TyCon1 (FieldGetter record))
+    default recordGettersEx ::
         ( Generic (record (TyCon1 (FieldGetter record)))
         , GettersSubtree '[] (Rep (record (TyCon1 (FieldGetter record))))
         ) =>
         record (TyCon1 (FieldGetter record))
-    recordGetters = to (getGetters @'[] @(Rep (record (TyCon1 (FieldGetter record)))))
+    recordGettersEx = to (getGetters @'[] @(Rep (record (TyCon1 (FieldGetter record)))))
 
 {-
 fillRecordI :: forall record f. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper f sh) -> record f
@@ -362,6 +367,9 @@ fieldView ::
     r
 fieldView f (FieldGetter sh field) (FieldWrapper record) = withSingI sh $ f (FieldWrapper (field record))
 
+recordGetters :: forall record. (IsRecord record) => FieldWrapper (Record (TyCon1 (FieldGetter record))) ('ShR record)
+recordGetters = FieldWrapper recordGettersEx
+
 instance (SingI sh, AdditiveField field) => Additive (FieldWrapper (Record field) sh) where
     zero = case sing @sh of
         SShR -> fillRecord zero
@@ -486,31 +494,52 @@ instance
     (.+~^) = zipRecord (.+~^)
     (.-~^) = zipRecord (.-~^)
 
-{-
+wrappedRecordField :: forall f record sh. FieldGetter record sh -> FieldWrapper (Record f) ('ShR record) -> FieldWrapper f sh
+wrappedRecordField getter (FieldWrapper f) = FieldWrapper (recordField getter f :: f @@ sh)
+
 getBVarField ::
     forall record a sh r.
-    (IsRecord record, ManifoldField a,
-    HasBuilderField (FieldTang a),
-    HasBuilderField (FieldGrad a)
+    ( IsRecord record
+    , ManifoldField a
+    , HasBuilderField (FieldTang a)
+    , HasBuilderField (FieldGrad a)
     ) =>
     BVar r (FieldWrapper (Record a) ('ShR record)) -> FieldGetter record sh -> BVar r (FieldWrapper a sh)
 getBVarField (BVar x dx) field = fieldView go field x
   where
     go :: (SingI sh, ManifoldFieldSh a sh) => FieldWrapper a sh -> BVar r (FieldWrapper a sh)
     go y = BVar y (sparseNode f dx)
-        where
-            f :: SparseFun
-               ('VecPair
-                  (FieldWrapper (Record (FieldTang a)) ('ShR record))
-                  (FieldWrapper (Record (FieldDualOf (FieldTang a))) ('ShR record)))
-               ('VecPair
-                  (Tang (FieldWrapper a sh)) (DualOf (Tang (FieldWrapper a sh))))
-            f = SparseFun fwdF backF
-            fwdF :: RecordBuilder ('ShR record) (FieldTang a) -> VecBuilder (FieldWrapper (FieldTang a) sh)
-            fwdF = ()
-            backF :: VecBuilder (FieldWrapper (FieldDualOf (FieldTang a)) sh) -> RecordBuilder ('ShR record) (FieldDualOf (FieldTang a))
-            backF = (0)
--}
+      where
+        f ::
+            SparseFun
+                ( 'VecPair
+                    (FieldWrapper (Record (FieldTang a)) ('ShR record))
+                    (FieldWrapper (Record (FieldDualOf (FieldTang a))) ('ShR record))
+                )
+                ( 'VecPair
+                    (Tang (FieldWrapper a sh))
+                    (DualOf (Tang (FieldWrapper a sh)))
+                )
+        f = SparseFun fwdF backF
+        fwdF :: FieldWrapper (Record (FieldTang a)) ('ShR record) -> VecBuilder (FieldWrapper (FieldTang a) sh)
+        fwdF z = identityBuilder $ wrappedRecordField field z
+        backF :: VecBuilder (FieldWrapper (FieldDualOf (FieldTang a)) sh) -> RecordBuilder ('ShR record) (FieldDualOf (FieldTang a))
+        backF dz = RecordBuilder Nothing (DList.singleton (FieldBuilder field dz))
+
+splitBVarRecord ::
+    forall a b record r.
+    ( IsRecord record
+    , ManifoldField a
+    , HasBuilderField (FieldTang a)
+    , HasBuilderField (FieldGrad a)
+    ) =>
+    BVar r (FieldWrapper (Record a) ('ShR record)) ->
+    (forall sh'. (SingI sh') => BVar r (FieldWrapper a sh') -> FieldWrapper b sh') ->
+    FieldWrapper (Record b) ('ShR record)
+splitBVarRecord x f = mapRecord go recordGetters
+  where
+    go :: (SingI sh) => FieldWrapper (TyCon1 (FieldGetter record)) sh -> FieldWrapper b sh
+    go (FieldWrapper field) = f (getBVarField x field)
 
 -------------- Fill --------------
 
