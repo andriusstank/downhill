@@ -109,19 +109,16 @@ instance
   v |* x = dense1 (ScalarMulFun x) v
 
 data SparseFun (u :: VecPair) (v :: VecPair) = SparseFun
-  (VecBuilder (TangType u) -> VecBuilder (TangType v))
+  (TangType u -> VecBuilder (TangType v))
   (VecBuilder (GradType v) -> VecBuilder (GradType u))
 
-
-flipSparseFun :: SparseFun ('VecPair u du) ('VecPair v dv) -> SparseFun ('VecPair dv v) ('VecPair du u)
-flipSparseFun (SparseFun fwd back) = SparseFun back fwd
 
 sparseTerm ::
   (HasBuilder v, HasBuilder u, du ~ DualOf u, dv ~ DualOf v) =>
   SparseFun ('VecPair u du) ('VecPair v dv) ->
   AD r u ->
   Term ('VecPair r (DualOf r)) ('VecPair v (Sparse dv))
-sparseTerm (SparseFun f1 g1) (AD df) = df $ BiFun (f1 . identityBuilder) (g1 . unSparse)
+sparseTerm (SparseFun f1 g1) (AD df) = df $ BiFun f1 (g1 . unSparse)
 
 sparseNode ::
   forall r u du v dv.
@@ -152,22 +149,16 @@ maybeToMonoid = fromMaybe mempty
 fstFun :: forall a da b db. (HasBuilder a, HasBuilder b, HasBuilder db) => SparseFun ('VecPair (a, b) (da, db)) ('VecPair a da)
 fstFun = SparseFun fwd back
  where
-  fwd :: VecBuilder (a, b) -> VecBuilder a
-  fwd (x, y) = maybeToMonoid (xPart <> (fst <$> y))
-   where
-    xPart :: Maybe (VecBuilder a)
-    xPart = identityBuilder . fst . getSum <$> x
+  fwd :: (a, b) -> VecBuilder a
+  fwd (x, _y) = identityBuilder x
   back :: VecBuilder da -> (Maybe (Sum (da, db)), Maybe (VecBuilder da, VecBuilder db))
   back x = (Nothing, Just (x, mempty))
 
 sndFun :: forall a da b db. (HasBuilder a, HasBuilder b, HasBuilder da) => SparseFun ('VecPair (a, b) (da, db)) ('VecPair b db)
 sndFun = SparseFun fwd back
  where
-  fwd :: VecBuilder (a, b) -> VecBuilder b
-  fwd (x, y) = maybeToMonoid (xPart <> (snd <$> y))
-   where
-    xPart :: Maybe (VecBuilder b)
-    xPart = identityBuilder . snd . getSum <$> x
+  fwd :: (a, b) -> VecBuilder b
+  fwd (_x, y) = identityBuilder y
   back :: VecBuilder db -> (Maybe (Sum (da, db)), Maybe (VecBuilder da, VecBuilder db))
   back x = (Nothing, Just (mempty, x))
 
@@ -178,6 +169,29 @@ splitPair ::
   (AD r a, AD r b)
 splitPair x = (sparseNode fstFun x, sparseNode sndFun x)
 
+intoFstFun :: forall a da b db. (HasBuilder a, HasBuilder b, HasBuilder db, HasBuilder da) => SparseFun ('VecPair da a) ('VecPair (da, db) (a, b))
+intoFstFun = SparseFun back fwd
+ where
+  fwd :: VecBuilder (a, b) -> VecBuilder a
+  fwd (x, y) = maybeToMonoid (xPart <> (fst <$> y))
+   where
+    xPart :: Maybe (VecBuilder a)
+    xPart = identityBuilder . fst . getSum <$> x
+  back :: da -> (Maybe (Sum (da, db)), Maybe (VecBuilder da, VecBuilder db))
+  back x = (Nothing, Just (identityBuilder x, mempty))
+
+intoSndFun :: forall a da b db. (HasBuilder a, HasBuilder b, HasBuilder da, HasBuilder db) => SparseFun ('VecPair db b) ('VecPair (da, db) (a, b))
+intoSndFun = SparseFun back fwd
+ where
+  fwd :: VecBuilder (a, b) -> VecBuilder b
+  fwd (x, y) = maybeToMonoid (xPart <> (snd <$> y))
+   where
+    xPart :: Maybe (VecBuilder b)
+    xPart = identityBuilder . snd . getSum <$> x
+  back :: db -> (Maybe (Sum (da, db)), Maybe (VecBuilder da, VecBuilder db))
+  back x = (Nothing, Just (mempty, identityBuilder x))
+
+
 joinPair ::
   forall r a da b db.
   (HasBuilder a, HasBuilder b, HasBuilder da, HasBuilder db, db ~ DualOf b, da ~ DualOf a) =>
@@ -185,8 +199,8 @@ joinPair ::
 joinPair (x, y) = realNode' (ExprSum [t1, t2])
  where
   t1, t2 :: Term ('VecPair r (DualOf r)) ('VecPair (a, b) (Sparse (da, db)))
-  t1 = sparseTerm (flipSparseFun fstFun) x
-  t2 = sparseTerm (flipSparseFun sndFun) y
+  t1 = sparseTerm intoFstFun x
+  t2 = sparseTerm intoSndFun y
 
 
 {-# COMPLETE T2 #-}
