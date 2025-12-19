@@ -7,6 +7,7 @@
 
 module Downhill.Tree.Tree (
   TreeShape (..),
+  TreeOf,
   fillTree,
   mapTree,
   zipTree,
@@ -19,8 +20,8 @@ import Data.Constraint (Dict (Dict))
 import Data.Singletons (Apply, Sing, SingI (sing), TyCon, TyCon1, withSingI, type (@@), type (~>))
 import Downhill.Linear.Fun (DualOf)
 import Downhill.Manifold (Manifold (..))
-import Downhill.Tree.FieldWrapper (FieldDualOf, FieldScalar, FieldTang, FieldWrapper (..), ManifoldField, MultiplicativeActionField, VSpaceField)
-import Downhill.Tree.Record (IsRecord (..), SShR (SShR), ShR (ShR), foldMapRecord)
+import Downhill.Tree.FieldWrapper (EqField, FieldDualOf, FieldScalar, FieldTang, FieldWrapper (..), ManifoldField, MultiplicativeActionField, VSpaceField)
+import Downhill.Tree.Record (IsRecord (..), SShR (SShR), ShR (ShR), foldMapRecord, foldZipRecordEx)
 import Downhill.VSpace (VSpace ((|*|)))
 import NumHask.Prelude
 import Prelude.Singletons (ConstSym0, ConstSym1)
@@ -124,6 +125,32 @@ foldMapTree f (FieldWrapper x) = foldMapTreeEx @leaf f' (sing @sh) x
   f' :: forall sh'. Sing sh' -> leaf @@ sh' -> a
   f' sh' y = withSingI sh' (f (FieldWrapper @leaf @sh' y))
 
+foldZipTreeEx ::
+  forall a b m sh.
+  (Monoid m) =>
+  (forall sh'. Sing sh' -> a @@ sh' -> b @@ sh' -> m) ->
+  Sing sh ->
+  TreeOf a @@ sh ->
+  TreeOf b @@ sh ->
+  m
+foldZipTreeEx f = go
+ where
+  go :: forall sh'. Sing sh' -> TreeOf a @@ sh' -> TreeOf b @@ sh' -> m
+  go (STreeLeaf sh) x y = f sh x y
+  go (STreeRecord SShR) x y = foldZipRecordEx go x y
+
+foldZipTree ::
+  forall a b m sh.
+  (Monoid m, SingI sh) =>
+  (forall sh'. (SingI sh') => FieldWrapper a sh' -> FieldWrapper b sh' -> m) ->
+  FieldWrapper (TreeOf a) sh ->
+  FieldWrapper (TreeOf b) sh ->
+  m
+foldZipTree f (FieldWrapper x) (FieldWrapper y) = foldZipTreeEx @a @b f' (sing @sh) x y
+ where
+  f' :: forall sh'. Sing sh' -> a @@ sh' -> b @@ sh' -> m
+  f' sh' x' y' = withSingI sh' (f (FieldWrapper @a @sh' x') (FieldWrapper @b @sh' y'))
+
 instance (SingI sh, forall sh1. (SingI sh1) => Additive (FieldWrapper leaf sh1)) => Additive (FieldWrapper (TreeOf leaf) sh) where
   zero = fillTree zero
   (+) = zipTree (+)
@@ -157,3 +184,9 @@ instance (ManifoldField leaf, SingI sh) => Manifold (FieldWrapper (TreeOf leaf) 
   type Tang (FieldWrapper (TreeOf leaf) sh) = FieldWrapper (TreeOf (FieldTang leaf)) sh
   (.+~^) = zipTree (.+~^)
   (.-~^) = zipTree (.-~^)
+
+instance (SingI sh, EqField f) => Eq (FieldWrapper (TreeOf f) sh) where
+  x == y = getAll (foldZipTree eqField x y)
+   where
+    eqField :: (SingI sh') => FieldWrapper f sh' -> FieldWrapper f sh' -> All
+    eqField x' y' = All (x' == y')

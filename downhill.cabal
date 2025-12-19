@@ -55,7 +55,9 @@ test-suite downhill-test
     other-modules:
         DownhillTest.AD
         DownhillTest.Diff
+        DownhillTest.MonoLeaf
         DownhillTest.Record
+        DownhillTest.Tree
     -- other-extensions:
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test

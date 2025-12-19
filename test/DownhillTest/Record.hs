@@ -24,23 +24,8 @@ import Downhill.Tree.Record (
 import NumHask.Prelude hiding (Field)
 import Test.HUnit (Assertion, (@=?))
 import Test.Hspec (SpecWith, describe, it)
+import DownhillTest.MonoLeaf (Field, MonoLeaf)
 
-data MonoLeaf (a :: Type) :: () ~> Type
-type instance Apply (MonoLeaf a) '() = a
-
-instance (SingI sh, Additive a) => Additive (FieldWrapper (MonoLeaf a) sh) where
-    zero = case sing @sh of
-        STuple0 -> FieldWrapper zero
-    FieldWrapper x + FieldWrapper y = case sing @sh of
-        STuple0 -> FieldWrapper (x + y)
-
-instance (SingI sh, Multiplicative a) => Multiplicative (FieldWrapper (MonoLeaf a) sh) where
-    one = case sing @sh of
-        STuple0 -> FieldWrapper one
-    FieldWrapper x * FieldWrapper y = case sing @sh of
-        STuple0 -> FieldWrapper (x * y)
-
-type Field f = f @@ '()
 
 data MyRecord (f :: () ~> Type) = MyRecord
     { fieldA :: Field f

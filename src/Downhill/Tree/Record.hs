@@ -13,11 +13,16 @@
 module Downhill.Tree.Record (
     IsRecord (..),
     Record,
-    ShR (..), SShR(..),
+    ShR (..),
+    SShR (..),
     fillRecord,
+    foldRecordEx,
+    foldRecord,
     foldMapRecord,
     mapRecord,
     zipRecord,
+    foldZipRecordEx,
+    foldZipRecord,
     fillRecordA,
     FieldGetter (..),
     recordField,
@@ -31,7 +36,7 @@ where
 import Control.Monad.ST.Strict (ST, runST)
 import Data.DList (DList)
 import Data.DList qualified as DList
-import Data.Function.Singletons ()
+import Data.Function.Singletons (ConstSym1)
 import Data.STRef.Strict (STRef, modifySTRef, newSTRef, readSTRef)
 import Data.Singletons (Apply, Proxy, Sing, SingI (sing), TyCon1, withSingI, type (@@), type (~>))
 import Downhill.BVar (BVar (BVar))
@@ -276,6 +281,13 @@ fillRecordA f = FieldWrapper <$> fillRecordExA g
     g :: forall sh. Sing sh -> g (f @@ sh)
     g sh = unFieldWrapper <$> withSingI sh (f @sh)
 
+foldRecordEx :: (Monoid m, IsRecord record) => record (ConstSym1 m) -> m
+foldRecordEx = foldMapRecordEx (const id)
+
+foldRecord :: forall m sh. (Monoid m, SingI sh) => FieldWrapper (Record (ConstSym1 m)) sh -> m
+foldRecord = case sing @sh of
+    SShR -> foldRecordEx . unFieldWrapper
+
 foldMapRecord ::
     forall sh f m.
     (SingI sh, Monoid m) =>
@@ -322,6 +334,25 @@ zipRecord f (FieldWrapper x) (FieldWrapper y) = case sing @sh of
   where
     g :: forall sh'. Sing sh' -> a @@ sh' -> b @@ sh' -> c @@ sh'
     g sh x' y' = unFieldWrapper (withSingI sh (f @sh' (FieldWrapper x') (FieldWrapper y')))
+
+foldZipRecordEx :: forall record m a b. (Monoid m, IsRecord record) => (forall sh. Sing sh -> a @@ sh -> b @@ sh -> m) -> record a -> record b -> m
+foldZipRecordEx f x y = foldRecordEx zipped
+  where
+    zipped :: record (ConstSym1 m)
+    zipped = zipRecordEx f x y
+
+foldZipRecord ::
+    forall record m a b sh.
+    (Monoid m, IsRecord record, SingI sh) =>
+    (forall sh'. (SingI sh') => FieldWrapper a sh' -> FieldWrapper b sh' -> m) ->
+    FieldWrapper (Record a) sh ->
+    FieldWrapper (Record b) sh ->
+    m
+foldZipRecord f (FieldWrapper x) (FieldWrapper y) = case sing @sh of
+    SShR -> foldZipRecordEx f' x y
+      where
+        f' :: forall sh1. Sing sh1 -> a @@ sh1 -> b @@ sh1 -> m
+        f' sh x' y' = withSingI sh $ f @sh1 (FieldWrapper x') (FieldWrapper y')
 
 fieldView ::
     (IsRecord record) =>

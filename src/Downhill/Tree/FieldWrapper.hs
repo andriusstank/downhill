@@ -7,6 +7,7 @@
 module Downhill.Tree.FieldWrapper (
     FieldWrapper (..),
     AdditiveField,
+    EqField,
     SubtractiveField,
     MultiplicativeField,
     FieldScalar,
@@ -29,6 +30,9 @@ import Downhill.VSpace (VSpace)
 import NumHask.Prelude
 
 newtype FieldWrapper field sh = FieldWrapper {unFieldWrapper :: field @@ sh}
+
+class (forall sh. (SingI sh) => Eq (FieldWrapper f sh)) => EqField f
+instance (forall sh. (SingI sh) => Eq (FieldWrapper f sh)) => EqField f
 
 class (forall sh. (SingI sh) => Additive (FieldWrapper f sh)) => AdditiveField f
 instance (forall sh. (SingI sh) => Additive (FieldWrapper f sh)) => AdditiveField f
