@@ -55,7 +55,7 @@ import Downhill.Tree.FieldWrapper (
     MultiplicativeActionField,
     MultiplicativeField,
     SubtractiveField,
-    VSpaceField,
+    VSpaceField, HasBuilderField, ManifoldFieldSh, FieldGrad,
  )
 import Downhill.VSpace (VSpace (..))
 import NumHask.Prelude
@@ -489,12 +489,15 @@ instance
 {-
 getBVarField ::
     forall record a sh r.
-    (IsRecord record, ManifoldField a) =>
+    (IsRecord record, ManifoldField a,
+    HasBuilderField (FieldTang a),
+    HasBuilderField (FieldGrad a)
+    ) =>
     BVar r (FieldWrapper (Record a) ('ShR record)) -> FieldGetter record sh -> BVar r (FieldWrapper a sh)
 getBVarField (BVar x dx) field = fieldView go field x
   where
-    go :: (SingI sh) => FieldWrapper a sh -> BVar r (FieldWrapper a sh)
-    go x = BVar x (sparseNode f dx)
+    go :: (SingI sh, ManifoldFieldSh a sh) => FieldWrapper a sh -> BVar r (FieldWrapper a sh)
+    go y = BVar y (sparseNode f dx)
         where
             f :: SparseFun
                ('VecPair
@@ -502,7 +505,11 @@ getBVarField (BVar x dx) field = fieldView go field x
                   (FieldWrapper (Record (FieldDualOf (FieldTang a))) ('ShR record)))
                ('VecPair
                   (Tang (FieldWrapper a sh)) (DualOf (Tang (FieldWrapper a sh))))
-            f = 1
+            f = SparseFun fwdF backF
+            fwdF :: RecordBuilder ('ShR record) (FieldTang a) -> VecBuilder (FieldWrapper (FieldTang a) sh)
+            fwdF = ()
+            backF :: VecBuilder (FieldWrapper (FieldDualOf (FieldTang a)) sh) -> RecordBuilder ('ShR record) (FieldDualOf (FieldTang a))
+            backF = (0)
 -}
 
 -------------- Fill --------------

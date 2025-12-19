@@ -37,11 +37,6 @@ instance IsRecord MyRecord
 deriving instance (Eq a) => Eq (MyRecord (MonoLeaf a))
 deriving instance (Show a) => Show (MyRecord (MonoLeaf a))
 
-deriving via
-    (DenseFieldWrapper (MonoLeaf a) sh)
-    instance
-        (Additive a, SingI sh) => HasBuilder (FieldWrapper (MonoLeaf a) sh)
-
 testFill1 :: Assertion
 testFill1 = fillRecordEx f @=? (MyRecord 3 3 :: MyRecord (MonoLeaf Int))
   where

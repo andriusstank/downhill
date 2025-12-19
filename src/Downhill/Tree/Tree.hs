@@ -112,6 +112,13 @@ foldTree ::
   a
 foldTree (FieldWrapper x) = foldTreeEx @a @sh sing x
 
+sumTree ::
+  forall sh a.
+  (SingI sh, Additive a) =>
+  FieldWrapper (TreeOf (ConstSym1 a)) sh ->
+  a
+sumTree = getSum . foldMapTree (Sum . unFieldWrapper)
+
 foldMapTreeEx :: forall leaf a sh. (Monoid a) => (forall sh'. Sing sh' -> leaf @@ sh' -> a) -> Sing sh -> TreeOf leaf @@ sh -> a
 foldMapTreeEx f = go
  where
@@ -171,12 +178,10 @@ type instance FieldScalar (TreeOf leaf) = FieldScalar leaf
 type instance FieldDualOf (TreeOf leaf) = TreeOf (FieldDualOf leaf)
 
 instance (VSpaceField leaf, SingI sh) => VSpace (FieldWrapper (TreeOf leaf) sh) where
-  dx |*| x = getSum (foldMapTree (Sum . unFieldWrapper) y)
+  dx |*| x = getSum (foldZipTree mulLeaf dx x)
    where
-    y :: FieldWrapper (TreeOf (ConstSym1 (FieldScalar leaf))) sh
-    y = zipTree mulLeaf dx x
-    mulLeaf :: forall sh'. (SingI sh') => FieldWrapper (FieldDualOf leaf) sh' -> FieldWrapper leaf sh' -> FieldWrapper (ConstSym1 (FieldScalar leaf)) sh'
-    mulLeaf dz z = FieldWrapper (dz |*| z)
+    mulLeaf :: (SingI sh') => FieldWrapper (FieldDualOf leaf) sh' -> FieldWrapper leaf sh' -> Sum (FieldScalar leaf)
+    mulLeaf dz z = Sum (dz |*| z)
 
 type instance FieldTang (TreeOf leaf) = TreeOf (FieldTang leaf)
 
