@@ -188,7 +188,6 @@ type instance FieldTang (TreeOf leaf) = TreeOf (FieldTang leaf)
 instance (ManifoldField leaf, SingI sh) => Manifold (FieldWrapper (TreeOf leaf) sh) where
   type Tang (FieldWrapper (TreeOf leaf) sh) = FieldWrapper (TreeOf (FieldTang leaf)) sh
   (.+~^) = zipTree (.+~^)
-  (.-~^) = zipTree (.-~^)
 
 instance (SingI sh, EqField f) => Eq (FieldWrapper (TreeOf f) sh) where
   x == y = getAll (foldZipTree eqField x y)

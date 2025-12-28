@@ -31,6 +31,7 @@ module Downhill.Tree.Record (
     RecordBuilder,
     fieldBuilder,
     ConstField,
+    splitBVarRecord
 )
 where
 
@@ -492,7 +493,6 @@ instance
     where
     type Tang (FieldWrapper (Record a) sh) = FieldWrapper (Record (FieldTang a)) sh
     (.+~^) = zipRecord (.+~^)
-    (.-~^) = zipRecord (.-~^)
 
 wrappedRecordField :: forall f record sh. FieldGetter record sh -> FieldWrapper (Record f) ('ShR record) -> FieldWrapper f sh
 wrappedRecordField getter (FieldWrapper f) = FieldWrapper (recordField getter f :: f @@ sh)
@@ -533,10 +533,10 @@ splitBVarRecord ::
     , HasBuilderField (FieldTang a)
     , HasBuilderField (FieldGrad a)
     ) =>
-    BVar r (FieldWrapper (Record a) ('ShR record)) ->
     (forall sh'. (SingI sh') => BVar r (FieldWrapper a sh') -> FieldWrapper b sh') ->
+    BVar r (FieldWrapper (Record a) ('ShR record)) ->
     FieldWrapper (Record b) ('ShR record)
-splitBVarRecord x f = mapRecord go recordGetters
+splitBVarRecord f x = mapRecord go recordGetters
   where
     go :: (SingI sh) => FieldWrapper (TyCon1 (FieldGetter record)) sh -> FieldWrapper b sh
     go (FieldWrapper field) = f (getBVarField x field)

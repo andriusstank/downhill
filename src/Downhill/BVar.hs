@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
@@ -5,17 +6,19 @@ module Downhill.BVar (
     BVar (..),
     constant,
     var,
-    Graph, DFun (..),
+    Graph,
+    DFun (..),
     backprop,
     ad,
 )
 where
 
-import Downhill.Linear.AD (AD, Graph, identityAD)
+import Downhill.Linear.AD (AD, Graph, dense2, identityAD)
 import Downhill.Linear.AD qualified as AD
 import Downhill.Linear.Builder (HasBuilder)
-import Downhill.Linear.Fun (DualOf)
+import Downhill.Linear.Fun (DualOf, LinearFun ((<*|), (|*>)), ScalarMulFun (ScalarMulFun))
 import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold (..))
+import Downhill.VSpace (VSpace ((|*|)))
 import NumHask.Prelude
 import Prelude qualified
 
@@ -44,6 +47,37 @@ instance
 instance (IsScalar a, HasGrad a) => Multiplicative (BVar r a) where
     (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (f0 *| dg + g0 *| df)
     one = BVar one zero
+
+newtype VectorScalarMulFun v = VectorScalarMulFun v
+
+instance
+    ( a ~ Scalar v
+    , DualOf a ~ a
+    , VSpace v
+    ) =>
+    LinearFun (VectorScalarMulFun v) a v
+    where
+    VectorScalarMulFun v <*| a = a *| v
+    dv |*> VectorScalarMulFun v = dv |*| v
+
+instance
+    ( IsScalar (Scalar v)
+    , Tang v ~ v
+    , Scalar (DualOf v) ~ Scalar v
+    , DualOf (DualOf v) ~ v
+    , VSpace v
+    , MultiplicativeAction v
+    , HasBuilder (Scalar v)
+    , HasBuilder v
+    , HasBuilder (DualOf v)
+    ) =>
+    MultiplicativeAction (BVar r v)
+    where
+    type Scalar (BVar r v) = BVar r (Scalar v)
+    BVar v dv |* BVar a da =
+        BVar
+            (v |* a)
+            (dense2 (VectorScalarMulFun v) (ScalarMulFun a) da dv)
 
 sqr :: (Multiplicative a) => a -> a
 sqr x = x * x
