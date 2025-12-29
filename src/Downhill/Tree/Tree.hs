@@ -278,7 +278,7 @@ splitBVarTree ::
   , HasBuilderField (FieldTang a)
   , HasBuilderField (FieldGrad a)
   ) =>
-  (forall sh'. (SingI sh) => BVar r (FieldWrapper a sh') -> FieldWrapper b sh') ->
+  (forall sh'. (SingI sh') => BVar r (FieldWrapper a sh') -> FieldWrapper b sh') ->
   BVar r (FieldWrapper (TreeOf a) sh) ->
   FieldWrapper (TreeOf b) sh
 splitBVarTree f x = FieldWrapper (splitBVarTreeEx @a @b @sh fex sing x)

@@ -12,7 +12,12 @@ where
 
 import Data.Singletons (Apply, SingI (sing), TyCon1, type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
+import Downhill.BVar (BVar (..), DFun (unDFun))
+import Downhill.BVar qualified as BVar
+import Downhill.Linear.AD (inlineNode)
 import Downhill.Linear.Builder (HasBuilder (..))
+import Downhill.Linear.Fun (DualOf, LinearFun (..))
+import Downhill.Manifold (Grad, IsScalar, Manifold, Tang)
 import Downhill.Tree.FieldWrapper (DenseFieldWrapper (..), FieldWrapper (..))
 import Downhill.Tree.Record (
     FieldGetter (FieldGetter),
@@ -23,8 +28,8 @@ import Downhill.Tree.Record (
     fieldBuilder,
     recordField,
  )
-import Downhill.Tree.Tree (TreeOf, TreeShape (TreeShapeLeaf, TreeShapeRecord), fillTree)
-import DownhillTest.MonoLeaf (Field, MonoLeaf)
+import Downhill.Tree.Tree (TreeOf, TreeShape (TreeShapeLeaf, TreeShapeRecord), fillTree, splitBVarTree)
+import DownhillTest.MonoLeaf (Field, MonoLeaf, splitMonoLeaf)
 import GHC.Records (getField)
 import NumHask.Prelude hiding (Field)
 import Test.HUnit (Assertion, assert, (@=?))
@@ -113,17 +118,36 @@ bigBuilderTest = do
     sumBuilder (mkBuilder fs.fieldC 43) @=? wrap (MyBigRecord (MyRecord 0 0) (MyRecord 0 0) 43)
     return ()
 
+splitMyTree ::
+    forall r a.
+    (Manifold a, HasBuilder (Grad a)) =>
+    BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord)) ->
+    FieldWrapper (TreeOf (MonoLeaf (BVar r a))) ('TreeShapeRecord MyBigRecord)
+splitMyTree = splitBVarTree splitMonoLeaf
 
-{-
-splitMyTree :: BVar r (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord)) ->
-    FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord)
-splitMyTree = _
--}
+myFun :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => MyBigRecord (TreeOf (MonoLeaf a)) -> a
+myFun x = (x.subrA.fieldA |* 3) + (x.subrA.fieldB |* 5) + (x.subrB.fieldB |* 7) + (x.fieldC |* 11)
+
+myBVarFun ::
+    (IsScalar a, HasBuilder a, FromInteger a) =>
+    BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord)) -> BVar r a
+myBVarFun = myFun . unFieldWrapper . splitMyTree
+
+splitBVarTests :: Assertion
+splitBVarTests = do
+    y @=? 3 * 23 + 5 * 29 + 7 * 37 + 11 * 41
+    13 |*> dy @=? FieldWrapper (MyBigRecord (MyRecord (13 * 3) (13 * 5)) (MyRecord 0 (13 * 7)) (13 * 11))
+    dy <*| FieldWrapper (MyBigRecord (MyRecord 17 19) (MyRecord 43 47) 53) @=? 3 * 17 + 5 * 19 + 7 * 47 + 11 * 53
+  where
+    x :: FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord)
+    x = FieldWrapper (MyBigRecord (MyRecord 23 29) (MyRecord 31 37) 41)
+    (y, dy) = unDFun (BVar.ad myBVarFun) x
 
 treeTests :: SpecWith ()
-treeTests = describe "Record" $ do
+treeTests = describe "Tree" $ do
     it "fill" testFill1
     it "eq" testEq
     it "small builder" smallBuilderTest
     it "big builder" bigBuilderTest
+    it "split" splitBVarTests
     return ()

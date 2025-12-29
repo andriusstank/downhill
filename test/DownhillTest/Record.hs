@@ -28,7 +28,7 @@ import Downhill.Tree.Record (
   recordField,
   splitBVarRecord,
  )
-import DownhillTest.MonoLeaf (Field, MonoLeaf)
+import DownhillTest.MonoLeaf (Field, MonoLeaf, splitMonoLeaf)
 import GHC.Records (getField)
 import NumHask.Prelude hiding (Field)
 import Test.HUnit (Assertion, (@=?))
@@ -100,13 +100,7 @@ splitMyRecord ::
   (Manifold a, HasBuilder (Grad a)) =>
   BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord)) ->
   FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord)
-splitMyRecord = splitBVarRecord rewrap
- where
-  rewrap :: forall sh. (SingI sh) => BVar r (FieldWrapper (MonoLeaf a) sh) -> FieldWrapper (MonoLeaf (BVar r a)) sh
-  rewrap (BVar (FieldWrapper x) dx) = case sing @sh of
-    STuple0 -> FieldWrapper (BVar x (inlineNode unFieldWrapper f dx))
-  f :: VecBuilder (DualOf (Tang a)) -> Maybe (Sum (FieldWrapper (MonoLeaf (DualOf (Tang a))) '()))
-  f = Just . Sum . FieldWrapper . sumBuilder
+splitMyRecord = splitBVarRecord splitMonoLeaf
 
 myFun :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => MyRecord (MonoLeaf a) -> a
 myFun x = (x.fieldA |* 3) + (x.fieldB |* 5)

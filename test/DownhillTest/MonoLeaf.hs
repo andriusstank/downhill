@@ -4,12 +4,14 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module DownhillTest.MonoLeaf (MonoLeaf, Field)
+module DownhillTest.MonoLeaf (MonoLeaf, Field, splitMonoLeaf)
 where
 
 import Data.Singletons (Apply, SingI (sing), type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
-import Downhill.Linear.Builder (HasBuilder)
+import Downhill.BVar (BVar (..))
+import Downhill.Linear.AD (inlineNode)
+import Downhill.Linear.Builder (HasBuilder, VecBuilder, sumBuilder)
 import Downhill.Linear.Fun (DualOf)
 import Downhill.Manifold (Manifold (..), Tang)
 import Downhill.Tree.FieldWrapper (DenseFieldWrapper (..), FieldDualOf, FieldScalar, FieldTang, FieldWrapper (..))
@@ -68,3 +70,11 @@ instance (VSpace a, SingI sh) => VSpace (FieldWrapper (MonoLeaf a) sh) where
 instance (Manifold a, SingI sh) => Manifold (FieldWrapper (MonoLeaf a) sh) where
     FieldWrapper x .+~^ FieldWrapper dx = case sing @sh of
         STuple0 -> FieldWrapper (x .+~^ dx)
+
+splitMonoLeaf :: forall r a sh. (SingI sh, HasBuilder (DualOf (Tang a))) => BVar r (FieldWrapper (MonoLeaf a) sh) -> FieldWrapper (MonoLeaf (BVar r a)) sh
+splitMonoLeaf (BVar (FieldWrapper x) dx) =
+    case sing @sh of
+        STuple0 -> FieldWrapper (BVar x (inlineNode unFieldWrapper f dx))
+  where
+    f :: VecBuilder (DualOf (Tang a)) -> Maybe (Sum (FieldWrapper (MonoLeaf (DualOf (Tang a))) '()))
+    f = Just . Sum . FieldWrapper . sumBuilder
