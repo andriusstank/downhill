@@ -2,7 +2,6 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE ImpredicativeTypes #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE QuantifiedConstraints #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -31,7 +30,7 @@ module Downhill.Tree.Record (
     RecordBuilder,
     fieldBuilder,
     ConstField,
-    splitBVarRecord
+    splitBVarRecord,
 )
 where
 
@@ -63,7 +62,6 @@ import Downhill.Tree.FieldWrapper (
     VSpaceField,
  )
 import Downhill.VSpace (VSpace (..))
-import GHC.Records (HasField (getField))
 import NumHask.Prelude
 
 data ProxyField :: leafShape -> Type
@@ -449,9 +447,7 @@ instance
     ) =>
     HasBuilder (FieldWrapper (Record field) sh)
     where
-    type
-        VecBuilder (FieldWrapper (Record field) sh) =
-            RecordBuilder sh field
+    type VecBuilder (FieldWrapper (Record field) sh) = RecordBuilder sh field
     identityBuilder x = case sing @sh of
         SShR -> RecordBuilder (Just (Sum x)) mempty
     sumBuilder = case sing @sh of
@@ -526,7 +522,7 @@ getBVarField (BVar x dx) field = fieldView go field x
         backF :: VecBuilder (FieldWrapper (FieldDualOf (FieldTang a)) sh) -> RecordBuilder ('ShR record) (FieldDualOf (FieldTang a))
         backF dz = RecordBuilder Nothing (DList.singleton (FieldBuilder field dz))
 
-splitBVarRecord ::
+splitBVarRecord' ::
     forall a b record r.
     ( IsRecord record
     , ManifoldField a
@@ -536,10 +532,23 @@ splitBVarRecord ::
     (forall sh'. (SingI sh') => BVar r (FieldWrapper a sh') -> FieldWrapper b sh') ->
     BVar r (FieldWrapper (Record a) ('ShR record)) ->
     FieldWrapper (Record b) ('ShR record)
-splitBVarRecord f x = mapRecord go recordGetters
+splitBVarRecord' f x = mapRecord go recordGetters
   where
     go :: (SingI sh) => FieldWrapper (TyCon1 (FieldGetter record)) sh -> FieldWrapper b sh
     go (FieldWrapper field) = f (getBVarField x field)
+
+splitBVarRecord ::
+    forall a b sh r.
+    ( ManifoldField a
+    , HasBuilderField (FieldTang a)
+    , HasBuilderField (FieldGrad a)
+    , SingI sh
+    ) =>
+    (forall sh'. (SingI sh') => BVar r (FieldWrapper a sh') -> FieldWrapper b sh') ->
+    BVar r (FieldWrapper (Record a) sh) ->
+    FieldWrapper (Record b) sh
+splitBVarRecord = case sing @sh of
+    SShR -> splitBVarRecord'
 
 -------------- Fill --------------
 

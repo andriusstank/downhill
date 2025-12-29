@@ -9,15 +9,15 @@
 module DownhillTest.Record (recordTests)
 where
 
-import Data.Singletons (Apply, SingI (sing), TyCon1, type (@@), type (~>))
+import Data.Singletons (SingI (sing), TyCon1, type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
 import Downhill.BVar (BVar (..), unDFun)
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.AD (inlineNode)
 import Downhill.Linear.Builder (HasBuilder (..))
 import Downhill.Linear.Fun (DualOf, (<*|), (|*>))
-import Downhill.Manifold (Grad, Manifold (..))
-import Downhill.Tree.FieldWrapper (DenseFieldWrapper (..), FieldWrapper (..))
+import Downhill.Manifold (Grad, IsScalar, Manifold (..))
+import Downhill.Tree.FieldWrapper (FieldWrapper (..))
 import Downhill.Tree.Record (
   FieldGetter,
   IsRecord (..),
@@ -28,7 +28,6 @@ import Downhill.Tree.Record (
   recordField,
   splitBVarRecord,
  )
-import Downhill.VSpace (VSpace)
 import DownhillTest.MonoLeaf (Field, MonoLeaf)
 import GHC.Records (getField)
 import NumHask.Prelude hiding (Field)
@@ -109,38 +108,9 @@ myFun :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => MyRecor
 myFun x = (x.fieldA |* 3) + (x.fieldB |* 5)
 
 myBVarFun ::
-  ( Manifold a
-  , Manifold (Scalar a)
-  , HasBuilder a
-  , HasBuilder (Scalar a)
-  , HasBuilder (DualOf a)
-  , FromInteger (Scalar a)
-  , VSpace a
-  , Tang a ~ a
-  , Tang (Scalar a) ~ Scalar a
-  , Scalar (Scalar a) ~ Scalar a
-  ) =>
+  (IsScalar a, HasBuilder a, FromInteger a) =>
   BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord)) -> BVar r a
 myBVarFun = myFun . unFieldWrapper . splitMyRecord
-
-myDFun ::
-  forall a.
-  ( HasBuilder a
-  , HasBuilder (DualOf a)
-  , a ~ Tang a
-  , Tang (Scalar a) ~ Scalar a
-  , Scalar (Scalar a) ~ Scalar a
-  , Scalar (DualOf a) ~ Scalar a
-  , Manifold a
-  , Manifold (Scalar a)
-  , HasBuilder (Scalar a)
-  , FromInteger (Scalar a)
-  ) =>
-  BVar.DFun
-    (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord))
-    a
-    (BVar.Graph (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord)) a)
-myDFun = BVar.ad myBVarFun
 
 splitBVarTests :: Assertion
 splitBVarTests = do
@@ -150,7 +120,7 @@ splitBVarTests = do
  where
   x :: FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord)
   x = FieldWrapper (MyRecord 7 11)
-  (y, dy) = unDFun myDFun x
+  (y, dy) = unDFun (BVar.ad myBVarFun) x
 
 recordTests :: SpecWith ()
 recordTests = describe "Record" $ do
