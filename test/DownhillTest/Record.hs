@@ -85,7 +85,8 @@ builderTests = it "builderTests" $ do
       fs :: MyRecord (TyCon1 (FieldGetter MyRecord))
       fs = recordGettersEx
       mkBuilder :: FieldGetter MyRecord '() -> Int -> RecordBuilder ('ShR MyRecord) (MonoLeaf Int)
-      mkBuilder field value = fieldBuilder field (Just (Sum (FieldWrapper value)))
+      --mkBuilder field value = fieldBuilder field (Just (Sum (FieldWrapper value)))
+      mkBuilder field value = fieldBuilder field (identityBuilder value)
   sumBuilder mempty @=? mkRecord 0 0
   sumBuilder (identityBuilder (mkRecord 3 4)) @=? mkRecord 3 4
   sumBuilder (mkBuilder fs.fieldA 5) @=? mkRecord 5 0
@@ -97,7 +98,7 @@ builderTests = it "builderTests" $ do
 
 splitMyRecord ::
   forall r a.
-  (Manifold a, HasBuilder (Grad a)) =>
+  (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
   BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord)) ->
   FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord)
 splitMyRecord = splitBVarRecord splitMonoLeaf

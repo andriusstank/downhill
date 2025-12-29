@@ -85,7 +85,7 @@ smallBuilderTest = do
         fs :: MyRecord (TyCon1 (FieldGetter MyRecord))
         fs = recordGettersEx
         mkBuilder :: FieldGetter MyRecord ('TreeShapeLeaf '()) -> Int -> VecBuilder (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyRecord))
-        mkBuilder field value = FieldWrapper (fieldBuilder field (FieldWrapper (Just (Sum (FieldWrapper value)))))
+        mkBuilder field value = FieldWrapper (fieldBuilder field (FieldWrapper (identityBuilder value)))
     sumBuilder mempty @=? mkRecord 0 0
     sumBuilder (identityBuilder (mkRecord 3 4)) @=? mkRecord 3 4
     sumBuilder (mkBuilder fs.fieldA 5) @=? mkRecord 5 0
@@ -101,9 +101,9 @@ bigBuilderTest = do
     let mkSmallRecord :: Int -> Int -> FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyRecord)
         mkSmallRecord x y = FieldWrapper (MyRecord x y)
         mkBuilder :: FieldGetter MyBigRecord ('TreeShapeLeaf '()) -> Int -> VecBuilder (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord))
-        mkBuilder field value = FieldWrapper (fieldBuilder field (FieldWrapper (Just (Sum (FieldWrapper value)))))
+        mkBuilder field value = FieldWrapper (fieldBuilder field (FieldWrapper (identityBuilder value)))
         mkSmallBuilder :: FieldGetter MyRecord ('TreeShapeLeaf '()) -> Int -> VecBuilder (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyRecord))
-        mkSmallBuilder field value = FieldWrapper (fieldBuilder field (FieldWrapper (Just (Sum (FieldWrapper value)))))
+        mkSmallBuilder field value = FieldWrapper (fieldBuilder field (FieldWrapper (identityBuilder value)))
         wrap :: MyBigRecord (TreeOf (MonoLeaf Int)) -> FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord)
         wrap = FieldWrapper
         fs :: MyBigRecord (TyCon1 (FieldGetter MyBigRecord))
@@ -120,7 +120,7 @@ bigBuilderTest = do
 
 splitMyTree ::
     forall r a.
-    (Manifold a, HasBuilder (Grad a)) =>
+    (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
     BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord)) ->
     FieldWrapper (TreeOf (MonoLeaf (BVar r a))) ('TreeShapeRecord MyBigRecord)
 splitMyTree = splitBVarTree splitMonoLeaf
