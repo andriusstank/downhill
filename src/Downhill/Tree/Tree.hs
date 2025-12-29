@@ -14,6 +14,7 @@ module Downhill.Tree.Tree (
   fillTreeEx,
   mapTreeEx,
   -- splitBVarTree,
+  TreeBuilderType
 )
 where
 
@@ -199,40 +200,52 @@ instance (SingI sh, EqField f) => Eq (FieldWrapper (TreeOf f) sh) where
     eqField :: (SingI sh') => FieldWrapper f sh' -> FieldWrapper f sh' -> All
     eqField x' y' = All (x' == y')
 
-data TreeBuilder (a :: leafSh ~> Type) (sh :: TreeShape leafSh) where
-  LeafBuilder :: VecBuilder (FieldWrapper leaf leafSh) -> TreeBuilder leaf ('TreeShapeLeaf leafSh)
-  SubtreeBuilder ::
-    forall leaf (record :: (TreeShape leaf ~> Type) -> Type) (a :: leaf ~> Type).
-    VecBuilder (FieldWrapper (Record (TreeOf a)) ('ShR record)) -> TreeBuilder a ('TreeShapeRecord record)
+type family TreeBuilderType leaf sh where
+  TreeBuilderType leaf ('TreeShapeLeaf sh) = VecBuilder (FieldWrapper leaf sh)
+  TreeBuilderType leaf ('TreeShapeRecord record) = VecBuilder (FieldWrapper (Record (TreeOf leaf)) ('ShR record))
 
-rewrapTree :: forall leaf (a :: leaf ~> Type) (r :: (TreeShape leaf ~> Type) -> Type). FieldWrapper (TreeOf a) ('TreeShapeRecord r) -> FieldWrapper (Record (TreeOf a)) ('ShR r)
-rewrapTree (FieldWrapper x) = FieldWrapper x
+newtype TreeBuilder leaf sh = TreeBuilder (TreeBuilderType leaf sh)
 
-catTreeBuilder :: HasBuilderField a => Sing sh -> TreeBuilder a sh -> TreeBuilder a sh -> TreeBuilder a sh
-catTreeBuilder (STreeLeaf sh) (LeafBuilder x) (LeafBuilder y) = LeafBuilder (withSingI sh (x<>y))
-catTreeBuilder (STreeRecord sh) (SubtreeBuilder x) (SubtreeBuilder y) = SubtreeBuilder (withSingI sh (x<>y))
+catTreeBuilder :: forall a sh. HasBuilderField a => Sing sh -> TreeBuilder a sh -> TreeBuilder a sh -> TreeBuilder a sh
+catTreeBuilder sh (TreeBuilder x) (TreeBuilder y) = TreeBuilder (f x y)
+  where
+    f :: TreeBuilderType a sh -> TreeBuilderType a sh -> TreeBuilderType a sh
+    f = case sh of
+      STreeLeaf sh' -> withSingI sh' (<>)
+      STreeRecord sh' -> withSingI sh' (<>)
 
 instance (HasBuilderField a, SingI sh) => Semigroup (TreeBuilder a sh) where
   (<>) = catTreeBuilder sing
 
 instance (HasBuilderField a, SingI sh) => Monoid (TreeBuilder a sh) where
   mempty = case sing @sh of
-    STreeLeaf leafSh -> LeafBuilder (withSingI leafSh mempty)
-    STreeRecord rSh -> SubtreeBuilder (withSingI rSh mempty)
+    STreeLeaf leafSh -> TreeBuilder (withSingI leafSh mempty)
+    STreeRecord rSh -> TreeBuilder (withSingI rSh mempty)
 
 rewrapLeaf :: FieldWrapper a leafSh -> FieldWrapper (TreeOf a) ('TreeShapeLeaf leafSh)
 rewrapLeaf (FieldWrapper x) = FieldWrapper x
 
+unrewrapLeaf :: FieldWrapper (TreeOf a) ('TreeShapeLeaf leafSh) -> FieldWrapper a leafSh
+unrewrapLeaf (FieldWrapper x) = FieldWrapper x
+
 rewrapSubtree :: FieldWrapper (Record (TreeOf a)) ('ShR r) -> FieldWrapper (TreeOf a) ('TreeShapeRecord r)
 rewrapSubtree (FieldWrapper x) = FieldWrapper x
 
+unrewrapSubtree :: FieldWrapper (TreeOf a) ('TreeShapeRecord r) -> FieldWrapper (Record (TreeOf a)) ('ShR r)
+unrewrapSubtree (FieldWrapper x) = FieldWrapper x
+
 sumBuilderEx :: HasBuilderField a => Sing sh -> TreeBuilder a sh -> FieldWrapper (TreeOf a) sh
-sumBuilderEx (STreeLeaf sh) (LeafBuilder x) = rewrapLeaf (withSingI sh (sumBuilder x))
-sumBuilderEx (STreeRecord sh) (SubtreeBuilder x) = rewrapSubtree (withSingI sh (sumBuilder x))
+sumBuilderEx (STreeLeaf sh) (TreeBuilder x) = rewrapLeaf (withSingI sh (sumBuilder x))
+sumBuilderEx (STreeRecord sh) (TreeBuilder x) = rewrapSubtree (withSingI sh (sumBuilder x))
+
+identityBuilderEx :: HasBuilderField a => Sing sh -> FieldWrapper (TreeOf a) sh -> TreeBuilder a sh
+identityBuilderEx (STreeLeaf sh) x = TreeBuilder (withSingI sh (identityBuilder (unrewrapLeaf x)))
+identityBuilderEx (STreeRecord sh) x = TreeBuilder (withSingI sh (identityBuilder (unrewrapSubtree x)))
 
 instance (HasBuilderField a, SingI sh) => HasBuilder (FieldWrapper (TreeOf a) sh) where
   type VecBuilder (FieldWrapper (TreeOf a) sh) = TreeBuilder a sh
   sumBuilder = sumBuilderEx sing
+  identityBuilder = identityBuilderEx sing
 
 
 {-
