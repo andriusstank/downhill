@@ -16,7 +16,7 @@ import Downhill.BVar qualified as BVar
 import Downhill.Linear.AD (inlineNode)
 import Downhill.Linear.Builder (HasBuilder (..))
 import Downhill.Linear.Fun (DualOf, (<*|), (|*>))
-import Downhill.Manifold (Grad, IsScalar, Manifold (..))
+import Downhill.Manifold (Grad, IsScalar, Manifold (..), Tang)
 import Downhill.Tree.FieldWrapper (FieldWrapper (..))
 import Downhill.Tree.Record (
   FieldGetter,
@@ -95,7 +95,11 @@ builderTests = it "builderTests" $ do
   sumBuilder (mkBuilder fs.fieldB 9 <> mkBuilder fs.fieldA 10) @=? mkRecord 10 9
   sumBuilder (mkBuilder fs.fieldB 9 <> mkBuilder fs.fieldA 10 <> identityBuilder (mkRecord 10 20)) @=? mkRecord 20 29
 
-splitMyRecord :: forall r a. (Manifold a, HasBuilder (Grad a)) => BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord)) -> FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord)
+splitMyRecord ::
+  forall r a.
+  (Manifold a, HasBuilder (Grad a)) =>
+  BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord)) ->
+  FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord)
 splitMyRecord = splitBVarRecord rewrap
  where
   rewrap :: forall sh. (SingI sh) => BVar r (FieldWrapper (MonoLeaf a) sh) -> FieldWrapper (MonoLeaf (BVar r a)) sh

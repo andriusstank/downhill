@@ -488,7 +488,6 @@ instance
     ) =>
     Manifold (FieldWrapper (Record a) sh)
     where
-    type Tang (FieldWrapper (Record a) sh) = FieldWrapper (Record (FieldTang a)) sh
     (.+~^) = zipRecord (.+~^)
 
 wrappedRecordField :: forall f record sh. FieldGetter record sh -> FieldWrapper (Record f) ('ShR record) -> FieldWrapper f sh

@@ -11,11 +11,10 @@ import Data.Singletons (Apply, SingI (sing), type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
 import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Fun (DualOf)
-import Downhill.Manifold (Manifold (..))
+import Downhill.Manifold (Manifold (..), Tang)
 import Downhill.Tree.FieldWrapper (DenseFieldWrapper (..), FieldDualOf, FieldScalar, FieldTang, FieldWrapper (..))
 import Downhill.VSpace (VSpace (..))
 import NumHask.Prelude hiding (Field)
-import Prelude.Singletons (Subtract)
 
 data MonoLeaf (a :: Type) :: () ~> Type
 type instance Apply (MonoLeaf a) '() = a
@@ -67,6 +66,5 @@ instance (VSpace a, SingI sh) => VSpace (FieldWrapper (MonoLeaf a) sh) where
         STuple0 -> dx |*| x
 
 instance (Manifold a, SingI sh) => Manifold (FieldWrapper (MonoLeaf a) sh) where
-    type Tang (FieldWrapper (MonoLeaf a) sh) = FieldWrapper (MonoLeaf (Tang a)) sh
     FieldWrapper x .+~^ FieldWrapper dx = case sing @sh of
         STuple0 -> FieldWrapper (x .+~^ dx)
