@@ -13,20 +13,21 @@ module Downhill.Tree.Tree (
   zipTree,
   fillTreeEx,
   mapTreeEx,
-  -- splitBVarTree,
-  TreeBuilderType
+  splitBVarTree,
+  splitBVarTreeEx,
+  TreeBuilderType,
 )
 where
 
 import Data.Constraint (Dict (Dict))
-import Data.Singletons (Apply, Sing, SingI (sing), TyCon, TyCon1, withSingI, type (@@), type (~>), withSing)
+import Data.Singletons (Apply, Sing, SingI (sing), TyCon, TyCon1, withSing, withSingI, type (@@), type (~>))
 import Downhill.BVar (BVar (..))
-import Downhill.Linear.AD (SparseFun (SparseFun), inlineNode, sparseNode)
+import Downhill.Linear.AD (AD, SparseFun (SparseFun), inlineNode, sparseNode)
 import Downhill.Linear.Builder (HasBuilder (VecBuilder, identityBuilder, sumBuilder))
 import Downhill.Linear.Fun (DualOf)
-import Downhill.Manifold (Manifold (..))
-import Downhill.Tree.FieldWrapper (EqField, FieldDualOf, FieldScalar, FieldTang, FieldWrapper (..), HasBuilderField, ManifoldField, MultiplicativeActionField, VSpaceField, AdditiveField)
-import Downhill.Tree.Record (IsRecord (..), Record, SShR (SShR), ShR (ShR), foldMapRecord, foldZipRecordEx, RecordBuilder)
+import Downhill.Manifold (Grad, Manifold (..), Tang)
+import Downhill.Tree.FieldWrapper (AdditiveField, DenseFieldWrapper (unDenseFieldWrapper), EqField, FieldDualOf, FieldGrad, FieldScalar, FieldTang, FieldWrapper (..), HasBuilderField, ManifoldField, ManifoldFieldSh, MultiplicativeActionField, VSpaceField)
+import Downhill.Tree.Record (IsRecord (..), Record, RecordBuilder, SShR (SShR), ShR (ShR), foldMapRecord, foldZipRecordEx, mapRecord, splitBVarRecord, splitBVarRecordEx)
 import Downhill.VSpace (VSpace ((|*|)))
 import NumHask.Prelude
 import Prelude.Singletons (ConstSym0, ConstSym1)
@@ -191,7 +192,6 @@ instance (VSpaceField leaf, SingI sh) => VSpace (FieldWrapper (TreeOf leaf) sh) 
 type instance FieldTang (TreeOf leaf) = TreeOf (FieldTang leaf)
 
 instance (ManifoldField leaf, SingI sh) => Manifold (FieldWrapper (TreeOf leaf) sh) where
-  type Tang (FieldWrapper (TreeOf leaf) sh) = FieldWrapper (TreeOf (FieldTang leaf)) sh
   (.+~^) = zipTree (.+~^)
 
 instance (SingI sh, EqField f) => Eq (FieldWrapper (TreeOf f) sh) where
@@ -206,13 +206,13 @@ type family TreeBuilderType leaf sh where
 
 newtype TreeBuilder leaf sh = TreeBuilder (TreeBuilderType leaf sh)
 
-catTreeBuilder :: forall a sh. HasBuilderField a => Sing sh -> TreeBuilder a sh -> TreeBuilder a sh -> TreeBuilder a sh
+catTreeBuilder :: forall a sh. (HasBuilderField a) => Sing sh -> TreeBuilder a sh -> TreeBuilder a sh -> TreeBuilder a sh
 catTreeBuilder sh (TreeBuilder x) (TreeBuilder y) = TreeBuilder (f x y)
-  where
-    f :: TreeBuilderType a sh -> TreeBuilderType a sh -> TreeBuilderType a sh
-    f = case sh of
-      STreeLeaf sh' -> withSingI sh' (<>)
-      STreeRecord sh' -> withSingI sh' (<>)
+ where
+  f :: TreeBuilderType a sh -> TreeBuilderType a sh -> TreeBuilderType a sh
+  f = case sh of
+    STreeLeaf sh' -> withSingI sh' (<>)
+    STreeRecord sh' -> withSingI sh' (<>)
 
 instance (HasBuilderField a, SingI sh) => Semigroup (TreeBuilder a sh) where
   (<>) = catTreeBuilder sing
@@ -234,11 +234,25 @@ rewrapSubtree (FieldWrapper x) = FieldWrapper x
 unrewrapSubtree :: FieldWrapper (TreeOf a) ('TreeShapeRecord r) -> FieldWrapper (Record (TreeOf a)) ('ShR r)
 unrewrapSubtree (FieldWrapper x) = FieldWrapper x
 
-sumBuilderEx :: HasBuilderField a => Sing sh -> TreeBuilder a sh -> FieldWrapper (TreeOf a) sh
+mapSubtree ::
+  (IsRecord subtree) =>
+  (forall sh. (SingI sh) => FieldWrapper (TreeOf a) sh -> FieldWrapper (TreeOf b) sh) ->
+  FieldWrapper (TreeOf a) ('TreeShapeRecord subtree) ->
+  FieldWrapper (TreeOf b) ('TreeShapeRecord subtree)
+mapSubtree f = rewrapSubtree . mapRecord f . unrewrapSubtree
+
+mapSubtreeEx ::
+  (IsRecord subtree) =>
+  (forall sh. Sing sh -> TreeOf a @@ sh -> TreeOf b @@ sh) ->
+  subtree (TreeOf a) ->
+  subtree (TreeOf b)
+mapSubtreeEx sh f = mapRecordEx sh f
+
+sumBuilderEx :: (HasBuilderField a) => Sing sh -> TreeBuilder a sh -> FieldWrapper (TreeOf a) sh
 sumBuilderEx (STreeLeaf sh) (TreeBuilder x) = rewrapLeaf (withSingI sh (sumBuilder x))
 sumBuilderEx (STreeRecord sh) (TreeBuilder x) = rewrapSubtree (withSingI sh (sumBuilder x))
 
-identityBuilderEx :: HasBuilderField a => Sing sh -> FieldWrapper (TreeOf a) sh -> TreeBuilder a sh
+identityBuilderEx :: (HasBuilderField a) => Sing sh -> FieldWrapper (TreeOf a) sh -> TreeBuilder a sh
 identityBuilderEx (STreeLeaf sh) x = TreeBuilder (withSingI sh (identityBuilder (unrewrapLeaf x)))
 identityBuilderEx (STreeRecord sh) x = TreeBuilder (withSingI sh (identityBuilder (unrewrapSubtree x)))
 
@@ -247,28 +261,40 @@ instance (HasBuilderField a, SingI sh) => HasBuilder (FieldWrapper (TreeOf a) sh
   sumBuilder = sumBuilderEx sing
   identityBuilder = identityBuilderEx sing
 
+unrewrapBVarSubtree :: BVar r (FieldWrapper (TreeOf a) (TreeShapeRecord subtree)) -> BVar r (FieldWrapper (Record (TreeOf a)) ('ShR subtree))
+unrewrapBVarSubtree (BVar x dx) = BVar (unrewrapSubtree x) (inlineNode unrewrapSubtree TreeBuilder dx)
 
-{-
+unrewrapBVarLeaf :: forall a leafSh r. BVar r (FieldWrapper (TreeOf a) ('TreeShapeLeaf leafSh)) -> BVar r (FieldWrapper a leafSh)
+unrewrapBVarLeaf (BVar (FieldWrapper x) dx) = BVar (FieldWrapper x) (inlineNode unrewrapLeaf TreeBuilder dx)
+
+splitBVarTreeEx ::
+  forall a b sh r.
+  ( ManifoldField a
+  , HasBuilderField (FieldTang a)
+  , HasBuilderField (FieldGrad a)
+  ) =>
+  (forall sh'. Sing sh' -> BVar r (FieldWrapper a sh') -> b @@ sh') ->
+  Sing sh ->
+  BVar r (FieldWrapper (TreeOf a) sh) ->
+  TreeOf b @@ sh
+splitBVarTreeEx splitBVarLeaf = go
+ where
+  go :: forall sh'. Sing sh' -> BVar r (FieldWrapper (TreeOf a) sh') -> TreeOf b @@ sh'
+  go = \case
+    STreeLeaf leafSh -> splitBVarLeaf leafSh . unrewrapBVarLeaf
+    STreeRecord SShR -> splitBVarRecordEx go . unrewrapBVarSubtree
+
 splitBVarTree ::
   forall a b sh r.
-  (SingI sh, ManifoldField a) =>
-  (forall sh'. (SingI sh') => BVar r (FieldWrapper a sh') -> FieldWrapper b sh') ->
+  ( SingI sh
+  , ManifoldField a
+  , HasBuilderField (FieldTang a)
+  , HasBuilderField (FieldGrad a)
+  ) =>
+  (forall sh'. (SingI sh) => BVar r (FieldWrapper a sh') -> FieldWrapper b sh') ->
   BVar r (FieldWrapper (TreeOf a) sh) ->
   FieldWrapper (TreeOf b) sh
-splitBVarTree f = go sing
+splitBVarTree f x = FieldWrapper (splitBVarTreeEx @a @b @sh fex sing x)
  where
-  fEx :: forall sh'. Sing sh' -> BVar r (FieldWrapper a sh') -> FieldWrapper b sh'
-  fEx sh = withSingI sh (f @sh')
-  splitLeaf :: forall leafSh. Sing leafSh -> BVar r (FieldWrapper (TreeOf a) ('TreeShapeLeaf leafSh)) -> FieldWrapper (TreeOf b) ('TreeShapeLeaf leafSh)
-  splitLeaf sh (BVar (FieldWrapper x) dx) = FieldWrapper y
-    where
-      FieldWrapper y = fEx sh (BVar (FieldWrapper x) (sparseNode (SparseFun fwd back) dx))
-      fwd :: FieldWrapper (TreeOf (FieldTang a)) (TreeShapeLeaf leafSh) -> VecBuilder (Tang (FieldWrapper a leafSh))
-      fwd = identityBuilder
-      back :: VecBuilder (DualOf (Tang (FieldWrapper a leafSh))) -> VecBuilder (FieldWrapper (TreeOf (FieldDualOf (FieldTang a))) (TreeShapeLeaf leafSh))
-      back = ()
-  go :: forall sh'. Sing sh' -> BVar r (FieldWrapper (TreeOf a) sh') -> FieldWrapper (TreeOf b) sh'
-  go = \case
-    STreeLeaf leafSh -> splitLeaf leafSh
-    STreeRecord _ -> _
--}
+  fex :: forall sh'. Sing sh' -> BVar r (FieldWrapper a sh') -> b @@ sh'
+  fex sh y = unFieldWrapper (withSingI sh (f y))

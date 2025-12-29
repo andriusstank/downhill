@@ -2,7 +2,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DerivingVia #-}
 
-module Downhill.Manifold (Manifold (..), MScalar, Grad, IsScalar, HasGrad)
+module Downhill.Manifold (Tang, Manifold (..), MScalar, Grad, IsScalar, HasGrad)
 where
 
 import Downhill.Linear.Fun (DualOf)
@@ -12,13 +12,12 @@ import Downhill.Linear.Builder (HasBuilder)
 
 type MScalar p = Scalar (Tang p)
 
+type family Tang (p :: Type) :: Type
 class
   ( VSpace (Tang p)
   ) =>
   Manifold p
   where
-  type Tang p :: Type
-
   (.+~^) :: p -> Tang p -> p
 
 type Grad p = DualOf (Tang p)
@@ -26,23 +25,24 @@ type Grad p = DualOf (Tang p)
 type IsScalar a = (Manifold a, Tang a ~ a, Scalar a ~ a)
 type HasGrad a = (Manifold a, HasBuilder (Tang a), HasBuilder (Grad a))
 
+type instance Tang Int = Int
 instance Manifold Int where
-  type Tang Int = Int
   (.+~^) = (+)
 
+type instance Tang Integer = Integer
 instance Manifold Integer where
-  type Tang Integer = Integer
   (.+~^) = (+)
 
+type instance Tang Float = Float
 instance Manifold Float where
-  type Tang Float = Float
   (.+~^) = (+)
 
+type instance Tang Double = Double
 instance Manifold Double where
-  type Tang Double = Double
   (.+~^) = (+)
 
 
+type instance Tang (a, b) = (Tang a, Tang b)
 instance
   ( Manifold a
   , Manifold b
@@ -50,9 +50,9 @@ instance
   ) =>
   Manifold (a, b)
   where
-  type Tang (a, b) = (Tang a, Tang b)
   (x1, x2) .+~^ (y1, y2) = (x1 .+~^ y1, x2 .+~^ y2)
 
+type instance Tang (a, b, c) = (Tang a, Tang b, Tang c)
 instance
   ( Manifold a
   , Manifold b
@@ -62,6 +62,5 @@ instance
   ) =>
   Manifold (a, b, c)
   where
-  type Tang (a, b, c) = (Tang a, Tang b, Tang c)
 
   (x1, x2, x3) .+~^ (y1, y2, y3) = (x1 .+~^ y1, x2 .+~^ y2, x3 .+~^ y3)

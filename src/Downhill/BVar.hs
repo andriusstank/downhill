@@ -17,7 +17,7 @@ import Downhill.Linear.AD (AD, Graph, dense2, identityAD)
 import Downhill.Linear.AD qualified as AD
 import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Fun (DualOf, LinearFun ((<*|), (|*>)), ScalarMulFun (ScalarMulFun))
-import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold (..))
+import Downhill.Manifold (Grad, HasGrad, IsScalar, Tang)
 import Downhill.VSpace (VSpace ((|*|)))
 import NumHask.Prelude
 import Prelude qualified

@@ -108,6 +108,7 @@ instance
   type Scalar (AD r v) = Scalar v
   v |* x = dense1 (ScalarMulFun x) v
 
+-- TODO: remove SparseFun?
 data SparseFun (u :: VecPair) (v :: VecPair) = SparseFun
   (TangType u -> VecBuilder (TangType v))
   (VecBuilder (GradType v) -> VecBuilder (GradType u))

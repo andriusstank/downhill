@@ -31,6 +31,7 @@ module Downhill.Tree.Record (
     fieldBuilder,
     ConstField,
     splitBVarRecord,
+    splitBVarRecordEx
 )
 where
 
@@ -45,7 +46,7 @@ import Downhill.Linear.AD (SparseFun (..), sparseNode)
 import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
 import Downhill.Linear.Expr (VecPair (..))
 import Downhill.Linear.Fun (DualOf)
-import Downhill.Manifold (Manifold (..))
+import Downhill.Manifold (Manifold (..), Tang)
 import Downhill.Tree.FieldWrapper (
     AdditiveField,
     FieldDualOf,
@@ -549,6 +550,21 @@ splitBVarRecord ::
     FieldWrapper (Record b) sh
 splitBVarRecord = case sing @sh of
     SShR -> splitBVarRecord'
+
+splitBVarRecordEx ::
+    forall a b record r.
+    ( IsRecord record
+    , ManifoldField a
+    , HasBuilderField (FieldTang a)
+    , HasBuilderField (FieldGrad a)
+    ) =>
+    (forall sh'. Sing sh' -> BVar r (FieldWrapper a sh') -> b @@ sh') ->
+    BVar r (FieldWrapper (Record a) ('ShR record)) ->
+    record b
+splitBVarRecordEx f x = mapRecordEx go recordGettersEx
+  where
+    go :: Sing sh -> FieldGetter record sh -> b @@ sh
+    go sh field = f sh (getBVarField x field)
 
 -------------- Fill --------------
 

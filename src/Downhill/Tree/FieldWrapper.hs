@@ -26,7 +26,7 @@ where
 import Data.Singletons (SingI, type (@@), type (~>))
 import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
 import Downhill.Linear.Fun (DualOf)
-import Downhill.Manifold (Manifold (Tang))
+import Downhill.Manifold (Manifold, Tang)
 import Downhill.VSpace (VSpace)
 import NumHask.Prelude
 
@@ -146,3 +146,5 @@ instance (Additive (FieldWrapper field sh)) => HasBuilder (DenseFieldWrapper fie
 
 class (forall sh. SingI sh => HasBuilder (FieldWrapper f sh)) => HasBuilderField f
 instance (forall sh. SingI sh => HasBuilder (FieldWrapper f sh)) => HasBuilderField f
+
+type instance Tang (FieldWrapper field sh) = FieldWrapper (FieldTang field) sh
