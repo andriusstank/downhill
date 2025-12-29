@@ -31,7 +31,6 @@ module Downhill.Tree.Record (
     fieldBuilder,
     ConstField,
     splitBVarRecord,
-    splitBVarRecordEx
 )
 where
 
@@ -41,10 +40,10 @@ import Data.DList qualified as DList
 import Data.Function.Singletons (ConstSym1)
 import Data.STRef.Strict (STRef, modifySTRef, newSTRef, readSTRef)
 import Data.Singletons (Apply, Proxy, Sing, SingI (sing), TyCon1, withSingI, type (@@), type (~>))
-import Downhill.BVar (BVar (BVar))
-import Downhill.Linear.AD (SparseFun (..), sparseNode)
+import Downhill.BVar (BVar (BVar, bvarValue))
+import Downhill.Linear.AD (AD, SparseFun (..), realNode, sparseNode)
 import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
-import Downhill.Linear.Expr (VecPair (..))
+import Downhill.Linear.Expr (Expr (ExprSum), Term, VecPair (..))
 import Downhill.Linear.Fun (DualOf)
 import Downhill.Manifold (Manifold (..), Tang)
 import Downhill.Tree.FieldWrapper (
@@ -522,21 +521,6 @@ getBVarField (BVar x dx) field = fieldView go field x
         backF :: VecBuilder (FieldWrapper (FieldDualOf (FieldTang a)) sh) -> RecordBuilder ('ShR record) (FieldDualOf (FieldTang a))
         backF dz = RecordBuilder Nothing (DList.singleton (FieldBuilder field dz))
 
-splitBVarRecord' ::
-    forall a b record r.
-    ( IsRecord record
-    , ManifoldField a
-    , HasBuilderField (FieldTang a)
-    , HasBuilderField (FieldGrad a)
-    ) =>
-    (forall sh'. (SingI sh') => BVar r (FieldWrapper a sh') -> FieldWrapper b sh') ->
-    BVar r (FieldWrapper (Record a) ('ShR record)) ->
-    FieldWrapper (Record b) ('ShR record)
-splitBVarRecord' f x = mapRecord go recordGetters
-  where
-    go :: (SingI sh) => FieldWrapper (TyCon1 (FieldGetter record)) sh -> FieldWrapper b sh
-    go (FieldWrapper field) = f (getBVarField x field)
-
 splitBVarRecord ::
     forall a b sh r.
     ( ManifoldField a
@@ -547,23 +531,55 @@ splitBVarRecord ::
     (forall sh'. (SingI sh') => BVar r (FieldWrapper a sh') -> FieldWrapper b sh') ->
     BVar r (FieldWrapper (Record a) sh) ->
     FieldWrapper (Record b) sh
-splitBVarRecord = case sing @sh of
-    SShR -> splitBVarRecord'
+splitBVarRecord f x = case sing @sh of
+    SShR -> mapRecord (f . getBVarField x . unFieldWrapper) recordGetters
 
-splitBVarRecordEx ::
-    forall a b record r.
+data BVarField (r :: Type) (a :: k ~> Type) :: k ~> Type
+type instance Apply (BVarField r a) sh = BVar r (FieldWrapper a sh)
+
+{-
+joinBVarRecord' ::
+    forall r a b record.
     ( IsRecord record
+    , AdditiveField (FieldGrad a)
+    , AdditiveField (FieldTang a)
+    , HasBuilderField (FieldTang a)
+    , HasBuilderField (FieldGrad a)
+    ) =>
+    (forall sh'. (SingI sh') => FieldWrapper b sh' -> BVar r (FieldWrapper a sh')) ->
+    FieldWrapper (Record b) ('ShR record) ->
+    BVar r (FieldWrapper (Record a) ('ShR record))
+joinBVarRecord' f x = BVar y dy
+  where
+    brec :: FieldWrapper (Record (BVarField r a)) ('ShR record)
+    brec = mapRecord (FieldWrapper . f) x
+    y :: FieldWrapper (Record a) ('ShR record)
+    y = mapRecord (bvarValue . unFieldWrapper) brec
+    dy :: AD r (FieldWrapper (Record (FieldTang a)) ('ShR record))
+    dy = realNode (ExprSum (toList (foldMapRecord (DList.singleton . mkTerm) brec)))
+    mkTerm ::
+        FieldWrapper (BVarField r a) sh' ->
+        Term
+            ('VecPair r (DualOf r))
+            ( 'VecPair
+                (FieldWrapper (Record (FieldTang a)) ('ShR record))
+                (FieldWrapper (Record (FieldDualOf (FieldTang a))) ('ShR record))
+            )
+    mkTerm = _
+
+joinBVarRecord ::
+    forall a b sh r.
+    ( SingI sh
     , ManifoldField a
     , HasBuilderField (FieldTang a)
     , HasBuilderField (FieldGrad a)
     ) =>
-    (forall sh'. Sing sh' -> BVar r (FieldWrapper a sh') -> b @@ sh') ->
-    BVar r (FieldWrapper (Record a) ('ShR record)) ->
-    record b
-splitBVarRecordEx f x = mapRecordEx go recordGettersEx
-  where
-    go :: Sing sh -> FieldGetter record sh -> b @@ sh
-    go sh field = f sh (getBVarField x field)
+    (forall sh'. (SingI sh') => FieldWrapper b sh' -> BVar r (FieldWrapper a sh')) ->
+    FieldWrapper (Record b) sh ->
+    BVar r (FieldWrapper (Record a) sh)
+joinBVarRecord = case sing @sh of
+    SShR -> joinBVarRecord'
+-}
 
 -------------- Fill --------------
 
