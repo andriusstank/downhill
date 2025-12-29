@@ -206,16 +206,14 @@ type family TreeBuilderType leaf sh where
 
 newtype TreeBuilder leaf sh = TreeBuilder (TreeBuilderType leaf sh)
 
-catTreeBuilder :: forall a sh. (HasBuilderField a) => Sing sh -> TreeBuilder a sh -> TreeBuilder a sh -> TreeBuilder a sh
-catTreeBuilder sh (TreeBuilder x) (TreeBuilder y) = TreeBuilder (f x y)
- where
-  f :: TreeBuilderType a sh -> TreeBuilderType a sh -> TreeBuilderType a sh
-  f = case sh of
-    STreeLeaf sh' -> withSingI sh' (<>)
-    STreeRecord sh' -> withSingI sh' (<>)
+data TreeBuilder2 leaf :: TreeShape sh ~> Type
+type instance Apply (TreeBuilder2 leaf) ('TreeShapeLeaf sh) = VecBuilder (FieldWrapper leaf sh)
+type instance Apply (TreeBuilder2 leaf) ('TreeShapeRecord record) = VecBuilder (FieldWrapper (Record (TreeOf leaf)) ('ShR record))
 
 instance (HasBuilderField a, SingI sh) => Semigroup (TreeBuilder a sh) where
-  (<>) = catTreeBuilder sing
+  TreeBuilder x <> TreeBuilder y = TreeBuilder $ case sing @sh of
+    STreeLeaf sh' -> withSingI sh' (x <> y)
+    STreeRecord sh' -> withSingI sh' (x <> y)
 
 instance (HasBuilderField a, SingI sh) => Monoid (TreeBuilder a sh) where
   mempty = case sing @sh of
@@ -234,20 +232,6 @@ rewrapSubtree (FieldWrapper x) = FieldWrapper x
 unrewrapSubtree :: FieldWrapper (TreeOf a) ('TreeShapeRecord r) -> FieldWrapper (Record (TreeOf a)) ('ShR r)
 unrewrapSubtree (FieldWrapper x) = FieldWrapper x
 
-mapSubtree ::
-  (IsRecord subtree) =>
-  (forall sh. (SingI sh) => FieldWrapper (TreeOf a) sh -> FieldWrapper (TreeOf b) sh) ->
-  FieldWrapper (TreeOf a) ('TreeShapeRecord subtree) ->
-  FieldWrapper (TreeOf b) ('TreeShapeRecord subtree)
-mapSubtree f = rewrapSubtree . mapRecord f . unrewrapSubtree
-
-mapSubtreeEx ::
-  (IsRecord subtree) =>
-  (forall sh. Sing sh -> TreeOf a @@ sh -> TreeOf b @@ sh) ->
-  subtree (TreeOf a) ->
-  subtree (TreeOf b)
-mapSubtreeEx sh f = mapRecordEx sh f
-
 sumBuilderEx :: (HasBuilderField a) => Sing sh -> TreeBuilder a sh -> FieldWrapper (TreeOf a) sh
 sumBuilderEx (STreeLeaf sh) (TreeBuilder x) = rewrapLeaf (withSingI sh (sumBuilder x))
 sumBuilderEx (STreeRecord sh) (TreeBuilder x) = rewrapSubtree (withSingI sh (sumBuilder x))
@@ -265,7 +249,7 @@ unrewrapBVarSubtree :: BVar r (FieldWrapper (TreeOf a) (TreeShapeRecord subtree)
 unrewrapBVarSubtree (BVar x dx) = BVar (unrewrapSubtree x) (inlineNode unrewrapSubtree TreeBuilder dx)
 
 unrewrapBVarLeaf :: forall a leafSh r. BVar r (FieldWrapper (TreeOf a) ('TreeShapeLeaf leafSh)) -> BVar r (FieldWrapper a leafSh)
-unrewrapBVarLeaf (BVar (FieldWrapper x) dx) = BVar (FieldWrapper x) (inlineNode unrewrapLeaf TreeBuilder dx)
+unrewrapBVarLeaf (BVar x dx) = BVar (unrewrapLeaf x) (inlineNode unrewrapLeaf TreeBuilder dx)
 
 splitBVarTreeEx ::
   forall a b sh r.
