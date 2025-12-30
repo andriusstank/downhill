@@ -13,7 +13,8 @@ module Downhill.Linear.AD (
     SparseFun(..),
     realNode, realNode', sparseNode, inlineNode,
     dense1, dense2,
-    pattern T2
+    pattern T2,
+    sparseTerm
 
 )
 where
