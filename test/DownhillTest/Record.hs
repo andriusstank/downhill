@@ -25,10 +25,11 @@ import Downhill.Tree.Record (
   RecordBuilder,
   ShR (..),
   fieldBuilder,
+  joinBVarRecord,
   recordField,
   splitBVarRecord,
  )
-import DownhillTest.MonoLeaf (Field, MonoLeaf, splitMonoLeaf)
+import DownhillTest.MonoLeaf (Field, MonoLeaf, joinMonoLeaf, splitMonoLeaf)
 import GHC.Records (getField)
 import NumHask.Prelude hiding (Field)
 import Test.HUnit (Assertion, (@=?))
@@ -85,7 +86,7 @@ builderTests = it "builderTests" $ do
       fs :: MyRecord (TyCon1 (FieldGetter MyRecord))
       fs = recordGettersEx
       mkBuilder :: FieldGetter MyRecord '() -> Int -> RecordBuilder ('ShR MyRecord) (MonoLeaf Int)
-      --mkBuilder field value = fieldBuilder field (Just (Sum (FieldWrapper value)))
+      -- mkBuilder field value = fieldBuilder field (Just (Sum (FieldWrapper value)))
       mkBuilder field value = fieldBuilder field (identityBuilder value)
   sumBuilder mempty @=? mkRecord 0 0
   sumBuilder (identityBuilder (mkRecord 3 4)) @=? mkRecord 3 4
@@ -121,10 +122,36 @@ splitBVarTests = do
   x = FieldWrapper (MyRecord 7 11)
   (y, dy) = unDFun (BVar.ad myBVarFun) x
 
+myFunT :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => a -> MyRecord (MonoLeaf a)
+myFunT x = MyRecord (x |* 3) (x |* 5)
+
+myBVarFunT ::
+  (IsScalar a, HasBuilder a, FromInteger a) =>
+  BVar r a -> BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord))
+myBVarFunT = joinMyRecord . FieldWrapper . myFunT
+
+joinMyRecord ::
+  forall r a.
+  (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
+  FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord) ->
+  BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord))
+joinMyRecord = joinBVarRecord joinMonoLeaf
+
+joinBVarTests :: Assertion
+joinBVarTests = do
+  y @=? MyRecord (3 * 11) (5 * 11)
+  FieldWrapper (MyRecord 13 17) |*> dy @=? 3 * 13 + 5 * 17
+  dy <*| 19 @=? FieldWrapper (MyRecord (3 * 19) (5 * 19))
+ where
+  x :: Int
+  x = 11
+  (FieldWrapper y, dy) = unDFun (BVar.ad myBVarFunT) x
+
 recordTests :: SpecWith ()
 recordTests = describe "Record" $ do
   it "fill" (testFill1 >> testFill2)
   it "plus" testPlus
   it "getter" testField
   it "split" splitBVarTests
+  it "join" joinBVarTests
   builderTests

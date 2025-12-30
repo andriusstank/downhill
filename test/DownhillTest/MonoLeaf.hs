@@ -4,7 +4,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module DownhillTest.MonoLeaf (MonoLeaf, Field, splitMonoLeaf)
+module DownhillTest.MonoLeaf (MonoLeaf, Field, splitMonoLeaf, joinMonoLeaf)
 where
 
 import Data.Singletons (Apply, SingI (sing), type (@@), type (~>))
@@ -80,12 +80,19 @@ instance (Manifold a, SingI sh) => Manifold (FieldWrapper (MonoLeaf a) sh) where
     FieldWrapper x .+~^ FieldWrapper dx = case sing @sh of
         STuple0 -> FieldWrapper (x .+~^ dx)
 
-splitMonoLeaf' :: forall r a. (HasBuilder (DualOf (Tang a))) => BVar r (FieldWrapper (MonoLeaf a) '()) -> FieldWrapper (MonoLeaf (BVar r a)) '()
+splitMonoLeaf' :: forall r a. () => BVar r (FieldWrapper (MonoLeaf a) '()) -> FieldWrapper (MonoLeaf (BVar r a)) '()
 splitMonoLeaf' (BVar (FieldWrapper x) dx) = FieldWrapper (BVar x (inlineNode unFieldWrapper id dx))
 
-splitMonoLeaf :: forall r a sh. (SingI sh, HasBuilder (DualOf (Tang a))) => BVar r (FieldWrapper (MonoLeaf a) sh) -> FieldWrapper (MonoLeaf (BVar r a)) sh
+splitMonoLeaf :: forall r a sh. (SingI sh) => BVar r (FieldWrapper (MonoLeaf a) sh) -> FieldWrapper (MonoLeaf (BVar r a)) sh
 splitMonoLeaf = case sing @sh of
     STuple0 -> splitMonoLeaf'
+
+joinMonoLeaf' :: forall r a. () => FieldWrapper (MonoLeaf (BVar r a)) '() -> BVar r (FieldWrapper (MonoLeaf a) '())
+joinMonoLeaf' (FieldWrapper (BVar x dx)) = BVar (FieldWrapper x) (inlineNode FieldWrapper id dx)
+
+joinMonoLeaf :: forall r a sh. SingI sh => FieldWrapper (MonoLeaf (BVar r a)) sh -> BVar r (FieldWrapper (MonoLeaf a) sh)
+joinMonoLeaf = case sing @sh of
+    STuple0 -> joinMonoLeaf'
 
 {-
 joinMonoLeaf' :: forall r a. (HasBuilder (DualOf (Tang a))) => FieldWrapper (MonoLeaf (BVar r a)) '() -> BVar r (FieldWrapper (MonoLeaf a) '())
