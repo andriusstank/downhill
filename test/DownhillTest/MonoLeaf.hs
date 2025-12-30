@@ -93,11 +93,3 @@ joinMonoLeaf' (FieldWrapper (BVar x dx)) = BVar (FieldWrapper x) (inlineNode Fie
 joinMonoLeaf :: forall r a sh. SingI sh => FieldWrapper (MonoLeaf (BVar r a)) sh -> BVar r (FieldWrapper (MonoLeaf a) sh)
 joinMonoLeaf = case sing @sh of
     STuple0 -> joinMonoLeaf'
-
-{-
-joinMonoLeaf' :: forall r a. (HasBuilder (DualOf (Tang a))) => FieldWrapper (MonoLeaf (BVar r a)) '() -> BVar r (FieldWrapper (MonoLeaf a) '())
-joinMonoLeaf' (FieldWrapper (BVar x dx)) = BVar (FieldWrapper{unFieldWrapper = x}) (inlineNode FieldWrapper f dx)
-  where
-    f :: Maybe (Sum (FieldWrapper (MonoLeaf (DualOf (Tang a))) '())) -> VecBuilder (DualOf (Tang a))
-    f = _
--}

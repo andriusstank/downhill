@@ -28,8 +28,8 @@ import Downhill.Tree.Record (
     fieldBuilder,
     recordField,
  )
-import Downhill.Tree.Tree (TreeOf, TreeShape (TreeShapeLeaf, TreeShapeRecord), fillTree, splitBVarTree)
-import DownhillTest.MonoLeaf (Field, MonoLeaf, splitMonoLeaf)
+import Downhill.Tree.Tree (TreeOf, TreeShape (TreeShapeLeaf, TreeShapeRecord), fillTree, joinBVarTree, splitBVarTree)
+import DownhillTest.MonoLeaf (Field, MonoLeaf, joinMonoLeaf, splitMonoLeaf)
 import GHC.Records (getField)
 import NumHask.Prelude hiding (Field)
 import Test.HUnit (Assertion, assert, (@=?))
@@ -143,6 +143,31 @@ splitBVarTests = do
     x = FieldWrapper (MyBigRecord (MyRecord 23 29) (MyRecord 31 37) 41)
     (y, dy) = unDFun (BVar.ad myBVarFun) x
 
+joinMyTree ::
+    forall r a.
+    (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
+    FieldWrapper (TreeOf (MonoLeaf (BVar r a))) ('TreeShapeRecord MyBigRecord) ->
+    BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord))
+joinMyTree = joinBVarTree joinMonoLeaf
+
+myFunT :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => a -> MyBigRecord (TreeOf (MonoLeaf a))
+myFunT x = MyBigRecord (MyRecord (x |* 3) (x |* 5)) (MyRecord (x |* 7) (x |* 11)) (x |* 17)
+
+myBVarFunT ::
+    (IsScalar a, HasBuilder a, FromInteger a) =>
+    BVar r a -> BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord))
+myBVarFunT = joinMyTree . FieldWrapper . myFunT
+
+joinBVarTests :: Assertion
+joinBVarTests = do
+    y @=? MyBigRecord (MyRecord (13 * 3) (13 * 5)) (MyRecord (13*7) (13 * 11)) (13 * 17)
+    FieldWrapper (MyBigRecord (MyRecord 19 23) (MyRecord 29 31) 37) |*> dy @=? 3*19 + 5*23 + 7*29 + 11*31 + 17*37
+    dy <*| 41 @=? FieldWrapper (MyBigRecord (MyRecord (41 * 3) (41 * 5)) (MyRecord (41*7) (41 * 11)) (41 * 17))
+  where
+    x :: Int
+    x = 13
+    (FieldWrapper y, dy) = unDFun (BVar.ad myBVarFunT) x
+
 treeTests :: SpecWith ()
 treeTests = describe "Tree" $ do
     it "fill" testFill1
@@ -150,4 +175,5 @@ treeTests = describe "Tree" $ do
     it "small builder" smallBuilderTest
     it "big builder" bigBuilderTest
     it "split" splitBVarTests
+    it "join" joinBVarTests
     return ()

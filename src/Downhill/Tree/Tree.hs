@@ -14,7 +14,10 @@ module Downhill.Tree.Tree (
   fillTreeEx,
   mapTreeEx,
   splitBVarTree,
-  foldTreeEx, foldTree, sumTree
+  joinBVarTree,
+  foldTreeEx,
+  foldTree,
+  sumTree,
 )
 where
 
@@ -24,7 +27,7 @@ import Downhill.Linear.AD (inlineNode)
 import Downhill.Linear.Builder (HasBuilder (VecBuilder, identityBuilder, sumBuilder))
 import Downhill.Manifold (Manifold (..))
 import Downhill.Tree.FieldWrapper (EqField, FieldDualOf, FieldGrad, FieldScalar, FieldTang, FieldWrapper (..), HasBuilderField, ManifoldField, MultiplicativeActionField, VSpaceField)
-import Downhill.Tree.Record (IsRecord (..), Record, SShR (SShR), ShR (ShR), foldZipRecordEx, splitBVarRecord)
+import Downhill.Tree.Record (IsRecord (..), Record, SShR (SShR), ShR (ShR), foldZipRecordEx, joinBVarRecord, splitBVarRecord)
 import Downhill.VSpace (VSpace ((|*|)))
 import NumHask.Prelude
 import Prelude.Singletons (ConstSym1)
@@ -247,6 +250,12 @@ instance (HasBuilderField a, SingI sh) => HasBuilder (FieldWrapper (TreeOf a) sh
   sumBuilder = sumBuilderEx2 sing
   identityBuilder = identityBuilderEx2 sing
 
+rewrapBVarSubtree :: BVar r (FieldWrapper (Record (TreeOf a)) ('ShR subtree)) -> BVar r (FieldWrapper (TreeOf a) (TreeShapeRecord subtree))
+rewrapBVarSubtree (BVar x dx) = BVar (rewrapSubtree x) (inlineNode rewrapSubtree unFieldWrapper dx)
+
+rewrapBVarLeaf :: forall a leafSh r. BVar r (FieldWrapper a leafSh) -> BVar r (FieldWrapper (TreeOf a) ('TreeShapeLeaf leafSh))
+rewrapBVarLeaf (BVar x dx) = BVar (rewrapLeaf x) (inlineNode rewrapLeaf unFieldWrapper dx)
+
 unrewrapBVarSubtree :: BVar r (FieldWrapper (TreeOf a) (TreeShapeRecord subtree)) -> BVar r (FieldWrapper (Record (TreeOf a)) ('ShR subtree))
 unrewrapBVarSubtree (BVar x dx) = BVar (unrewrapSubtree x) (inlineNode unrewrapSubtree FieldWrapper dx)
 
@@ -265,7 +274,24 @@ splitBVarTree ::
   FieldWrapper (TreeOf b) sh
 splitBVarTree splitBVarLeaf = go'
  where
-  go' :: forall sh'. SingI sh' => BVar r (FieldWrapper (TreeOf a) sh') -> FieldWrapper (TreeOf b) sh'
+  go' :: forall sh'. (SingI sh') => BVar r (FieldWrapper (TreeOf a) sh') -> FieldWrapper (TreeOf b) sh'
   go' = case sing @sh' of
     STreeLeaf leafSh -> rewrapLeaf . withSingI leafSh splitBVarLeaf . unrewrapBVarLeaf
     STreeRecord SShR -> rewrapSubtree . splitBVarRecord go' . unrewrapBVarSubtree
+
+joinBVarTree ::
+  forall a b sh r.
+  ( SingI sh
+  , ManifoldField a
+  , HasBuilderField (FieldTang a)
+  , HasBuilderField (FieldGrad a)
+  ) =>
+  (forall sh'. (SingI sh') => FieldWrapper b sh' -> BVar r (FieldWrapper a sh')) ->
+  FieldWrapper (TreeOf b) sh ->
+  BVar r (FieldWrapper (TreeOf a) sh)
+joinBVarTree joinBVarLeaf = go'
+ where
+  go' :: forall sh'. (SingI sh') => FieldWrapper (TreeOf b) sh' -> BVar r (FieldWrapper (TreeOf a) sh')
+  go' = case sing @sh' of
+    STreeLeaf leafSh -> rewrapBVarLeaf . withSingI leafSh joinBVarLeaf . unrewrapLeaf
+    STreeRecord SShR -> rewrapBVarSubtree . joinBVarRecord go' . unrewrapSubtree
