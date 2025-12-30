@@ -24,13 +24,10 @@ module Downhill.Tree.Record (
     fillRecordA,
     recordGetters,
     FieldGetter (..),
-    recordField,
     fieldView,
     RecordBuilder,
     fieldBuilder,
     ConstField,
-    splitBVarRecord,
-    joinBVarRecord
 )
 where
 
@@ -43,9 +40,10 @@ import Data.Singletons (Apply, Proxy, Sing, SingI (sing), TyCon1, withSingI, typ
 import Downhill.BVar (BVar (BVar, bvarValue))
 import Downhill.Linear.AD (AD (..), SparseFun (..), realNode, sparseNode)
 import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
-import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum), VecPair (..), Term)
+import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum), Term, VecPair (..))
 import Downhill.Linear.Fun (DualOf)
 import Downhill.Manifold (Manifold (..), Tang)
+import Downhill.Tree.BVar (BVarField (..))
 import Downhill.Tree.FieldWrapper (
     AdditiveField,
     FieldDualOf,
@@ -70,12 +68,7 @@ type instance Apply ProxyField sh = Proxy sh
 data ConstField a :: leafShape -> Type
 type instance Apply (ConstField a) sh = a
 
--- TODO: record selector `get` is useless
--- TODO: move `sh` into Sing = SShR
-data FieldGetter record sh = FieldGetter {sh :: Sing sh, get :: forall f. record f -> f @@ sh}
-
-recordField :: FieldGetter record sh -> record f -> f @@ sh
-recordField (FieldGetter _ f) = f
+data FieldGetter record sh = FieldGetter {recordFieldSh :: Sing sh, recordField :: forall f. record f -> f @@ sh}
 
 wrappedRecordField :: FieldGetter record sh -> FieldWrapper (Record f) ('ShR record) -> FieldWrapper f sh
 wrappedRecordField getter = FieldWrapper . recordField getter . unFieldWrapper
@@ -537,8 +530,8 @@ splitBVarRecord ::
 splitBVarRecord f x = case sing @sh of
     SShR -> mapRecord (f . getBVarField x . unFieldWrapper) recordGetters
 
-data BVarField (r :: Type) (a :: k ~> Type) :: k ~> Type
-type instance Apply (BVarField r a) sh = BVar r (FieldWrapper a sh)
+data BVarFieldSym (r :: Type) (a :: k ~> Type) :: k ~> Type
+type instance Apply (BVarFieldSym r a) sh = BVar r (FieldWrapper a sh)
 
 joinBVarRecord' ::
     forall r a b record.
@@ -553,7 +546,7 @@ joinBVarRecord' ::
     BVar r (FieldWrapper (Record a) ('ShR record))
 joinBVarRecord' f xrec = BVar y dy
   where
-    brec :: FieldWrapper (Record (BVarField r a)) ('ShR record)
+    brec :: FieldWrapper (Record (BVarFieldSym r a)) ('ShR record)
     brec = mapRecord (FieldWrapper . f) xrec
     y :: FieldWrapper (Record a) ('ShR record)
     y = mapRecord (bvarValue . unFieldWrapper) brec
@@ -562,7 +555,7 @@ joinBVarRecord' f xrec = BVar y dy
     mkTerms ::
         forall sh'.
         (SingI sh') =>
-        FieldWrapper (BVarField r a) sh' ->
+        FieldWrapper (BVarFieldSym r a) sh' ->
         FieldWrapper (TyCon1 (FieldGetter record)) sh' ->
         DList
             ( Term
@@ -717,3 +710,15 @@ instance
       where
         go :: forall leaf. record leaf -> leaf @@ sh
         go = gettersGPolyRecord @(Rep (record leaf)) @(ReverseList path '[ 'GfisIntoK1]) . from
+
+instance
+    ( BVarField f
+    , ManifoldField f
+    , HasBuilderField (FieldTang f)
+    , HasBuilderField (FieldGrad f)
+    ) =>
+    BVarField (Record f)
+    where
+    type FieldBVar r (Record f) = Record (FieldBVar r f)
+    splitField = splitBVarRecord splitField
+    joinField = joinBVarRecord joinField

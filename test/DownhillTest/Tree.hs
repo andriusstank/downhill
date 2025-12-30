@@ -28,7 +28,7 @@ import Downhill.Tree.Record (
     fieldBuilder,
     recordField,
  )
-import Downhill.Tree.Tree (TreeOf, TreeShape (TreeShapeLeaf, TreeShapeRecord), fillTree, joinBVarTree, splitBVarTree)
+import Downhill.Tree.Tree (TreeOf, TreeShape (TreeShapeLeaf, TreeShapeRecord), fillTree)
 import DownhillTest.MonoLeaf (Field, MonoLeaf)
 import GHC.Records (getField)
 import NumHask.Prelude hiding (Field)
@@ -124,7 +124,7 @@ splitMyTree ::
     (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
     BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord)) ->
     FieldWrapper (TreeOf (MonoLeaf (BVar r a))) ('TreeShapeRecord MyBigRecord)
-splitMyTree = splitBVarTree splitField
+splitMyTree = splitField
 
 myFun :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => MyBigRecord (TreeOf (MonoLeaf a)) -> a
 myFun x = (x.subrA.fieldA |* 3) + (x.subrA.fieldB |* 5) + (x.subrB.fieldB |* 7) + (x.fieldC |* 11)
@@ -149,7 +149,7 @@ joinMyTree ::
     (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
     FieldWrapper (TreeOf (MonoLeaf (BVar r a))) ('TreeShapeRecord MyBigRecord) ->
     BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord))
-joinMyTree = joinBVarTree joinField
+joinMyTree = joinField
 
 myFunT :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => a -> MyBigRecord (TreeOf (MonoLeaf a))
 myFunT x = MyBigRecord (MyRecord (x |* 3) (x |* 5)) (MyRecord (x |* 7) (x |* 11)) (x |* 17)

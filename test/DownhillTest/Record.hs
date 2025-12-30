@@ -24,9 +24,7 @@ import Downhill.Tree.Record (
   RecordBuilder,
   ShR (..),
   fieldBuilder,
-  joinBVarRecord,
   recordField,
-  splitBVarRecord,
  )
 import DownhillTest.MonoLeaf (Field, MonoLeaf)
 import GHC.Records (getField)
@@ -102,7 +100,7 @@ splitMyRecord ::
   (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
   BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord)) ->
   FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord)
-splitMyRecord = splitBVarRecord splitField
+splitMyRecord = splitField
 
 myFun :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => MyRecord (MonoLeaf a) -> a
 myFun x = (x.fieldA |* 3) + (x.fieldB |* 5)
@@ -135,7 +133,7 @@ joinMyRecord ::
   (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
   FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord) ->
   BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord))
-joinMyRecord = joinBVarRecord joinField
+joinMyRecord = joinField
 
 joinBVarTests :: Assertion
 joinBVarTests = do
