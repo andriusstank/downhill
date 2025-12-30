@@ -15,11 +15,12 @@ module Downhill.Tree.FieldWrapper (
     MultiplicativeActionField,
     VSpaceField,
     FieldDualOf,
-    FieldTang, FieldGrad,
+    FieldTang,
+    FieldGrad,
     ManifoldFieldSh,
     ManifoldField,
     DenseFieldWrapper (..),
-    HasBuilderField
+    HasBuilderField,
 )
 where
 
@@ -144,7 +145,7 @@ instance (Additive (FieldWrapper field sh)) => HasBuilder (DenseFieldWrapper fie
     sumBuilder = DenseFieldWrapper . unFieldWrapper . getSum . maybeToMonoid
     identityBuilder = Just . Sum . FieldWrapper . unDenseFieldWrapper
 
-class (forall sh. SingI sh => HasBuilder (FieldWrapper f sh)) => HasBuilderField f
-instance (forall sh. SingI sh => HasBuilder (FieldWrapper f sh)) => HasBuilderField f
+class (forall sh. (SingI sh) => HasBuilder (FieldWrapper f sh)) => HasBuilderField f
+instance (forall sh. (SingI sh) => HasBuilder (FieldWrapper f sh)) => HasBuilderField f
 
 type instance Tang (FieldWrapper field sh) = FieldWrapper (FieldTang field) sh

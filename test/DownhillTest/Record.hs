@@ -9,13 +9,12 @@
 module DownhillTest.Record (recordTests)
 where
 
-import Data.Singletons (SingI (sing), TyCon1, type (@@), type (~>))
+import Data.Singletons (TyCon1, type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
 import Downhill.BVar (BVar (..), unDFun)
 import Downhill.BVar qualified as BVar
-import Downhill.Linear.AD (inlineNode)
 import Downhill.Linear.Builder (HasBuilder (..))
-import Downhill.Linear.Fun (DualOf, (<*|), (|*>))
+import Downhill.Linear.Fun ((<*|), (|*>))
 import Downhill.Manifold (Grad, IsScalar, Manifold (..), Tang)
 import Downhill.Tree.FieldWrapper (FieldWrapper (..))
 import Downhill.Tree.Record (
@@ -29,11 +28,12 @@ import Downhill.Tree.Record (
   recordField,
   splitBVarRecord,
  )
-import DownhillTest.MonoLeaf (Field, MonoLeaf, joinMonoLeaf, splitMonoLeaf)
+import DownhillTest.MonoLeaf (Field, MonoLeaf)
 import GHC.Records (getField)
 import NumHask.Prelude hiding (Field)
 import Test.HUnit (Assertion, (@=?))
 import Test.Hspec (SpecWith, describe, it)
+import Downhill.Tree.BVar (BVarField(..))
 
 data MyRecord (f :: () ~> Type) = MyRecord
   { fieldA :: Field f
@@ -102,7 +102,7 @@ splitMyRecord ::
   (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
   BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord)) ->
   FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord)
-splitMyRecord = splitBVarRecord splitMonoLeaf
+splitMyRecord = splitBVarRecord splitField
 
 myFun :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => MyRecord (MonoLeaf a) -> a
 myFun x = (x.fieldA |* 3) + (x.fieldB |* 5)
@@ -135,7 +135,7 @@ joinMyRecord ::
   (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
   FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord) ->
   BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord))
-joinMyRecord = joinBVarRecord joinMonoLeaf
+joinMyRecord = joinBVarRecord joinField
 
 joinBVarTests :: Assertion
 joinBVarTests = do

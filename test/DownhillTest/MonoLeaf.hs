@@ -4,7 +4,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module DownhillTest.MonoLeaf (MonoLeaf, Field, splitMonoLeaf, joinMonoLeaf)
+module DownhillTest.MonoLeaf (MonoLeaf, Field)
 where
 
 import Data.Singletons (Apply, SingI (sing), type (@@), type (~>))
@@ -17,6 +17,7 @@ import Downhill.Manifold (Manifold (..), Tang)
 import Downhill.Tree.FieldWrapper (FieldDualOf, FieldScalar, FieldTang, FieldWrapper (..))
 import Downhill.VSpace (VSpace (..))
 import NumHask.Prelude hiding (Field)
+import Downhill.Tree.BVar (BVarField(..))
 
 data MonoLeaf (a :: Type) :: () ~> Type
 type instance Apply (MonoLeaf a) '() = a
@@ -93,3 +94,8 @@ joinMonoLeaf' (FieldWrapper (BVar x dx)) = BVar (FieldWrapper x) (inlineNode Fie
 joinMonoLeaf :: forall r a sh. SingI sh => FieldWrapper (MonoLeaf (BVar r a)) sh -> BVar r (FieldWrapper (MonoLeaf a) sh)
 joinMonoLeaf = case sing @sh of
     STuple0 -> joinMonoLeaf'
+
+instance BVarField (MonoLeaf a) where
+    type FieldBVar (r :: Type) (MonoLeaf a) = MonoLeaf (BVar r a)
+    splitField = splitMonoLeaf
+    joinField = joinMonoLeaf
