@@ -68,4 +68,5 @@ test-suite downhill-test
         downhill,
         numhask,
         singletons, singletons-base,
-        hspec, hspec-expectations, HUnit
+        hspec, hspec-expectations, HUnit,
+        constraints

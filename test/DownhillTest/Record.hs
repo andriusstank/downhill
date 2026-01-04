@@ -9,13 +9,14 @@
 module DownhillTest.Record (recordTests)
 where
 
-import Data.Singletons (TyCon1, type (@@), type (~>))
+import Data.Singletons (SingI (sing), TyCon1, type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
 import Downhill.BVar (BVar (..), unDFun)
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.Builder (HasBuilder (..))
 import Downhill.Linear.Fun ((<*|), (|*>))
 import Downhill.Manifold (Grad, IsScalar, Manifold (..), Tang)
+import Downhill.Tree.BVar (BVarField (..))
 import Downhill.Tree.FieldWrapper (FieldWrapper (..))
 import Downhill.Tree.Record (
   FieldGetter,
@@ -24,14 +25,16 @@ import Downhill.Tree.Record (
   RecordBuilder,
   ShR (..),
   fieldBuilder,
+  mapRecord,
   recordField,
+  toListRecord,
  )
 import DownhillTest.MonoLeaf (Field, MonoLeaf)
 import GHC.Records (getField)
 import NumHask.Prelude hiding (Field)
+import Prelude.Singletons (ConstSym1)
 import Test.HUnit (Assertion, (@=?))
 import Test.Hspec (SpecWith, describe, it)
-import Downhill.Tree.BVar (BVarField(..))
 
 data MyRecord (f :: () ~> Type) = MyRecord
   { fieldA :: Field f
@@ -41,22 +44,26 @@ data MyRecord (f :: () ~> Type) = MyRecord
 
 instance IsRecord MyRecord
 deriving instance (Eq a) => Eq (MyRecord (MonoLeaf a))
+deriving instance (Eq a) => Eq (MyRecord (ConstSym1 a))
 deriving instance (Show a) => Show (MyRecord (MonoLeaf a))
+deriving instance (Show a) => Show (MyRecord (ConstSym1 a))
 
 testFill1 :: Assertion
-testFill1 = fillRecordEx f @=? (MyRecord 3 3 :: MyRecord (MonoLeaf Int))
+testFill1 = fillRecordEx f @=? (MyRecord 3 3 :: MyRecord (ConstSym1 Int))
  where
-  f :: STuple0 sh -> MonoLeaf Int @@ sh
+  f :: STuple0 sh -> ConstSym1 Int @@ sh
   f STuple0 = 3
 
 testFill2 :: Assertion
-testFill2 = fillRecordEx f @=? (MyRecord 1 1 :: MyRecord (MonoLeaf Int))
+testFill2 = fillRecordEx f @=? (MyRecord 1 1 :: MyRecord (ConstSym1 Int))
  where
-  f :: STuple0 sh -> MonoLeaf Int @@ sh
+  f :: STuple0 sh -> ConstSym1 Int @@ sh
   f STuple0 = one
 
 deriving instance Show (FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord))
 deriving instance Eq (FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord))
+deriving instance Show (FieldWrapper (Record (ConstSym1 Int)) ('ShR MyRecord))
+deriving instance Eq (FieldWrapper (Record (ConstSym1 Int)) ('ShR MyRecord))
 
 testPlus :: Assertion
 testPlus = FieldWrapper (MyRecord 8 10) @=? (x + y)
@@ -145,6 +152,12 @@ joinBVarTests = do
   x = 11
   (FieldWrapper y, dy) = unDFun (BVar.ad myBVarFunT) x
 
+toListTest :: Assertion
+toListTest = do
+  let x :: FieldWrapper (Record (ConstSym1 Int)) ('ShR MyRecord)
+      x = FieldWrapper (MyRecord 3 4)
+  toListRecord x @=? [3, 4]
+
 recordTests :: SpecWith ()
 recordTests = describe "Record" $ do
   it "fill" (testFill1 >> testFill2)
@@ -152,4 +165,5 @@ recordTests = describe "Record" $ do
   it "getter" testField
   it "split" splitBVarTests
   it "join" joinBVarTests
+  it "fold" toListTest
   builderTests

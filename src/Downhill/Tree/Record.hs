@@ -17,6 +17,7 @@ module Downhill.Tree.Record (
     foldRecordEx,
     foldRecord,
     foldMapRecord,
+    toListRecord,
     mapRecord,
     zipRecord,
     foldZipRecordEx,
@@ -96,6 +97,7 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         g (record f)
     fillRecordExA = fmap to . fillGRecordA @(Rep (record ProxyField)) @f
 
+    -- TODO: remove foldMapRecordEx, keep foldMapRecordEx2
     foldMapRecordEx :: (Monoid m) => (forall sh. Sing sh -> a @@ sh -> m) -> record a -> m
     default foldMapRecordEx ::
         forall a m.
@@ -110,6 +112,21 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         record a ->
         m
     foldMapRecordEx f = foldMapGRecord @(Rep (record ProxyField)) @a f . from
+
+    foldMapRecordEx2 :: (forall sh. Sing sh -> a @@ sh -> b -> b) -> b -> record a -> b
+    default foldMapRecordEx2 ::
+        forall a b.
+        ( Generic (record a)
+        , GFillRecord
+            (Rep (record ProxyField))
+            a
+            (Rep (record a))
+        ) =>
+        (forall sh. Sing sh -> a @@ sh -> b -> b) ->
+            b ->
+        record a ->
+        b
+    foldMapRecordEx2 f b = foldMapGRecord2 @(Rep (record ProxyField)) @a f b . from
 
     mapRecordEx :: (forall sh. Sing sh -> a @@ sh -> b @@ sh) -> record a -> record b
     default mapRecordEx ::
@@ -286,9 +303,19 @@ fillRecordA f = FieldWrapper <$> fillRecordExA g
 foldRecordEx :: (Monoid m, IsRecord record) => record (ConstSym1 m) -> m
 foldRecordEx = foldMapRecordEx (const id)
 
+foldRecordEx2 :: (IsRecord record) => (a->b->b) -> b -> record (ConstSym1 a) -> b
+foldRecordEx2 f = foldMapRecordEx2 (const f)
+
 foldRecord :: forall m sh. (Monoid m, SingI sh) => FieldWrapper (Record (ConstSym1 m)) sh -> m
 foldRecord = case sing @sh of
     SShR -> foldRecordEx . unFieldWrapper
+
+foldRecord2 :: forall a b sh. (SingI sh) => (a->b->b) -> b -> FieldWrapper (Record (ConstSym1 a)) sh -> b
+foldRecord2 f b = case sing @sh of
+    SShR -> foldRecordEx2 f b . unFieldWrapper
+
+toListRecord :: SingI sh => FieldWrapper (Record (ConstSym1 a)) sh -> [a]
+toListRecord = foldRecord2 (:) []
 
 foldMapRecord ::
     forall sh f m.
@@ -588,22 +615,27 @@ class GFillRecord metaTT tt (grecord :: Type -> Type) where
     fillGRecord :: (forall sh. Sing sh -> tt @@ sh) -> grecord x
     fillGRecordA :: (Applicative f) => (forall sh. Sing sh -> f (tt @@ sh)) -> f (grecord x)
     foldMapGRecord :: (Monoid m) => (forall sh. Sing sh -> tt @@ sh -> m) -> grecord x -> m
+    foldMapGRecord2 :: (forall sh. Sing sh -> tt @@ sh -> b -> b) -> b -> grecord x -> b
 instance (GFillRecord metaTT tt record) => GFillRecord (M1 i c metaTT) tt (M1 i c record) where
     fillGRecord f = M1 (fillGRecord @metaTT @tt f)
     fillGRecordA f = M1 <$> fillGRecordA @metaTT @tt f
     foldMapGRecord f (M1 x) = foldMapGRecord @metaTT @tt f x
+    foldMapGRecord2 f b (M1 x) = foldMapGRecord2 @metaTT @tt f b x
 instance (SingI sh, f ~ tt @@ sh) => GFillRecord (K1 R (Proxy sh)) tt (K1 R f) where
     fillGRecord f = K1 (f (sing @sh))
     fillGRecordA f = K1 <$> f (sing @sh)
     foldMapGRecord f (K1 x) = f (sing @sh) x
+    foldMapGRecord2 f b (K1 x) = f (sing @sh) x b
 instance (GFillRecord mf tt f, GFillRecord mg tt g) => GFillRecord (mf :*: mg) tt (f :*: g) where
     fillGRecord f = fillGRecord @mf @tt f :*: fillGRecord @mg @tt f
     fillGRecordA f = liftA2 (:*:) (fillGRecordA @mf @tt f) (fillGRecordA @mg @tt f)
     foldMapGRecord f (x :*: y) = foldMapGRecord @mf @tt f x <> foldMapGRecord @mg @tt f y
+    foldMapGRecord2 f b (x :*: y) = foldMapGRecord2 @mf @tt f (foldMapGRecord2 @mg @tt f b y) x
 instance GFillRecord U1 f U1 where
     fillGRecord _ = U1
     fillGRecordA _ = pure U1
     foldMapGRecord _ U1 = mempty
+    foldMapGRecord2 _ b U1 = b
 
 -------------- Map --------------
 

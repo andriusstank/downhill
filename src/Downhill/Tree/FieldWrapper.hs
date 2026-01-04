@@ -30,6 +30,7 @@ import Downhill.Linear.Fun (DualOf)
 import Downhill.Manifold (Manifold, Tang)
 import Downhill.VSpace (VSpace)
 import NumHask.Prelude
+import Prelude.Singletons (ConstSym1)
 
 newtype FieldWrapper field sh = FieldWrapper {unFieldWrapper :: field @@ sh}
 
@@ -149,3 +150,21 @@ class (forall sh. (SingI sh) => HasBuilder (FieldWrapper f sh)) => HasBuilderFie
 instance (forall sh. (SingI sh) => HasBuilder (FieldWrapper f sh)) => HasBuilderField f
 
 type instance Tang (FieldWrapper field sh) = FieldWrapper (FieldTang field) sh
+
+deriving via (a :: Type) instance Additive a => Additive (FieldWrapper (ConstSym1 a) sh)
+deriving via (a :: Type) instance Subtractive a => Subtractive (FieldWrapper (ConstSym1 a) sh)
+deriving via (a :: Type) instance Multiplicative a => Multiplicative (FieldWrapper (ConstSym1 a) sh)
+deriving via (a :: Type) instance Semigroup a => Semigroup (FieldWrapper (ConstSym1 a) sh)
+deriving via (a :: Type) instance Monoid a => Monoid (FieldWrapper (ConstSym1 a) sh)
+instance (HasBuilder a) => HasBuilder (FieldWrapper (ConstSym1 a) sh) where
+    type VecBuilder (FieldWrapper (ConstSym1 a) sh) = VecBuilder a
+    sumBuilder = FieldWrapper . sumBuilder
+    identityBuilder = identityBuilder . unFieldWrapper
+deriving via (a :: Type) instance Eq a => Eq (FieldWrapper (ConstSym1 a) sh)
+deriving via (a :: Type) instance FromInteger a => FromInteger (FieldWrapper (ConstSym1 a) sh)
+type instance FieldTang (ConstSym1 a) = ConstSym1 (Tang a)
+type instance FieldDualOf (ConstSym1 a) = ConstSym1 (DualOf a)
+type instance FieldScalar (ConstSym1 a) = Scalar a
+deriving via (a :: Type) instance MultiplicativeAction a => MultiplicativeAction (FieldWrapper (ConstSym1 a) sh)
+deriving via (a :: Type) instance VSpace a => VSpace (FieldWrapper (ConstSym1 a) sh)
+deriving via (a :: Type) instance Manifold a => Manifold (FieldWrapper (ConstSym1 a) sh)
