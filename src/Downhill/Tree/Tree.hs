@@ -15,8 +15,8 @@ module Downhill.Tree.Tree (
   mapTreeEx,
   foldTreeEx,
   foldTree,
-  foldTreeEx2,
-  foldTree2,
+  foldMapTreeEx,
+  foldMapTree,
   sumTree,
 )
 where
@@ -107,17 +107,6 @@ zipTree f (FieldWrapper x) (FieldWrapper y) = FieldWrapper (zipTreeEx @a @b @c @
   go :: forall sh'. Sing sh' -> a @@ sh' -> b @@ sh' -> c @@ sh'
   go sh x' y' = withSingI sh (unFieldWrapper (f @sh' (FieldWrapper x') (FieldWrapper y')))
 
-foldTreeEx :: forall a sh. (Monoid a) => Sing sh -> TreeOf (ConstSym1 a) @@ sh -> a
-foldTreeEx (STreeLeaf _) x = x
-foldTreeEx (STreeRecord SShR) x = foldMapRecordEx foldTreeEx x
-
-foldTree ::
-  forall sh a.
-  (SingI sh, Monoid a) =>
-  FieldWrapper (TreeOf (ConstSym1 a)) sh ->
-  a
-foldTree (FieldWrapper x) = foldTreeEx @a @sh sing x
-
 sumTree ::
   forall sh a.
   (SingI sh, Additive a) =>
@@ -125,27 +114,27 @@ sumTree ::
   a
 sumTree = getSum . foldMapTree (Sum . unFieldWrapper)
 
-foldTreeEx2 :: forall leaf b sh. (forall sh'. Sing sh' -> leaf @@ sh' -> b -> b) -> Sing sh -> b -> TreeOf leaf @@ sh -> b
-foldTreeEx2 f sh' b' x' = go sh' x' b'
+foldTreeEx :: forall leaf b sh. (forall sh'. Sing sh' -> leaf @@ sh' -> b -> b) -> Sing sh -> b -> TreeOf leaf @@ sh -> b
+foldTreeEx f sh' b' x' = go sh' x' b'
  where
   go :: forall sh'. Sing sh' -> TreeOf leaf @@ sh' -> b -> b
   go (STreeLeaf sh) x b = f sh x b
-  go (STreeRecord SShR) x b = foldMapRecordEx2 go b x
+  go (STreeRecord SShR) x b = foldRecordEx go b x
 
-foldTree2 ::
+foldTree ::
   forall leaf sh b.
   (SingI sh) =>
   (forall sh'. SingI sh' => FieldWrapper leaf sh' -> b -> b) ->
   b ->
   FieldWrapper (TreeOf leaf) sh ->
   b
-foldTree2 f b (FieldWrapper x) = foldTreeEx2 @leaf @b @sh f' sing b x
+foldTree f b (FieldWrapper x) = foldTreeEx @leaf @b @sh f' sing b x
   where
     f' :: forall sh'. Sing sh' -> leaf @@ sh' -> b -> b
     f' sh x' = withSingI sh (f @sh' (FieldWrapper x'))
 
 foldMapTreeEx :: forall leaf a sh. (Monoid a) => (forall sh'. Sing sh' -> leaf @@ sh' -> a) -> Sing sh -> TreeOf leaf @@ sh -> a
-foldMapTreeEx f sh = foldTreeEx2 @leaf @a @sh f' sh mempty
+foldMapTreeEx f sh = foldTreeEx @leaf @a @sh f' sh mempty
   where
     f' :: Sing sh' -> leaf @@ sh' -> a -> a
     f' sh' x a = f sh' x <> a

@@ -14,7 +14,6 @@ module Downhill.Tree.Record (
     ShR (..),
     SShR (..),
     fillRecord,
-    foldRecordEx,
     foldRecord,
     foldMapRecord,
     toListRecord,
@@ -97,24 +96,8 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         g (record f)
     fillRecordExA = fmap to . fillGRecordA @(Rep (record ProxyField)) @f
 
-    -- TODO: remove foldMapRecordEx, keep foldMapRecordEx2
-    foldMapRecordEx :: (Monoid m) => (forall sh. Sing sh -> a @@ sh -> m) -> record a -> m
-    default foldMapRecordEx ::
-        forall a m.
-        (Monoid m) =>
-        ( Generic (record a)
-        , GFillRecord
-            (Rep (record ProxyField))
-            a
-            (Rep (record a))
-        ) =>
-        (forall sh. Sing sh -> a @@ sh -> m) ->
-        record a ->
-        m
-    foldMapRecordEx f = foldMapGRecord @(Rep (record ProxyField)) @a f . from
-
-    foldMapRecordEx2 :: (forall sh. Sing sh -> a @@ sh -> b -> b) -> b -> record a -> b
-    default foldMapRecordEx2 ::
+    foldRecordEx :: (forall sh. Sing sh -> a @@ sh -> b -> b) -> b -> record a -> b
+    default foldRecordEx ::
         forall a b.
         ( Generic (record a)
         , GFillRecord
@@ -123,10 +106,10 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
             (Rep (record a))
         ) =>
         (forall sh. Sing sh -> a @@ sh -> b -> b) ->
-            b ->
+        b ->
         record a ->
         b
-    foldMapRecordEx2 f b = foldMapGRecord2 @(Rep (record ProxyField)) @a f b . from
+    foldRecordEx f b = foldMapGRecord2 @(Rep (record ProxyField)) @a f b . from
 
     mapRecordEx :: (forall sh. Sing sh -> a @@ sh -> b @@ sh) -> record a -> record b
     default mapRecordEx ::
@@ -300,22 +283,27 @@ fillRecordA f = FieldWrapper <$> fillRecordExA g
     g :: forall sh. Sing sh -> g (f @@ sh)
     g sh = unFieldWrapper <$> withSingI sh (f @sh)
 
-foldRecordEx :: (Monoid m, IsRecord record) => record (ConstSym1 m) -> m
-foldRecordEx = foldMapRecordEx (const id)
+foldRecord :: forall b f sh. (SingI sh) => (forall sh'. (SingI sh') => FieldWrapper f sh' -> b -> b) -> b -> FieldWrapper (Record f) sh -> b
+foldRecord f b = case sing @sh of
+    SShR -> foldRecordEx f' b . unFieldWrapper
+      where
+        f' :: forall sh1. Sing sh1 -> f @@ sh1 -> b -> b
+        f' sh x = withSingI sh $ f @sh1 (FieldWrapper x)
 
-foldRecordEx2 :: (IsRecord record) => (a->b->b) -> b -> record (ConstSym1 a) -> b
-foldRecordEx2 f = foldMapRecordEx2 (const f)
+toListRecord :: forall sh a. (SingI sh) => FieldWrapper (Record (ConstSym1 a)) sh -> [a]
+toListRecord (FieldWrapper x) = case sing @sh of
+    SShR -> foldRecordEx (const (:)) [] x
 
-foldRecord :: forall m sh. (Monoid m, SingI sh) => FieldWrapper (Record (ConstSym1 m)) sh -> m
-foldRecord = case sing @sh of
-    SShR -> foldRecordEx . unFieldWrapper
-
-foldRecord2 :: forall a b sh. (SingI sh) => (a->b->b) -> b -> FieldWrapper (Record (ConstSym1 a)) sh -> b
-foldRecord2 f b = case sing @sh of
-    SShR -> foldRecordEx2 f b . unFieldWrapper
-
-toListRecord :: SingI sh => FieldWrapper (Record (ConstSym1 a)) sh -> [a]
-toListRecord = foldRecord2 (:) []
+foldMapRecordEx ::
+    forall record f m.
+    (Monoid m, IsRecord record) =>
+    (forall sh. Sing sh -> f @@ sh -> m) ->
+    record f ->
+    m
+foldMapRecordEx f = foldRecordEx f' mempty
+  where
+    f' :: forall sh. Sing sh -> f @@ sh -> m -> m
+    f' sh x b = f sh x <> b
 
 foldMapRecord ::
     forall sh f m.
@@ -365,7 +353,7 @@ zipRecord f (FieldWrapper x) (FieldWrapper y) = case sing @sh of
     g sh x' y' = unFieldWrapper (withSingI sh (f @sh' (FieldWrapper x') (FieldWrapper y')))
 
 foldZipRecordEx :: forall record m a b. (Monoid m, IsRecord record) => (forall sh. Sing sh -> a @@ sh -> b @@ sh -> m) -> record a -> record b -> m
-foldZipRecordEx f x y = foldRecordEx zipped
+foldZipRecordEx f x y = foldMapRecordEx (const id) zipped
   where
     zipped :: record (ConstSym1 m)
     zipped = zipRecordEx f x y
@@ -513,7 +501,6 @@ instance
     Manifold (FieldWrapper (Record a) sh)
     where
     (.+~^) = zipRecord (.+~^)
-
 
 getBVarField ::
     forall record a sh r.
