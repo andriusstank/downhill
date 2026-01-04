@@ -15,6 +15,8 @@ module Downhill.Tree.Tree (
   mapTreeEx,
   foldTreeEx,
   foldTree,
+  foldTreeEx2,
+  foldTree2,
   sumTree,
 )
 where
@@ -123,12 +125,30 @@ sumTree ::
   a
 sumTree = getSum . foldMapTree (Sum . unFieldWrapper)
 
-foldMapTreeEx :: forall leaf a sh. (Monoid a) => (forall sh'. Sing sh' -> leaf @@ sh' -> a) -> Sing sh -> TreeOf leaf @@ sh -> a
-foldMapTreeEx f = go
+foldTreeEx2 :: forall leaf b sh. (forall sh'. Sing sh' -> leaf @@ sh' -> b -> b) -> Sing sh -> b -> TreeOf leaf @@ sh -> b
+foldTreeEx2 f sh' b' x' = go sh' x' b'
  where
-  go :: forall sh'. Sing sh' -> TreeOf leaf @@ sh' -> a
-  go (STreeLeaf sh) x = f sh x
-  go (STreeRecord SShR) x = foldMapRecordEx go x
+  go :: forall sh'. Sing sh' -> TreeOf leaf @@ sh' -> b -> b
+  go (STreeLeaf sh) x b = f sh x b
+  go (STreeRecord SShR) x b = foldMapRecordEx2 go b x
+
+foldTree2 ::
+  forall leaf sh b.
+  (SingI sh) =>
+  (forall sh'. SingI sh' => FieldWrapper leaf sh' -> b -> b) ->
+  b ->
+  FieldWrapper (TreeOf leaf) sh ->
+  b
+foldTree2 f b (FieldWrapper x) = foldTreeEx2 @leaf @b @sh f' sing b x
+  where
+    f' :: forall sh'. Sing sh' -> leaf @@ sh' -> b -> b
+    f' sh x' = withSingI sh (f @sh' (FieldWrapper x'))
+
+foldMapTreeEx :: forall leaf a sh. (Monoid a) => (forall sh'. Sing sh' -> leaf @@ sh' -> a) -> Sing sh -> TreeOf leaf @@ sh -> a
+foldMapTreeEx f sh = foldTreeEx2 @leaf @a @sh f' sh mempty
+  where
+    f' :: Sing sh' -> leaf @@ sh' -> a -> a
+    f' sh' x a = f sh' x <> a
 
 foldMapTree :: forall leaf a sh. (Monoid a, SingI sh) => (forall sh'. (SingI sh') => FieldWrapper leaf sh' -> a) -> FieldWrapper (TreeOf leaf) sh -> a
 foldMapTree f (FieldWrapper x) = foldMapTreeEx @leaf f' (sing @sh) x
