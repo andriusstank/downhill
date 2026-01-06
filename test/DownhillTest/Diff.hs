@@ -19,6 +19,7 @@ import NumHask.Prelude
 import Test.HUnit (Assertion, assertString)
 import Test.Hspec (SpecWith, describe, it)
 import Prelude qualified
+import Downhill.BVar (DFun2(DFun2))
 
 data NumDiffOpts = NumDiffOpts
     { h :: Double
@@ -29,7 +30,7 @@ data NumDiffOpts = NumDiffOpts
 testFun :: forall c. (c Double, forall r. c (BVar r Double)) => NumDiffOpts -> (forall x. (c x) => x -> x) -> Assertion
 testFun opts f = traverse_ testAt opts.args
   where
-    DFun f' = BVar.ad bvarF
+    DFun2 f' = BVar.ad bvarF
       where
         bvarF :: forall r. BVar r Double -> BVar r Double
         bvarF = f

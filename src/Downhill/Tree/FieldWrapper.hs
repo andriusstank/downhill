@@ -95,6 +95,7 @@ class
     , FieldScalar (FieldDualOf field) ~ FieldScalar field
     , DualOf (FieldScalar field) ~ FieldScalar field
     , FieldDualOf (FieldDualOf field) ~ field
+    , Scalar (FieldScalar field) ~ FieldScalar field
     , (forall sh. (SingI sh) => VSpaceFieldSh field sh)
     ) =>
     VSpaceField field
@@ -107,6 +108,7 @@ instance
     , FieldScalar (FieldDualOf field) ~ FieldScalar field
     , DualOf (FieldScalar field) ~ FieldScalar field
     , FieldDualOf (FieldDualOf field) ~ field
+    , Scalar (FieldScalar field) ~ FieldScalar field
     , forall sh. (SingI sh) => VSpaceFieldSh field sh
     ) =>
     VSpaceField field
@@ -128,11 +130,17 @@ instance
 
 class
     ( VSpaceField (FieldTang field)
+    , FieldTang (FieldDualOf field) ~ FieldDualOf field
+    , FieldTang (FieldTang field) ~ FieldTang field
+    , Tang (FieldScalar (FieldTang field)) ~ FieldScalar (FieldTang field)
     , forall sh. (SingI sh) => ManifoldFieldSh field sh
     ) =>
     ManifoldField field
 instance
     ( VSpaceField (FieldTang field)
+    , FieldTang (FieldDualOf field) ~ FieldDualOf field
+    , FieldTang (FieldTang field) ~ FieldTang field
+    , Tang (FieldScalar (FieldTang field)) ~ FieldScalar (FieldTang field)
     , forall sh. (SingI sh) => ManifoldFieldSh field sh
     ) =>
     ManifoldField field

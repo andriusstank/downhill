@@ -1,37 +1,42 @@
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Downhill.Linear.AD (
-    AD (..),
-    Graph,
-    ad,
-    adDense,
-    identityAD,
-    SparseFun(..),
-    realNode, realNode', sparseNode, inlineNode,
-    dense1, dense2,
-    pattern T2,
-    sparseTerm
-
+  AD (..),
+  Graph,
+  ad,
+  adDense,
+  identityAD,
+  SparseFun (..),
+  realNode,
+  realNode',
+  realNode2,
+  sparseNode,
+  inlineNode,
+  dense1,
+  dense2,
+  pattern T2,
+  sparseTerm,
+  denseTerm',
 )
 where
 
-import Downhill.Internal.Graph.Graph (Graph, DenseBigraph (DenseBigraph), buildBigraph)
+import Downhill.Internal.Graph.Graph (DenseBigraph (DenseBigraph), Graph, buildBigraph)
 import Downhill.Linear.Builder (Dense, HasBuilder (..), Sparse (unSparse))
-import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum, ExprVar), Term (Term), VecPair (VecPair), idBiFun, TangType, GradType)
+import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum, ExprVar), GradType, TangType, Term (Term), VecPair (VecPair), idBiFun)
 import Downhill.Linear.Fun (DualOf, IdFun (IdFun), LinearFun ((<*|), (|*>)), NegateFun (NegateFun), ScalarMulFun (ScalarMulFun))
-import NumHask.Prelude
 import Downhill.VSpace (VSpace)
+import NumHask.Prelude
 
 newtype AD (a :: Type) (v :: Type)
-    = AD
-        ( forall x.
-          BiFun ('VecPair v (DualOf v)) x ->
-          Term ('VecPair a (DualOf a)) x
-        )
+  = AD
+      ( forall x.
+        BiFun ('VecPair v (DualOf v)) x ->
+        Term ('VecPair a (DualOf a)) x
+      )
 
 identityAD :: AD a a
 identityAD = realNode ExprVar
@@ -39,65 +44,73 @@ identityAD = realNode ExprVar
 realNode :: Expr ('VecPair a (DualOf a)) ('VecPair v (DualOf v)) -> AD a v
 realNode x = AD (\(BiFun f g) -> Term (BiFun f g) x)
 
+realNode2 :: forall a v. ( HasBuilder v, HasBuilder (DualOf v)) => [Term ('VecPair a (DualOf a)) ('VecPair v (DualOf v))] -> AD a v
+realNode2 = realNode . ExprSum
+
 realNode' ::
-  ( 
-    VecBuilder (DualOf v) ~ VecBuilder dv'
-  ) =>
+  (VecBuilder (DualOf v) ~ VecBuilder dv') =>
   Expr ('VecPair a (DualOf a)) ('VecPair v dv') -> AD a v
 realNode' y = AD (\(BiFun f g) -> Term (BiFun f g) y)
 
 denseTerm ::
-    ( LinearFun f u v
-    , HasBuilder v
-    , HasBuilder (DualOf u)
-    ) =>
-    f -> AD r u -> Term ('VecPair r (DualOf r)) ('VecPair v (DualOf v))
+  ( LinearFun f u v
+  , HasBuilder v
+  , HasBuilder (DualOf u)
+  ) =>
+  f -> AD r u -> Term ('VecPair r (DualOf r)) ('VecPair v (DualOf v))
 denseTerm f (AD x) = x $ BiFun (identityBuilder . (f <*|)) (identityBuilder . (|*> f))
 
+denseTerm' ::
+  ( HasBuilder v
+  , HasBuilder (DualOf u)
+  ) =>
+  (u -> v) -> (DualOf v -> DualOf u) -> AD r u -> Term ('VecPair r (DualOf r)) ('VecPair v (DualOf v))
+denseTerm' f ft (AD x) = x $ BiFun (identityBuilder . f) (identityBuilder . ft)
+
 dense1 ::
-    ( LinearFun f u v
-    , HasBuilder v
-    , HasBuilder (DualOf v)
-    , HasBuilder (DualOf u)
-    ) =>
-    f ->
-    AD r u ->
-    AD r v
+  ( LinearFun f u v
+  , HasBuilder v
+  , HasBuilder (DualOf v)
+  , HasBuilder (DualOf u)
+  ) =>
+  f ->
+  AD r u ->
+  AD r v
 dense1 f1 x =
-    realNode
-        ( ExprSum
-            [ denseTerm f1 x
-            ]
-        )
+  realNode
+    ( ExprSum
+        [ denseTerm f1 x
+        ]
+    )
 
 dense2 ::
-    ( LinearFun f1 u1 v
-    , LinearFun f2 u2 v
-    , HasBuilder v
-    , HasBuilder (DualOf v)
-    , HasBuilder (DualOf u1)
-    , HasBuilder (DualOf u2)
-    ) =>
-    f1 ->
-    f2 ->
-    AD r u1 ->
-    AD r u2 ->
-    AD r v
+  ( LinearFun f1 u1 v
+  , LinearFun f2 u2 v
+  , HasBuilder v
+  , HasBuilder (DualOf v)
+  , HasBuilder (DualOf u1)
+  , HasBuilder (DualOf u2)
+  ) =>
+  f1 ->
+  f2 ->
+  AD r u1 ->
+  AD r u2 ->
+  AD r v
 dense2 f1 f2 x y =
-    realNode
-        ( ExprSum
-            [ denseTerm f1 x
-            , denseTerm f2 y
-            ]
-        )
+  realNode
+    ( ExprSum
+        [ denseTerm f1 x
+        , denseTerm f2 y
+        ]
+    )
 
 instance (HasBuilder v, HasBuilder (DualOf v)) => Additive (AD r v) where
-    zero = realNode (ExprSum [])
-    (+) = dense2 IdFun IdFun
+  zero = realNode (ExprSum [])
+  (+) = dense2 IdFun IdFun
 
 instance (HasBuilder v, HasBuilder (DualOf v), Subtractive v, Subtractive (DualOf v)) => Subtractive (AD r v) where
-    negate = dense1 NegateFun
-    (-) = dense2 IdFun NegateFun
+  negate = dense1 NegateFun
+  (-) = dense2 IdFun NegateFun
 
 instance
   ( HasBuilder v
@@ -110,10 +123,10 @@ instance
   v |* x = dense1 (ScalarMulFun x) v
 
 -- TODO: remove SparseFun?
-data SparseFun (u :: VecPair) (v :: VecPair) = SparseFun
-  (TangType u -> VecBuilder (TangType v))
-  (VecBuilder (GradType v) -> VecBuilder (GradType u))
-
+data SparseFun (u :: VecPair) (v :: VecPair)
+  = SparseFun
+      (TangType u -> VecBuilder (TangType v))
+      (VecBuilder (GradType v) -> VecBuilder (GradType u))
 
 sparseTerm ::
   (HasBuilder v, HasBuilder u, du ~ DualOf u, dv ~ DualOf v) =>
@@ -143,7 +156,6 @@ inlineNode f1 g1 (AD g) = AD go
     BiFun ('VecPair v (DualOf v)) x ->
     Term ('VecPair r (DualOf r)) x
   go (BiFun f2 g2) = g $ BiFun (f2 . f1) (g1 . g2)
-
 
 maybeToMonoid :: (Monoid m) => Maybe m -> m
 maybeToMonoid = fromMaybe mempty
@@ -193,7 +205,6 @@ intoSndFun = SparseFun back fwd
   back :: db -> (Maybe (Sum (da, db)), Maybe (VecBuilder da, VecBuilder db))
   back x = (Nothing, Just (mempty, identityBuilder x))
 
-
 joinPair ::
   forall r a da b db.
   (HasBuilder a, HasBuilder b, HasBuilder da, HasBuilder db, db ~ DualOf b, da ~ DualOf a) =>
@@ -203,7 +214,6 @@ joinPair (x, y) = realNode' (ExprSum [t1, t2])
   t1, t2 :: Term ('VecPair r (DualOf r)) ('VecPair (a, b) (Sparse (da, db)))
   t1 = sparseTerm intoFstFun x
   t2 = sparseTerm intoSndFun y
-
 
 {-# COMPLETE T2 #-}
 pattern T2 ::
@@ -215,19 +225,17 @@ pattern T2 a b <-
   where
     T2 a b = joinPair (a, b)
 
-
-
 ad ::
-    forall a z.
-    ( HasBuilder a
-    , HasBuilder z
-    , HasBuilder (DualOf z)
-    , HasBuilder (DualOf a)
-    ) =>
-    AD a z -> Graph a z
+  forall a z.
+  ( HasBuilder a
+  , HasBuilder z
+  , HasBuilder (DualOf z)
+  , HasBuilder (DualOf a)
+  ) =>
+  AD a z -> Graph a z
 ad (AD f) = buildBigraph [f idBiFun]
 
 adDense ::
-    (Additive a, Additive z, Additive (DualOf z), Additive (DualOf a)) =>
-    AD (Dense a) (Dense z) -> DenseBigraph a z
+  (Additive a, Additive z, Additive (DualOf z), Additive (DualOf a)) =>
+  AD (Dense a) (Dense z) -> DenseBigraph a z
 adDense = DenseBigraph . ad

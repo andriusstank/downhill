@@ -7,18 +7,19 @@ module Downhill.BVar (
     constant,
     var,
     Graph,
-    DFun (..),
+    DFun (..), DFun2(..),
     backprop,
     ad,
 )
 where
 
-import Downhill.Linear.AD (AD, Graph, dense2, identityAD)
+import Downhill.Linear.AD (AD (AD), Graph, dense2, denseTerm', identityAD, realNode, realNode2)
 import Downhill.Linear.AD qualified as AD
 import Downhill.Linear.Builder (HasBuilder)
+import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum), Term (Term), VecPair (..))
 import Downhill.Linear.Fun (DualOf, LinearFun ((<*|), (|*>)), ScalarMulFun (ScalarMulFun))
-import Downhill.Manifold (Grad, HasGrad, IsScalar, Tang)
-import Downhill.VSpace (VSpace ((|*|)))
+import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold, Tang)
+import Downhill.VSpace (InnerSpace, VSpace ((|*|)), (*^))
 import NumHask.Prelude
 import Prelude qualified
 
@@ -64,8 +65,8 @@ instance
     ( IsScalar (Scalar v)
     , Tang v ~ v
     , Scalar (DualOf v) ~ Scalar v
-    , DualOf (DualOf v) ~ v
     , VSpace v
+    , VSpace (DualOf v)
     , MultiplicativeAction v
     , HasBuilder (Scalar v)
     , HasBuilder v
@@ -77,7 +78,12 @@ instance
     BVar v dv |* BVar a da =
         BVar
             (v |* a)
-            (dense2 (VectorScalarMulFun v) (ScalarMulFun a) da dv)
+            --(dense2 (VectorScalarMulFun v) (ScalarMulFun a) da dv)
+            (realNode2 [t1, t2])
+                where
+                    t1, t2 :: Term ('VecPair r (DualOf r)) ('VecPair v (DualOf v))
+                    t1 = denseTerm' (v |*) (v |*|) da
+                    t2 = denseTerm' (|* a) (|* a) dv
 
 sqr :: (Multiplicative a) => a -> a
 sqr x = x * x
@@ -153,6 +159,37 @@ instance (IsScalar a, Floating a, HasGrad a) => Floating (BVar r a) where
     acosh (BVar x dx) = BVar (Prelude.acosh x) (prsqrt (sqr x - 1) *| dx)
     atanh (BVar x dx) = BVar (Prelude.atanh x) (Prelude.recip (1 - sqr x) *| dx)
 
+type instance DualOf (BVar r v) = BVar r (DualOf v)
+
+instance
+    ( Manifold v
+    , Manifold (Scalar v)
+    , VSpace v
+    , VSpace (DualOf v)
+    , Tang v ~ v
+    , HasBuilder v
+    , HasBuilder (DualOf v)
+    , HasBuilder (Scalar v)
+    ) =>
+    VSpace (BVar r v)
+    where
+    BVar u du |*| BVar v dv = BVar (u |*| v) (realNode (ExprSum [t1, t2]))
+      where
+        t1 = denseTerm' (u |*|) (u |*) dv
+        t2 = denseTerm' (|*| v) (*| v) du
+
+instance
+    ( Manifold v
+    , Manifold (Scalar v)
+    , VSpace v
+    , VSpace (DualOf v)
+    , Tang v ~ v
+    , HasBuilder v
+    , HasBuilder (DualOf v)
+    , HasBuilder (Scalar v)
+    ) =>
+    InnerSpace (BVar r v)
+
 -- | A variable with derivative of zero.
 constant :: forall r a. (HasBuilder (Grad a), HasBuilder (Tang a)) => a -> BVar r a
 constant x = BVar x zero
@@ -161,7 +198,11 @@ constant x = BVar x zero
 var :: a -> BVar (Tang a) a
 var x = BVar x identityAD
 
-newtype DFun a b f = DFun {unDFun :: a -> (b, f)}
+data DFun2 a b f where
+    DFun2 :: (a -> (b, f)) -> DFun2 a b f
+
+data DFun a b where
+    DFun :: (LinearFun f (Tang a) (Tang b)) => (a -> (b, f)) -> DFun a b
 
 backprop ::
     forall r a.
@@ -181,8 +222,8 @@ ad ::
     , HasBuilder (Grad b)
     ) =>
     (forall r. BVar r a -> BVar r b) ->
-    DFun a b (Graph (Tang a) (Tang b))
-ad f = DFun go
+    DFun2 a b (Graph (Tang a) (Tang b))
+ad f = DFun2 go
   where
     go :: a -> (b, Graph (Tang a) (Tang b))
     go x = backprop (f (var x))

@@ -1,14 +1,23 @@
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-module Downhill.VSpace(VSpace(..))
+
+module Downhill.VSpace (
+  VSpace (..),
+  (*^),
+  (^*),
+  InnerSpace (..),
+  sqrNorm,
+)
 where
-import NumHask.Prelude
+
 import Downhill.Linear.Fun (DualOf)
 import Downhill.Orphans ()
+import NumHask.Prelude
 
 class
   ( Subtractive v
   , Subtractive (DualOf v)
+  , Scalar (Scalar v) ~ Scalar v
   , Scalar v ~ Scalar (DualOf v)
   , Scalar v ~ DualOf (Scalar v)
   , Ring (Scalar v)
@@ -29,7 +38,19 @@ instance (Scalar a ~ Scalar b, VSpace a, VSpace b) => VSpace (a, b) where
 instance (Scalar a ~ Scalar b, Scalar a ~ Scalar c, VSpace a, VSpace b, VSpace c) => VSpace (a, b, c) where
   (a, b, c) |*| (x, y, z) = a |*| x + b |*| y + c |*| z
 
+(*^) :: (VSpace v) => Scalar v -> v -> v
+(*^) = (*|)
 
+(^*) :: (VSpace v) => v -> Scalar v -> v
+(^*) = (|*)
+
+class (VSpace v) => InnerSpace v where
+  riesz :: v -> DualOf v
+  coriesz :: DualOf v -> v
+  (<.>) :: v -> v -> Scalar v
+
+sqrNorm :: (InnerSpace v) => v -> Scalar v
+sqrNorm x = x <.> x
 
 class GDual s v dv where
   gevalGrad :: dv p -> v p -> s

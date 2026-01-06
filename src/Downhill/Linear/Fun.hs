@@ -8,7 +8,8 @@ module Downhill.Linear.Fun(
     SomeLinearFun(..),
     IdFun(..),
     NegateFun(..),
-    ScalarMulFun(..)
+    ScalarMulFun(..),
+    Metric
 )
 where
 import NumHask.Prelude
@@ -28,6 +29,8 @@ class LinearFun f a b | f -> a b where
 
 infixr 7 <*|
 infixl 7 |*>
+
+class (LinearFun f a (DualOf a)) => Metric f a
 
 data SomeLinearFun (a :: Type) (b :: Type) where
   SomeLinearFun ::

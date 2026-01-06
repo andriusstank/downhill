@@ -175,81 +175,6 @@ class IsRecord (record :: (fieldType ~> Type) -> Type) where
         record (TyCon1 (FieldGetter record))
     recordGettersEx = to (getGetters @'[] @(Rep (record (TyCon1 (FieldGetter record)))))
 
-{-
-fillRecordI :: forall record f. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper f sh) -> record f
-fillRecordI f = fillRecord g
-  where
-    g :: forall sh. Sing sh -> f @@ sh
-    g sh = unFieldWrapper (withSingI sh (f @sh))
-
-mapRecordI :: forall record a b. (IsRecord record) => (forall sh. (SingI sh) => FieldWrapper a sh -> FieldWrapper b sh) -> record a -> record b
-mapRecordI f = mapRecord g
-  where
-    g :: forall sh. Sing sh -> a @@ sh -> b @@ sh
-    g sh = unFieldWrapper . withSingI sh (f @sh) . FieldWrapper
--}
-
--- type RecField :: ((fieldType ~> Type) -> Type) ~> Type
--- data RecField record
--- type
-
-{-
-    -- TODO: rename to zipWith
-
-    foldRecord :: (Monoid m) => FoldFieldFun tt m -> record tt -> m
-    default foldRecord ::
-        ( Monoid m
-        , Generic (record tt)
-        , GFoldTree (Rep (record ProxyField)) tt (Rep (record tt)) m
-        ) =>
-        FoldFieldFun tt m ->
-        record tt ->
-        m
-    foldRecord = genericRecordFold
-
-    sequenceRecord :: forall f tt. (Applicative f) => record (EffField f tt) -> f (record tt)
-    default sequenceRecord ::
-        forall f tt.
-        ( Applicative f
-        , Generic (record tt)
-        , Generic (record (EffField f tt))
-        , GSeqRecord
-            f
-            (Rep (record (EffField f tt)))
-            (Rep (record tt))
-        ) =>
-        record (EffField f tt) ->
-        f (record tt)
-    sequenceRecord = genericRecordSeq
-
-    traverseRecord :: forall ttA ttB f. (Applicative f) => TraverseFieldFun f ttA ttB -> record ttA -> f (record ttB)
-    default traverseRecord ::
-        forall ttA ttB f.
-        ( Applicative f
-        , Generic (record ttA)
-        , Generic (record ttB)
-        , GTraverseRecord
-            (Rep (record ProxyField))
-            f
-            ttA
-            ttB
-            (Rep (record ttA))
-            (Rep (record ttB))
-        ) =>
-        TraverseFieldFun f ttA ttB ->
-        record ttA ->
-        f (record ttB)
-    traverseRecord = genericRecordTraverse
-
-    recordGetters :: record (FieldGetter record)
-    default recordGetters ::
-        ( Generic (record (FieldGetter record))
-        , GettersSubtree '[] (Rep (record (FieldGetter record)))
-        ) =>
-        record (FieldGetter record)
-    recordGetters = to (getGetters @'[] @(Rep (record (FieldGetter record))))
--}
-
 {-# ANN ShR "HLint: ignore Use newtype instead of data" #-}
 data ShR field = ShR ((field ~> Type) -> Type)
 data SShR (sh :: ShR field) where
@@ -501,6 +426,7 @@ instance
     Manifold (FieldWrapper (Record a) sh)
     where
     (.+~^) = zipRecord (.+~^)
+    (.-~^) = zipRecord (.-~^)
 
 getBVarField ::
     forall record a sh r.
