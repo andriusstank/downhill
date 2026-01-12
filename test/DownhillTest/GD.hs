@@ -7,15 +7,13 @@
 module DownhillTest.GD ()
 where
 
-import Downhill.BVar (BVar, DFun)
+import Downhill.BVar (BVar)
 import Downhill.BVar qualified as BVar
-import Downhill.Linear.Builder (HasBuilder, Dense)
-import Downhill.Linear.Fun (DualOf, LinearFun (..))
+import Downhill.Linear.Fun (DualOf)
 import Downhill.Manifold (Manifold(..), Tang, IsScalar)
 import Downhill.VSpace (InnerSpace, VSpace (..), sqrNorm)
 import NumHask.Prelude
-import Downhill.Linear.Builder (Dense(..))
-import Data.Constraint (Dict(..))
+import Downhill.Linear.Builder (HasBuilder, Dense(..))
 
 loss1 :: (InnerSpace v, FromRational (Scalar v)) => v -> Scalar v
 loss1 x = 0.5 * sqrNorm x

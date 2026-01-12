@@ -9,7 +9,7 @@
 module DownhillTest.Record (recordTests)
 where
 
-import Data.Singletons (SingI (sing), TyCon1, type (@@), type (~>))
+import Data.Singletons (TyCon1, type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
 import Downhill.BVar (BVar (..), unDFun)
 import Downhill.BVar qualified as BVar
@@ -25,7 +25,6 @@ import Downhill.Tree.Record (
   RecordBuilder,
   ShR (..),
   fieldBuilder,
-  mapRecord,
   recordField,
   toListRecord,
  )

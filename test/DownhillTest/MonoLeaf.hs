@@ -80,6 +80,8 @@ instance (VSpace a, SingI sh) => VSpace (FieldWrapper (MonoLeaf a) sh) where
 instance (Manifold a, SingI sh) => Manifold (FieldWrapper (MonoLeaf a) sh) where
     FieldWrapper x .+~^ FieldWrapper dx = case sing @sh of
         STuple0 -> FieldWrapper (x .+~^ dx)
+    FieldWrapper x .-~^ FieldWrapper dx = case sing @sh of
+        STuple0 -> FieldWrapper (x .-~^ dx)
 
 splitMonoLeaf' :: forall r a. () => BVar r (FieldWrapper (MonoLeaf a) '()) -> FieldWrapper (MonoLeaf (BVar r a)) '()
 splitMonoLeaf' (BVar (FieldWrapper x) dx) = FieldWrapper (BVar x (inlineNode unFieldWrapper id dx))

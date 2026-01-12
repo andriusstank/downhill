@@ -8,7 +8,6 @@ module Downhill.VSpace (
   (^*),
   InnerSpace (..),
   sqrNorm,
-  GVSpace,
 )
 where
 

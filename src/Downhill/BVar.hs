@@ -13,13 +13,13 @@ module Downhill.BVar (
 )
 where
 
-import Downhill.Linear.AD (AD (AD), Graph, dense2, denseTerm', identityAD, realNode, realNode2, inlineNode)
+import Downhill.Linear.AD (Graph, denseTerm', identityAD, realNode, realNode2, AD)
 import Downhill.Linear.AD qualified as AD
 import Downhill.Linear.Builder (HasBuilder)
-import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum), Term (Term), VecPair (..))
-import Downhill.Linear.Fun (DualOf, LinearFun ((<*|), (|*>)), ScalarMulFun (ScalarMulFun))
+import Downhill.Linear.Expr (Expr (ExprSum), VecPair (..), Term)
+import Downhill.Linear.Fun (DualOf, LinearFun ((<*|), (|*>)))
 import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold, Tang)
-import Downhill.VSpace (InnerSpace (..), VSpace ((|*|)), (*^))
+import Downhill.VSpace (InnerSpace (..), VSpace ((|*|)))
 import NumHask.Prelude
 import Prelude qualified
 

@@ -8,8 +8,8 @@ where
 
 import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Fun (DualOf)
-import Downhill.Orphans (GMultAction, GScalar, GSubtractive)
-import Downhill.VSpace (GVSpace, VSpace)
+import Downhill.Orphans ()
+import Downhill.VSpace (VSpace)
 import NumHask.Prelude
 
 type MScalar p = Scalar (Tang p)

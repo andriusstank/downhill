@@ -11,15 +11,14 @@ module DownhillTest.Diff (
 where
 
 import Control.Monad (unless)
-import Downhill.BVar (BVar, DFun (DFun))
 import Downhill.BVar qualified as BVar
+import Downhill.BVar (BVar, DFun(..))
 import Downhill.Linear.Fun (LinearFun (..))
 import Downhill.Manifold (HasGrad)
 import NumHask.Prelude
 import Test.HUnit (Assertion, assertString)
 import Test.Hspec (SpecWith, describe, it)
 import Prelude qualified
-import Downhill.BVar (DFun(..))
 
 data NumDiffOpts = NumDiffOpts
     { h :: Double

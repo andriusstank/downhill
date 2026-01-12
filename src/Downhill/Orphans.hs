@@ -14,9 +14,6 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Downhill.Orphans (
-    GScalar,
-    FromJust,
-    GAdditive, GSubtractive, GMultAction
 ) where
 
 import GHC.Generics (Generic (from, to))
