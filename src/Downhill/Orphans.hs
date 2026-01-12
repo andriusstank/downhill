@@ -13,7 +13,11 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Downhill.Orphans() where
+module Downhill.Orphans (
+    GScalar,
+    FromJust,
+    GAdditive, GSubtractive, GMultAction
+) where
 
 import GHC.Generics (Generic (from, to))
 import GHC.TypeError (ErrorMessage (Text))
@@ -118,6 +122,15 @@ instance GMultAction a U1 where
 type family FromJust (a :: Maybe Type) :: Type where
     FromJust ('Just x) = x
     FromJust 'Nothing = TypeError ('Text "Can't deduce scalar type")
+
+instance
+    ( Generic a
+    , GMultiplicative (Rep a)
+    ) =>
+    Multiplicative (Generically a)
+    where
+    Generically v * Generically a = Generically (to (gmul (from v) (from a)))
+    one = Generically (to gone)
 
 instance
     ( Generic a

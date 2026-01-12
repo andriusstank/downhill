@@ -22,6 +22,7 @@ type instance DualOf Float = Float
 type instance DualOf Double = Double
 type instance DualOf (a, b) = (DualOf a, DualOf b)
 type instance DualOf (a, b, c) = (DualOf a, DualOf b, DualOf c)
+type instance DualOf (Generically v) = Generically (DualOf v)
 
 class LinearFun f a b | f -> a b where
   (<*|) :: f -> a -> b

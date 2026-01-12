@@ -8,7 +8,7 @@ where
 
 import Data.Stream.Infinite (Stream (..))
 import Data.Stream.Infinite qualified as Stream
-import Downhill.BVar (DFun (..))
+import Downhill.BVar (SomeDFun(..))
 import Downhill.Linear.Fun (DualOf, LinearFun (..), Metric)
 import Downhill.Manifold (Grad, MScalar, Manifold (..), Tang)
 import NumHask.Prelude
@@ -17,11 +17,11 @@ gdStep ::
   forall p z g.
   (Manifold p, Metric g (Grad p), Tang z ~ z) =>
   DualOf z ->
-  DFun p z ->
+  SomeDFun p z ->
   g ->
   p ->
   (p, z)
-gdStep dy (DFun loss) metric x =
+gdStep dy (SomeDFun loss) metric x =
   (x .-~^ step, y)
  where
   y :: z
@@ -37,8 +37,8 @@ data GDState p = GDState
 gdmStep ::
   forall p z g.
   (Manifold p, Metric g (Grad p), Tang z ~ z) =>
-  DualOf z -> MScalar p -> DFun p z -> g -> GDState p -> (GDState p, z)
-gdmStep dy momentum (DFun loss) metric state = (GDState x2 v2, y)
+  DualOf z -> MScalar p -> SomeDFun p z -> g -> GDState p -> (GDState p, z)
+gdmStep dy momentum (SomeDFun loss) metric state = (GDState x2 v2, y)
  where
   y :: z
   (y, f) = loss state.x
@@ -48,7 +48,7 @@ gdmStep dy momentum (DFun loss) metric state = (GDState x2 v2, y)
   v2 = momentum *| state.v + (one - momentum) *| step
 
 data AccGdProblem p y g = AccGdProblem
-  { loss :: DFun p y
+  { loss :: SomeDFun p y
   , metric :: g
   , momentum :: Maybe (MScalar p)
   , dy :: DualOf y

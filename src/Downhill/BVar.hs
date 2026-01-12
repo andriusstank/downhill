@@ -7,19 +7,19 @@ module Downhill.BVar (
     constant,
     var,
     Graph,
-    DFun (..), DFun2(..),
+    DFun (..), SomeDFun(..),
     backprop,
     ad,
 )
 where
 
-import Downhill.Linear.AD (AD (AD), Graph, dense2, denseTerm', identityAD, realNode, realNode2)
+import Downhill.Linear.AD (AD (AD), Graph, dense2, denseTerm', identityAD, realNode, realNode2, inlineNode)
 import Downhill.Linear.AD qualified as AD
 import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum), Term (Term), VecPair (..))
 import Downhill.Linear.Fun (DualOf, LinearFun ((<*|), (|*>)), ScalarMulFun (ScalarMulFun))
 import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold, Tang)
-import Downhill.VSpace (InnerSpace, VSpace ((|*|)), (*^))
+import Downhill.VSpace (InnerSpace (..), VSpace ((|*|)), (*^))
 import NumHask.Prelude
 import Prelude qualified
 
@@ -181,14 +181,21 @@ instance
 instance
     ( Manifold v
     , Manifold (Scalar v)
-    , VSpace v
-    , VSpace (DualOf v)
+    , InnerSpace v
     , Tang v ~ v
+    , VSpace (DualOf v)
     , HasBuilder v
     , HasBuilder (DualOf v)
     , HasBuilder (Scalar v)
     ) =>
     InnerSpace (BVar r v)
+ where
+    BVar u du <.> BVar v dv = BVar (u <.> v) (realNode (ExprSum [t1, t2]))
+      where
+        t1 = denseTerm' (u <.>) (riesz u |*) dv
+        t2 = denseTerm' (<.> v) (*| riesz v) du
+    riesz (BVar u du) = BVar (riesz u) (realNode (ExprSum [denseTerm' riesz riesz du]))
+    coriesz (BVar u du) = BVar (coriesz u) (realNode (ExprSum [denseTerm' coriesz coriesz du]))
 
 -- | A variable with derivative of zero.
 constant :: forall r a. (HasBuilder (Grad a), HasBuilder (Tang a)) => a -> BVar r a
@@ -198,11 +205,10 @@ constant x = BVar x zero
 var :: a -> BVar (Tang a) a
 var x = BVar x identityAD
 
-data DFun2 a b f where
-    DFun2 :: (a -> (b, f)) -> DFun2 a b f
+newtype DFun a b f = DFun { unDFun :: a -> (b, f) }
 
-data DFun a b where
-    DFun :: (LinearFun f (Tang a) (Tang b)) => (a -> (b, f)) -> DFun a b
+data SomeDFun a b where
+    SomeDFun :: (LinearFun f (Tang a) (Tang b)) => (a -> (b, f)) -> SomeDFun a b
 
 backprop ::
     forall r a.
@@ -222,8 +228,8 @@ ad ::
     , HasBuilder (Grad b)
     ) =>
     (forall r. BVar r a -> BVar r b) ->
-    DFun2 a b (Graph (Tang a) (Tang b))
-ad f = DFun2 go
+    DFun a b (Graph (Tang a) (Tang b))
+ad f = DFun go
   where
     go :: a -> (b, Graph (Tang a) (Tang b))
     go x = backprop (f (var x))

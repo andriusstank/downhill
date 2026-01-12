@@ -1,14 +1,16 @@
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 
 module Downhill.Manifold (Tang, Manifold (..), MScalar, Grad, IsScalar, HasGrad)
 where
 
-import Downhill.Linear.Fun (DualOf)
-import Downhill.VSpace (VSpace)
-import NumHask.Prelude
 import Downhill.Linear.Builder (HasBuilder)
+import Downhill.Linear.Fun (DualOf)
+import Downhill.Orphans (GMultAction, GScalar, GSubtractive)
+import Downhill.VSpace (GVSpace, VSpace)
+import NumHask.Prelude
 
 type MScalar p = Scalar (Tang p)
 
@@ -49,7 +51,6 @@ instance Manifold Double where
   (.+~^) = (+)
   (.-~^) = (-)
 
-
 type instance Tang (a, b) = (Tang a, Tang b)
 instance
   ( Manifold a
@@ -71,6 +72,42 @@ instance
   ) =>
   Manifold (a, b, c)
   where
-
   (x1, x2, x3) .+~^ (y1, y2, y3) = (x1 .+~^ y1, x2 .+~^ y2, x3 .+~^ y3)
   (x1, x2, x3) .-~^ (y1, y2, y3) = (x1 .-~^ y1, x2 .-~^ y2, x3 .-~^ y3)
+
+type instance Tang (Generically p) = Generically (Tang p)
+
+class GManifold f g where
+  gmplus :: f p -> g p -> f p
+  gmminus :: f p -> g p -> f p
+
+instance (Manifold a, Tang a ~ b) => GManifold (K1 i a) (K1 i b) where
+  gmplus (K1 x) (K1 y) = K1 (x .+~^ y)
+  gmminus (K1 x) (K1 y) = K1 (x .-~^ y)
+
+instance (GManifold f g) => GManifold (M1 i m f) (M1 i m g) where
+  gmplus (M1 x) (M1 y) = M1 (gmplus x y)
+  gmminus (M1 x) (M1 y) = M1 (gmminus x y)
+
+instance (GManifold f1 g1, GManifold f2 g2) => GManifold (f1 :*: f2) (g1 :*: g2) where
+  gmplus (x1 :*: x2) (y1 :*: y2) = gmplus x1 y1 :*: gmplus x2 y2
+  gmminus (x1 :*: x2) (y1 :*: y2) = gmminus x1 y1 :*: gmminus x2 y2
+
+instance GManifold U1 U1 where
+  gmplus _ _ = U1
+  gmminus _ _ = U1
+
+instance
+  ( Tang (DualOf p) ~ DualOf p
+  , Tang (Scalar (Tang p)) ~ Scalar (Tang p)
+  , Tang (Tang p) ~ Tang p
+  , Tang (Scalar (Generically (Tang p))) ~ Scalar (Generically (Tang p))
+  , VSpace (Generically (Tang p))
+  , Generic p
+  , Generic (Tang p)
+  , GManifold (Rep p) (Rep (Tang p))
+  ) =>
+  Manifold (Generically p)
+  where
+  Generically x .+~^ Generically dx = Generically (to (from x `gmplus` from dx))
+  Generically x .-~^ Generically dx = Generically (to (from x `gmminus` from dx))
