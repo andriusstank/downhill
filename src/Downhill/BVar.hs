@@ -7,7 +7,7 @@ module Downhill.BVar (
     constant,
     var,
     Graph,
-    DFun (..), SomeDFun(..),
+    DFun (..), SomeDFun(..), someDFun,
     backprop,
     ad,
 )
@@ -209,6 +209,9 @@ newtype DFun a b f = DFun { unDFun :: a -> (b, f) }
 
 data SomeDFun a b where
     SomeDFun :: (LinearFun f (Tang a) (Tang b)) => (a -> (b, f)) -> SomeDFun a b
+
+someDFun :: LinearFun f (Tang a) (Tang b) => DFun a b f -> SomeDFun a b
+someDFun (DFun f) = SomeDFun f
 
 backprop ::
     forall r a.

@@ -64,6 +64,6 @@ accGd (AccGdProblem loss metric (Just momentum) dy) x0 = Stream.unfold step (GDS
 accGd (AccGdProblem loss metric Nothing dy) x0 = Stream.unfold step x0
  where
   step :: p -> ((p, y), p)
-  step x = ((x1, y), x1)
+  step x = ((x, y), x1)
    where
     (x1, y) = gdStep dy loss metric x
