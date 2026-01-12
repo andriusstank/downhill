@@ -29,7 +29,7 @@ data BVar r a = BVar
     , bvarGrad :: AD r (Tang a)
     }
 
-instance (Additive a, HasBuilder (Tang a), HasBuilder (Grad a)) => Additive (BVar r a) where
+instance (Additive a, HasBuilder (Tang a), HasBuilder (Grad a), DualOf (DualOf (Tang a)) ~ Tang a) => Additive (BVar r a) where
     (BVar f0 df) + (BVar g0 dg) = BVar (f0 + g0) (df + dg)
     zero = BVar zero zero
 
@@ -39,6 +39,7 @@ instance
     , HasBuilder (Tang a)
     , Subtractive (Grad a)
     , Subtractive (Tang a)
+    , DualOf (DualOf (Tang a)) ~ Tang a
     ) =>
     Subtractive (BVar r a)
     where
@@ -198,7 +199,7 @@ instance
     coriesz (BVar u du) = BVar (coriesz u) (realNode (ExprSum [denseTerm' coriesz coriesz du]))
 
 -- | A variable with derivative of zero.
-constant :: forall r a. (HasBuilder (Grad a), HasBuilder (Tang a)) => a -> BVar r a
+constant :: forall r a. (HasBuilder (Grad a), HasBuilder (Tang a), DualOf (DualOf (Tang a)) ~ Tang a) => a -> BVar r a
 constant x = BVar x zero
 
 -- | A variable with identity derivative.

@@ -77,15 +77,20 @@ instance (IsScalar a) => InnerSpace (Vec2 a) where
     coriesz (Cov2 x y) = Vec2 x y
     Vec2 x1 y1 <.> Vec2 x2 y2 = x1*x2 + y1*y2
 
-data L2 v = L2
+instance (IsScalar a) => InnerSpace (Cov2 a) where
+    riesz (Cov2 x y) = Vec2 x y
+    coriesz (Vec2 x y) = Cov2 x y
+    Cov2 x1 y1 <.> Cov2 x2 y2 = x1*x2 + y1*y2
 
-instance LinearFun (L2 (Cov2 Double)) (Cov2 Double)  (Vec2 Double) where
-  L2 <*| Cov2 x y = Vec2 x y
-  Cov2 x y |*> L2 = Vec2 x y
+data L2 = L2
 
-instance Metric (L2 (Cov2 Double)) (Cov2 Double) where
+instance (v ~ DualOf dv, dv ~ DualOf v, InnerSpace v) => LinearFun L2 v dv where
+  L2 <*| v = riesz v
+  v |*> L2 = riesz v
 
-problem :: AccGdProblem (Vec2 Double) Double (L2 (Cov2 Double))
+instance InnerSpace v => Metric L2 v where
+
+problem :: AccGdProblem (Vec2 Double) Double L2
 problem = AccGdProblem {
     loss = someDFun (dloss1 @(Vec2 Double)),
     metric = L2,
@@ -96,4 +101,4 @@ problem = AccGdProblem {
 solution = accGd problem (Vec2 2 3)
 
 -- >>> Stream.take 3 solution
--- [(Vec2 0.0 0.0,6.5),(Vec2 0.0 0.0,0.0),(Vec2 0.0 0.0,0.0),(Vec2 0.0 0.0,0.0),(Vec2 0.0 0.0,0.0),(Vec2 0.0 0.0,0.0),(Vec2 0.0 0.0,0.0),(Vec2 0.0 0.0,0.0),(Vec2 0.0 0.0,0.0),(Vec2 0.0 0.0,0.0)]
+-- [(Vec2 2.0 3.0,6.5),(Vec2 0.0 0.0,0.0),(Vec2 0.0 0.0,0.0)]

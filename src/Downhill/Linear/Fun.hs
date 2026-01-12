@@ -24,7 +24,7 @@ type instance DualOf (a, b) = (DualOf a, DualOf b)
 type instance DualOf (a, b, c) = (DualOf a, DualOf b, DualOf c)
 type instance DualOf (Generically v) = Generically (DualOf v)
 
-class LinearFun f a b | f -> a b where
+class (a ~ DualOf (DualOf a), b ~ DualOf (DualOf b)) => LinearFun f a b | f a -> b, f b -> a where
   (<*|) :: f -> a -> b
   (|*>) :: DualOf b -> f -> DualOf a
 
@@ -39,31 +39,33 @@ data SomeLinearFun (a :: Type) (b :: Type) where
     (LinearFun f a b) =>
     f -> SomeLinearFun a b
 
-instance LinearFun (SomeLinearFun a b) a b where
+instance (a ~ DualOf (DualOf a), b ~ DualOf (DualOf b)) => LinearFun (SomeLinearFun a b) a b where
   SomeLinearFun f <*| x = f <*| x
   x |*> SomeLinearFun f = x |*> f
 
-data IdFun (a :: Type) = IdFun
+data IdFun = IdFun
 
-instance LinearFun (IdFun a) a a where
+instance (a ~ DualOf (DualOf a)) => LinearFun IdFun a a where
   IdFun <*| x = x
   x |*> IdFun = x
 
-data NegateFun (a :: Type) = NegateFun
+data NegateFun = NegateFun
 
-instance (Subtractive a, Subtractive (DualOf a)) => LinearFun (NegateFun a) a a where
+instance (Subtractive a, Subtractive (DualOf a), a ~ DualOf (DualOf a)) => LinearFun NegateFun a a where
   NegateFun <*| x = negate x
   x |*> NegateFun = negate x
 
 
-newtype ScalarMulFun v = ScalarMulFun (Scalar v)
+newtype ScalarMulFun a = ScalarMulFun a
 
 instance
   ( MultiplicativeAction v
   , MultiplicativeAction (DualOf v)
   , Scalar (DualOf v) ~ Scalar v
+  , DualOf (DualOf v) ~ v
+  , a ~ Scalar v
   ) =>
-  LinearFun (ScalarMulFun v) v v
+  LinearFun (ScalarMulFun a) v v
   where
   ScalarMulFun a <*| v = a *| v
   dv |*> ScalarMulFun a = a *| dv

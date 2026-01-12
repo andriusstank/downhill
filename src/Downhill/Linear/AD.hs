@@ -104,11 +104,11 @@ dense2 f1 f2 x y =
         ]
     )
 
-instance (HasBuilder v, HasBuilder (DualOf v)) => Additive (AD r v) where
+instance (HasBuilder v, HasBuilder (DualOf v), v ~ DualOf (DualOf v)) => Additive (AD r v) where
   zero = realNode (ExprSum [])
   (+) = dense2 IdFun IdFun
 
-instance (HasBuilder v, HasBuilder (DualOf v), Subtractive v, Subtractive (DualOf v)) => Subtractive (AD r v) where
+instance (HasBuilder v, HasBuilder (DualOf v), Subtractive v, Subtractive (DualOf v), v ~ DualOf (DualOf v)) => Subtractive (AD r v) where
   negate = dense1 NegateFun
   (-) = dense2 IdFun NegateFun
 
