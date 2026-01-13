@@ -28,6 +28,7 @@ module Downhill.Tree.Record (
     RecordBuilder,
     fieldBuilder,
     ConstField,
+    EmptyRecord(..)
 )
 where
 
@@ -521,6 +522,17 @@ joinBVarRecord ::
     BVar r (FieldWrapper (Record a) sh)
 joinBVarRecord = case sing @sh of
     SShR -> joinBVarRecord'
+
+data EmptyRecord f = EmptyRecord
+
+instance IsRecord EmptyRecord where
+    fillRecordEx _ = EmptyRecord
+    fillRecordExA _ = pure EmptyRecord
+    foldRecordEx _ b _ = b
+    mapRecordEx _ _ = EmptyRecord
+    mapRecordExA _ _ = pure EmptyRecord
+    zipRecordEx _ _ _ = EmptyRecord
+    recordGettersEx = EmptyRecord
 
 -------------- Fill --------------
 
