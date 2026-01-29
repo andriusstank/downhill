@@ -1,6 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module Downhill.Test (testLinearFun, testLinearBFun) where
+module Downhill.Test (testLinearFun, testLinearBFun, testBilinearBFun) where
 
 import Control.Monad (when)
 import Downhill.BVar (BVar (bvarValue), DFun (DFun, unDFun), Graph)
@@ -45,13 +45,12 @@ testLinearFun genA genU genDV f = do
         (v1 + v2) |*> f === v1 |*> f + v2 |*> f
 
 testLinearBFun ::
-    forall m u v.
+    forall u v.
     ( Eq v
     , VSpace u
     , VSpace v
     , VSpace (DualOf u)
     , VSpace (DualOf v)
-    , MonadFail m
     , HasBuilder u
     , HasBuilder v
     , HasBuilder (DualOf u)
@@ -64,13 +63,13 @@ testLinearBFun ::
     , Manifold (Scalar v)
     , Eq (DualOf u)
     , Eq (Scalar v)
-    , m ~ PropertyT IO
     , Show (Scalar v)
     , Show u
     , Show (DualOf v)
-    , Show v, Show (DualOf u)
+    , Show v
+    , Show (DualOf u)
     ) =>
-    Gen (Scalar v) -> Gen u -> Gen (DualOf v) -> (forall r. BVar r u -> BVar r v) -> m ()
+    Gen (Scalar v) -> Gen u -> Gen (DualOf v) -> (forall r. BVar r u -> BVar r v) -> PropertyT IO ()
 testLinearBFun genScalar genU genDV bf = do
     x <- forAll genU
     let DFun f = BVar.ad bf
@@ -78,12 +77,47 @@ testLinearBFun genScalar genU genDV bf = do
     testLinearFun genScalar genU genDV df
     fx === df <*| x
 
-{-
-testAdditive :: (Eq a, Additive a, MonadFail m) => m a -> m ()
-testAdditive gen = do
-    x <- gen
-    y <- gen
-    z <- gen
-    when ((x+y)+z /= x+(y+z)) $
-        fail "(x+y)+z /= x+(y+z)"
--}
+testBilinearBFun ::
+    ( VSpace u1
+    , VSpace u2
+    , VSpace v
+    , Tang u1 ~ u1
+    , Tang v ~ v
+    , Tang (Scalar v) ~ Scalar v
+    , Scalar u1 ~ Scalar v
+    , Scalar u2 ~ Scalar v
+    , HasBuilder u1
+    , HasBuilder v
+    , HasBuilder (DualOf u1)
+    , HasBuilder (DualOf v)
+    , HasBuilder (Scalar v)
+    , Manifold (Scalar v)
+    , VSpace (DualOf u1)
+    , VSpace (DualOf v)
+    , Eq v
+    , Eq (DualOf u1)
+    , Eq (Scalar v)
+    , Show v
+    , Show (Scalar v)
+    , Show (DualOf v)
+    , Show (DualOf u1)
+    , Show u2
+    , Show u1
+    , Tang u2 ~ u2
+    , Tang (Scalar u2) ~ Scalar u2
+    , HasBuilder u2
+    , HasBuilder (DualOf u2)
+    , HasBuilder (Scalar u2)
+    , Manifold (Scalar u2)
+    , VSpace (DualOf u2)
+    , Eq (DualOf u2)
+    , Eq (Scalar u2)
+    , Show (Scalar u2)
+    , Show (DualOf u2)
+    ) =>
+    Gen (Scalar v) -> Gen u1 -> Gen u2 -> Gen (DualOf v) -> (forall r. BVar r u1 -> BVar r u2 -> BVar r v) -> PropertyT IO ()
+testBilinearBFun genScalar genU1 genU2 genDV bf = do
+    u1 <- forAll genU1
+    u2 <- forAll genU2
+    testLinearBFun genScalar genU2 genDV (bf (BVar.constant u1))
+    testLinearBFun genScalar genU1 genDV (`bf` BVar.constant u2)
