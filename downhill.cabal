@@ -38,6 +38,7 @@ library
         Downhill.Manifold
         Downhill.BVar
         Downhill.Orphans
+        Downhill.Test
     -- other-modules:
     -- other-extensions:
     build-depends:    base ^>=4.20.0.0,
@@ -48,7 +49,8 @@ library
                       singletons, singletons-base,
                       constraints,
                       dlist,
-                      streams
+                      streams,
+                      hedgehog
     hs-source-dirs:   src
     default-language: GHC2024
 
@@ -73,4 +75,5 @@ test-suite downhill-test
         singletons, singletons-base,
         hspec, hspec-expectations, HUnit,
         constraints,
-        streams
+        streams,
+        hedgehog
