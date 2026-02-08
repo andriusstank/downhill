@@ -17,7 +17,7 @@ import Downhill.Linear.AD (Graph, denseTerm', identityAD, realNode, realNode2, A
 import Downhill.Linear.AD qualified as AD
 import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Expr (Expr (ExprSum), VecPair (..), Term)
-import Downhill.Linear.Fun (DualOf, LinearFun ((<*|), (|*>)))
+import Downhill.Linear.Fun (DualOf, LinearMap ((<*|), (|*>)))
 import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold, Tang)
 import Downhill.VSpace (InnerSpace (..), VSpace ((|*|)), CScalar(..), RealScalar)
 import NumHask.Prelude
@@ -61,7 +61,7 @@ instance
     , DualOf a ~ a
     , VSpace v
     ) =>
-    LinearFun (VectorScalarMulFun v) a v
+    LinearMap (VectorScalarMulFun v) a v
     where
     VectorScalarMulFun v <*| a = a *| v
     dv |*> VectorScalarMulFun v = dv |*| v
@@ -219,9 +219,9 @@ var x = BVar x identityAD
 newtype DFun a b f = DFun { unDFun :: a -> (b, f) }
 
 data SomeDFun a b where
-    SomeDFun :: (LinearFun f (Tang a) (Tang b)) => (a -> (b, f)) -> SomeDFun a b
+    SomeDFun :: (LinearMap f (Tang a) (Tang b)) => (a -> (b, f)) -> SomeDFun a b
 
-someDFun :: LinearFun f (Tang a) (Tang b) => DFun a b f -> SomeDFun a b
+someDFun :: LinearMap f (Tang a) (Tang b) => DFun a b f -> SomeDFun a b
 someDFun (DFun f) = SomeDFun f
 
 backprop ::

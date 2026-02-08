@@ -10,7 +10,7 @@ import GHC.Generics (Generically)
 import NumHask.Prelude
 import Downhill.Orphans
 import DownhillTest.Transpose (Transpose(..))
-import Downhill.Linear.Fun (DualOf)
+import Downhill.Linear.Fun (DualOf, LinearMap)
 import Downhill.VSpace (VSpace(..), RealScalar, InnerSpace (..))
 import Downhill.VSpace (CScalar(..), InnerSpace)
 

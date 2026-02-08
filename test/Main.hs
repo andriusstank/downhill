@@ -9,7 +9,7 @@ import DownhillTest.Tree (treeTests)
 import Test.Hspec (hspec)
 
 import Downhill.BVar (BVar)
-import Downhill.Linear.Fun (LinearFun (..), ScalarMulFun (..))
+import Downhill.Linear.Fun (LinearMap (..), ScalarMulFun (..))
 import Downhill.Test (testLinearBFun, testVSpace)
 import DownhillTest.V2 (V2 (..))
 import Hedgehog

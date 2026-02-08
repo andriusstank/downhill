@@ -4,7 +4,7 @@ module DownhillTest.AD (adTests)
 where
 
 import Downhill.Linear.AD (AD, Graph, ad, dense1, identityAD)
-import Downhill.Linear.Fun (LinearFun (..), ScalarMulFun (..))
+import Downhill.Linear.Fun (LinearMap (..), ScalarMulFun (..))
 import Downhill.Orphans ()
 import NumHask.Prelude
 import Test.HUnit ((@=?))

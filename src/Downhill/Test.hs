@@ -1,12 +1,12 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module Downhill.Test (testVSpace, testLinearFun, testLinearBFun, testBilinearBFun) where
+module Downhill.Test (testVSpace, testLinearMap, testLinearBFun, testBilinearBFun) where
 
 import Control.Monad (when)
 import Downhill.BVar (BVar (bvarValue), DFun (DFun, unDFun), Graph)
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.Builder (HasBuilder)
-import Downhill.Linear.Fun (DualOf, LinearFun ((<*|), (|*>)), ScalarMulFun (ScalarMulFun))
+import Downhill.Linear.Fun (DualOf, LinearMap ((<*|), (|*>)), ScalarMulFun (ScalarMulFun))
 import Downhill.Manifold (Manifold, Tang)
 import Downhill.VSpace (CScalar, InnerSpace (..), VSpace ((|*|)), conj, (*^))
 import Hedgehog (Gen, PropertyT, forAll, (===))
@@ -98,9 +98,9 @@ testVSpace genA genV = do
     testHilbert genA genA
     testHilbert genA genV
 
-testLinearFun ::
+testLinearMap ::
     forall f u v.
-    ( LinearFun f u v
+    ( LinearMap f u v
     , Scalar u ~ Scalar v
     , Eq (Scalar v)
     , Show (Scalar v)
@@ -114,7 +114,7 @@ testLinearFun ::
     , VSpace u
     ) =>
     Gen (Scalar u) -> Gen u -> Gen (DualOf v) -> f -> PropertyT IO ()
-testLinearFun genA genU genDV f = do
+testLinearMap genA genU genDV f = do
     do
         a <- forAll genA
         u <- forAll genU
@@ -160,7 +160,7 @@ testLinearBFun genScalar genU genDV bf = do
     x <- forAll genU
     let DFun f = BVar.ad bf
         (fx, df) = f x
-    testLinearFun genScalar genU genDV df
+    testLinearMap genScalar genU genDV df
     fx === df <*| x
 
 testBilinearBFun ::

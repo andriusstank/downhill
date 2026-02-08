@@ -4,8 +4,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Downhill.Linear.Fun(
     DualOf,
-    LinearFun(..),
-    SomeLinearFun(..),
+    LinearMap(..),
+    SomeLinearMap(..),
     IdFun(..),
     NegateFun(..),
     ScalarMulFun(..),
@@ -25,34 +25,34 @@ type instance DualOf (a, b, c) = (DualOf a, DualOf b, DualOf c)
 type instance DualOf (Generically v) = Generically (DualOf v)
 type instance DualOf (Complex a) = Complex a
 
-class (a ~ DualOf (DualOf a), b ~ DualOf (DualOf b)) => LinearFun f a b | f a -> b, f b -> a where
+class (a ~ DualOf (DualOf a), b ~ DualOf (DualOf b)) => LinearMap f a b | f a -> b, f b -> a where
   (<*|) :: f -> a -> b
   (|*>) :: DualOf b -> f -> DualOf a
 
 infixr 7 <*|
 infixl 7 |*>
 
-class (LinearFun f a (DualOf a)) => Metric f a
+class (LinearMap f a (DualOf a)) => Metric f a
 
-data SomeLinearFun (a :: Type) (b :: Type) where
-  SomeLinearFun ::
+data SomeLinearMap (a :: Type) (b :: Type) where
+  SomeLinearMap ::
     forall f a b.
-    (LinearFun f a b) =>
-    f -> SomeLinearFun a b
+    (LinearMap f a b) =>
+    f -> SomeLinearMap a b
 
-instance (a ~ DualOf (DualOf a), b ~ DualOf (DualOf b)) => LinearFun (SomeLinearFun a b) a b where
-  SomeLinearFun f <*| x = f <*| x
-  x |*> SomeLinearFun f = x |*> f
+instance (a ~ DualOf (DualOf a), b ~ DualOf (DualOf b)) => LinearMap (SomeLinearMap a b) a b where
+  SomeLinearMap f <*| x = f <*| x
+  x |*> SomeLinearMap f = x |*> f
 
 data IdFun = IdFun
 
-instance (a ~ DualOf (DualOf a)) => LinearFun IdFun a a where
+instance (a ~ DualOf (DualOf a)) => LinearMap IdFun a a where
   IdFun <*| x = x
   x |*> IdFun = x
 
 data NegateFun = NegateFun
 
-instance (Subtractive a, Subtractive (DualOf a), a ~ DualOf (DualOf a)) => LinearFun NegateFun a a where
+instance (Subtractive a, Subtractive (DualOf a), a ~ DualOf (DualOf a)) => LinearMap NegateFun a a where
   NegateFun <*| x = negate x
   x |*> NegateFun = negate x
 
@@ -66,7 +66,7 @@ instance
   , DualOf (DualOf v) ~ v
   , a ~ Scalar v
   ) =>
-  LinearFun (ScalarMulFun a) v v
+  LinearMap (ScalarMulFun a) v v
   where
   ScalarMulFun a <*| v = a *| v
   dv |*> ScalarMulFun a = a *| dv

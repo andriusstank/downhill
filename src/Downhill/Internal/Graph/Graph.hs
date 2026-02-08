@@ -46,7 +46,7 @@ import Downhill.Linear.Expr (
   Term,
   VecPair (VecPair),
  )
-import Downhill.Linear.Fun (DualOf, LinearFun (..))
+import Downhill.Linear.Fun (DualOf, LinearMap (..))
 import GHC.IO.Unsafe (unsafePerformIO)
 import Prelude hiding (tail)
 
@@ -143,12 +143,12 @@ evalGraph3 (UniGraph nodes finalNode) dz = evalNode finalNode
   innerValues :: NodeMap s CovHolder
   innerValues = NodeMap.map (CovHolder . evalNode) nodes
 
-instance (a ~ DualOf (DualOf a), z ~ DualOf (DualOf z), a ~ a', z ~ z') => LinearFun (Graph a z) a' z' where
+instance (a ~ DualOf (DualOf a), z ~ DualOf (DualOf z), a ~ a', z ~ z') => LinearMap (Graph a z) a' z' where
   Graph fwd' _back <*| x = evalGraph2 fwd' x
   x |*> Graph _fwd back' = evalGraph3 back' x
 
 newtype DenseBigraph a z = DenseBigraph { unDenseBigraph :: Graph (Dense a) (Dense z) }
 
-instance (a ~ DualOf (DualOf a), z ~ DualOf (DualOf z)) => LinearFun (DenseBigraph a z) a z where
+instance (a ~ DualOf (DualOf a), z ~ DualOf (DualOf z)) => LinearMap (DenseBigraph a z) a z where
   DenseBigraph f <*| x = unDense (f <*| Dense x)
   x |*> DenseBigraph f = unDense (Dense x |*> f)

@@ -16,7 +16,7 @@ import Downhill.BVar (BVar (..), DFun (unDFun))
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.AD (inlineNode)
 import Downhill.Linear.Builder (HasBuilder (..))
-import Downhill.Linear.Fun (DualOf, LinearFun (..))
+import Downhill.Linear.Fun (DualOf, LinearMap (..))
 import Downhill.Manifold (Grad, IsScalar, Manifold, Tang)
 import Downhill.Tree.FieldWrapper (DenseFieldWrapper (..), FieldWrapper (..))
 import Downhill.Tree.Record (

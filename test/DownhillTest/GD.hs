@@ -8,7 +8,7 @@ module DownhillTest.GD ()
 where
 
 import Downhill.BVar qualified as BVar
-import Downhill.Linear.Fun (DualOf, Metric, LinearFun(..))
+import Downhill.Linear.Fun (DualOf, Metric, LinearMap(..))
 import Downhill.Manifold (Manifold(..), Tang, IsScalar)
 import Downhill.VSpace (InnerSpace(..), VSpace (..), sqrNorm, RealScalar)
 import NumHask.Prelude
@@ -85,7 +85,7 @@ instance (IsScalar a) => InnerSpace (Cov2 a) where
 
 data L2 = L2
 
-instance (v ~ DualOf dv, dv ~ DualOf v, InnerSpace v) => LinearFun L2 v dv where
+instance (v ~ DualOf dv, dv ~ DualOf v, InnerSpace v) => LinearMap L2 v dv where
   L2 <*| v = riesz v
   v |*> L2 = riesz v
 

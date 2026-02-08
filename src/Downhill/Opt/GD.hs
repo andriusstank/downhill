@@ -9,7 +9,7 @@ where
 import Data.Stream.Infinite (Stream (..))
 import Data.Stream.Infinite qualified as Stream
 import Downhill.BVar (SomeDFun(..))
-import Downhill.Linear.Fun (DualOf, LinearFun (..), Metric)
+import Downhill.Linear.Fun (DualOf, LinearMap (..), Metric)
 import Downhill.Manifold (Grad, MScalar, Manifold (..), Tang)
 import NumHask.Prelude
 
