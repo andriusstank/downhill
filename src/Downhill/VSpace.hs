@@ -1,5 +1,7 @@
 {-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Downhill.VSpace (
@@ -8,6 +10,8 @@ module Downhill.VSpace (
   (^*),
   InnerSpace (..),
   sqrNorm,
+  CScalar (..),
+  RealScalar,
 )
 where
 
@@ -22,10 +26,12 @@ class
   , Scalar v ~ Scalar (DualOf v)
   , Scalar v ~ DualOf (Scalar v)
   , Ring (Scalar v)
+  , InnerSpace (Scalar v)
   , Multiplicative (Scalar v)
   , MultiplicativeAction v
   , MultiplicativeAction (DualOf v)
   , v ~ DualOf (DualOf v)
+  , CScalar (Scalar v)
   ) =>
   VSpace v
   where
@@ -71,6 +77,31 @@ instance GDual s V1 V1 where
 instance (Additive s) => GDual s U1 U1 where
   gevalGrad U1 = zero
 
+instance InnerSpace Float where
+  riesz = id
+  coriesz = id
+  (<.>) = (*)
+instance InnerSpace Double where
+  riesz = id
+  coriesz = id
+  (<.>) = (*)
+instance InnerSpace Int where
+  riesz = id
+  coriesz = id
+  (<.>) = (*)
+instance InnerSpace Integer where
+  riesz = id
+  coriesz = id
+  (<.>) = (*)
+
+instance RealScalar a => VSpace (Complex a) where
+  (|*|) = (*)
+
+instance RealScalar a => InnerSpace (Complex a) where
+  riesz = conj
+  coriesz = conj
+  x <.> y = x * conj y
+
 instance VSpace Float where
   (|*|) = (*)
 instance VSpace Double where
@@ -93,7 +124,9 @@ instance
   , Subtractive (Scalar (Generically v))
   , MultiplicativeAction (Generically v)
   , MultiplicativeAction (Generically (DualOf v))
+  , InnerSpace (Scalar (Generically v))
   , GVSpace (Rep (DualOf v)) (Rep v) (Scalar (Generically v))
+  , CScalar (Scalar (Generically v))
   ) =>
   VSpace (Generically v)
   where
@@ -113,3 +146,37 @@ instance (GVSpace df f a, GVSpace dg g a, Additive a) => GVSpace (df :*: dg) (f 
 
 instance (Additive a) => GVSpace U1 U1 a where
   gdvvmul _ _ = zero
+
+class
+  ( Ring a
+  , DualOf a ~ a
+  , Scalar a ~ a
+  , MultiplicativeAction a
+  , InnerSpace a
+  , RealType (RealType a) ~ RealType a
+  ) =>
+  CScalar a
+  where
+  type RealType a :: Type
+  type RealType a = a
+  conj :: a -> a
+  default conj :: (RealScalar a) => a -> a
+  conj = id
+
+  -- | sqnorm x = x * conj x
+  sqnorm :: a -> RealType a
+  default sqnorm :: (RealScalar a) => a -> RealType a
+  sqnorm x = x * x
+
+class (RealType a ~ a, CScalar a) => RealScalar a
+instance (RealType a ~ a, CScalar a) => RealScalar a
+
+instance CScalar Float
+instance CScalar Double
+instance CScalar Int
+instance CScalar Integer
+
+instance (RealScalar a) => CScalar (Complex a) where
+  type RealType (Complex a) = a
+  conj (Complex (x, y)) = Complex (x, negate y)
+  sqnorm (Complex (x, y)) = sqnorm x + sqnorm y

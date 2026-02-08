@@ -176,3 +176,7 @@ instance MultiplicativeAction Float where
 instance MultiplicativeAction Double where
     type Scalar Double = Double
     (|*) = (*)
+
+instance Ring a => MultiplicativeAction (Complex a) where
+    type Scalar (Complex a) = Complex a
+    (|*) = (*)

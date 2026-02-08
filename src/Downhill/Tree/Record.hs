@@ -60,7 +60,7 @@ import Downhill.Tree.FieldWrapper (
     SubtractiveField,
     VSpaceField,
  )
-import Downhill.VSpace (VSpace (..))
+import Downhill.VSpace (VSpace (..), CScalar)
 import NumHask.Prelude
 
 data ProxyField :: leafShape -> Type
@@ -395,7 +395,7 @@ instance
 type instance FieldScalar (Record a) = FieldScalar a
 type instance FieldDualOf (Record a) = Record (FieldDualOf a)
 
-instance (VSpaceField a, SingI sh) => VSpace (FieldWrapper (Record a) sh) where
+instance (VSpaceField a, CScalar (FieldScalar a), SingI sh) => VSpace (FieldWrapper (Record a) sh) where
     dv |*| v = getSum (foldMapRecord @sh @(ConstField (Sum (FieldScalar a))) @(Sum (FieldScalar a)) sumField y)
       where
         sumField :: forall sh'. FieldWrapper (ConstField (Sum (FieldScalar a))) sh' -> Sum (FieldScalar a)

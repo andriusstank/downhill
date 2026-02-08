@@ -19,7 +19,7 @@ import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Expr (Expr (ExprSum), VecPair (..), Term)
 import Downhill.Linear.Fun (DualOf, LinearFun ((<*|), (|*>)))
 import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold, Tang)
-import Downhill.VSpace (InnerSpace (..), VSpace ((|*|)))
+import Downhill.VSpace (InnerSpace (..), VSpace ((|*|)), CScalar(..), RealScalar)
 import NumHask.Prelude
 import Prelude qualified
 
@@ -46,8 +46,12 @@ instance
     negate (BVar y0 dy) = BVar (negate y0) (negate dy)
     (BVar f0 df) - (BVar g0 dg) = BVar (f0 - g0) (df - dg)
 
-instance (IsScalar a, HasGrad a) => Multiplicative (BVar r a) where
-    (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (f0 *| dg + g0 *| df)
+instance (HasGrad a, Tang a ~ a, InnerSpace a, Multiplicative a, Multiplicative (DualOf a)) => Multiplicative (BVar r a) where
+    (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (realNode (ExprSum [ term1, term2]))
+        where
+            term1, term2 :: Term ('VecPair r (DualOf r)) ('VecPair (Tang a) (DualOf (Tang a)))
+            term1 = denseTerm' (f0 *) (riesz f0 *) dg
+            term2 = denseTerm' (* g0) ( * riesz g0) df
     one = BVar one zero
 
 newtype VectorScalarMulFun v = VectorScalarMulFun v
@@ -162,6 +166,10 @@ instance (IsScalar a, Floating a, HasGrad a) => Floating (BVar r a) where
 
 type instance DualOf (BVar r v) = BVar r (DualOf v)
 
+instance (RealScalar a, Tang a ~ a, HasBuilder a, Manifold a) => CScalar (BVar r a) where
+    type RealType (BVar r a) = BVar r a
+    conj = id
+
 instance
     ( Manifold v
     , Manifold (Scalar v)
@@ -171,6 +179,7 @@ instance
     , HasBuilder v
     , HasBuilder (DualOf v)
     , HasBuilder (Scalar v)
+    , RealScalar (Scalar v)
     ) =>
     VSpace (BVar r v)
     where
@@ -188,6 +197,7 @@ instance
     , HasBuilder v
     , HasBuilder (DualOf v)
     , HasBuilder (Scalar v)
+    , RealScalar (Scalar v)
     ) =>
     InnerSpace (BVar r v)
  where

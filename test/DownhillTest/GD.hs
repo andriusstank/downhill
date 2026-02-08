@@ -7,15 +7,14 @@
 module DownhillTest.GD ()
 where
 
-import Downhill.BVar (BVar, someDFun)
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.Fun (DualOf, Metric, LinearFun(..))
 import Downhill.Manifold (Manifold(..), Tang, IsScalar)
-import Downhill.VSpace (InnerSpace(..), VSpace (..), sqrNorm)
+import Downhill.VSpace (InnerSpace(..), VSpace (..), sqrNorm, RealScalar)
 import NumHask.Prelude
 import Downhill.Linear.Builder (HasBuilder, Dense(..))
 import Downhill.Opt.GD (AccGdProblem (..), accGd)
-import Downhill.BVar (SomeDFun(SomeDFun))
+import Downhill.BVar (BVar, someDFun, SomeDFun(SomeDFun))
 import Data.Stream.Infinite qualified as Stream
 
 loss1 :: (InnerSpace v, FromRational (Scalar v)) => v -> Scalar v
@@ -33,6 +32,7 @@ bvarLoss1 ::
     , HasBuilder (Scalar v)
     , Fractional (Scalar v)
     , FromRational (Scalar v)
+    , RealScalar (Scalar v)
     ) =>
     BVar r v -> BVar r (Scalar v)
 bvarLoss1 = loss1
@@ -49,6 +49,7 @@ dloss1 :: forall v.
     , HasBuilder (Scalar v)
     , Fractional (Scalar v)
     , FromRational (Scalar v)
+    , RealScalar (Scalar v)
     ) =>
     BVar.DFun v (Scalar v) (BVar.Graph v (Scalar v))
 dloss1 = BVar.ad bvarLoss1

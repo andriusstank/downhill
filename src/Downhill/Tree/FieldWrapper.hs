@@ -3,6 +3,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE DefaultSignatures #-}
 
 module Downhill.Tree.FieldWrapper (
     FieldWrapper (..),
@@ -20,7 +22,7 @@ module Downhill.Tree.FieldWrapper (
     ManifoldFieldSh,
     ManifoldField,
     DenseFieldWrapper (..),
-    HasBuilderField,
+    HasBuilderField
 )
 where
 
@@ -28,9 +30,10 @@ import Data.Singletons (SingI, type (@@), type (~>))
 import Downhill.Linear.Builder (HasBuilder (..), maybeToMonoid)
 import Downhill.Linear.Fun (DualOf)
 import Downhill.Manifold (Manifold, Tang)
-import Downhill.VSpace (VSpace)
+import Downhill.VSpace (VSpace, InnerSpace, CScalar)
 import NumHask.Prelude
 import Prelude.Singletons (ConstSym1)
+import Data.Data (mkRealConstr)
 
 newtype FieldWrapper field sh = FieldWrapper {unFieldWrapper :: field @@ sh}
 
@@ -96,7 +99,9 @@ class
     , DualOf (FieldScalar field) ~ FieldScalar field
     , FieldDualOf (FieldDualOf field) ~ field
     , Scalar (FieldScalar field) ~ FieldScalar field
+    , InnerSpace (FieldScalar field)
     , (forall sh. (SingI sh) => VSpaceFieldSh field sh)
+    , CScalar (FieldScalar field)
     ) =>
     VSpaceField field
 instance
@@ -109,7 +114,9 @@ instance
     , DualOf (FieldScalar field) ~ FieldScalar field
     , FieldDualOf (FieldDualOf field) ~ field
     , Scalar (FieldScalar field) ~ FieldScalar field
+    , InnerSpace (FieldScalar field)
     , forall sh. (SingI sh) => VSpaceFieldSh field sh
+    , CScalar (FieldScalar field)
     ) =>
     VSpaceField field
 
@@ -176,3 +183,4 @@ type instance FieldScalar (ConstSym1 a) = Scalar a
 deriving via (a :: Type) instance MultiplicativeAction a => MultiplicativeAction (FieldWrapper (ConstSym1 a) sh)
 deriving via (a :: Type) instance VSpace a => VSpace (FieldWrapper (ConstSym1 a) sh)
 deriving via (a :: Type) instance Manifold a => Manifold (FieldWrapper (ConstSym1 a) sh)
+

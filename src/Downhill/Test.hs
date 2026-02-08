@@ -1,6 +1,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module Downhill.Test (testLinearFun, testLinearBFun, testBilinearBFun) where
+module Downhill.Test (testVSpace, testLinearFun, testLinearBFun, testBilinearBFun) where
 
 import Control.Monad (when)
 import Downhill.BVar (BVar (bvarValue), DFun (DFun, unDFun), Graph)
@@ -8,9 +8,95 @@ import Downhill.BVar qualified as BVar
 import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Fun (DualOf, LinearFun ((<*|), (|*>)), ScalarMulFun (ScalarMulFun))
 import Downhill.Manifold (Manifold, Tang)
-import Downhill.VSpace (VSpace ((|*|)), (*^))
+import Downhill.VSpace (CScalar, InnerSpace (..), VSpace ((|*|)), conj, (*^))
 import Hedgehog (Gen, PropertyT, forAll, (===))
 import NumHask.Prelude
+
+{-# ANN testPlus "HLint: ignore Use -" #-}
+testPlus :: (Show a, Eq a, Subtractive a) => Gen a -> PropertyT IO ()
+testPlus genA = do
+    x <- forAll genA
+    y <- forAll genA
+    z <- forAll genA
+    x + zero === x
+    zero + x === x
+    x + negate x === zero
+    x + y === y + x
+    (x + y) + z === x + (y + z)
+    x - y === x + negate y
+
+testMul :: (Show a, Eq a, Subtractive a, Ring a, MultiplicativeAction a) => Gen a -> PropertyT IO ()
+testMul genA = do
+    x <- forAll genA
+    y <- forAll genA
+    z <- forAll genA
+    x * one === x
+    one * x === x
+    x * y === y * x
+    (x * y) * z === x * (y * z)
+    x * (y + z) === x * y + x * z
+
+testVector :: (VSpace v, Show (Scalar v), Eq (Scalar v), Show v, Eq v) => Gen (Scalar v) -> Gen v -> PropertyT IO ()
+testVector genA genV = do
+    a1 <- forAll genA
+    a2 <- forAll genA
+    v1 <- forAll genV
+    v2 <- forAll genV
+    v1 |* one === v1
+    v1 |* zero === zero
+    v1 |* a1 === a1 *| v1
+    (a1 * a2) *| v1 === a1 *| (a2 *| v1)
+    a1 *| (v1 + v2) === a1 *| v1 + a1 *| v2
+    a1 |* a2 === a1 * a2
+
+testHilbert ::
+    forall v.
+    ( InnerSpace v
+    , Show (Scalar v)
+    , Eq (Scalar v)
+    , Show v
+    , Eq v
+    , CScalar (Scalar v)
+    , Eq (DualOf v)
+    , Show (DualOf v)
+    ) =>
+    Gen (Scalar v) -> Gen v -> PropertyT IO ()
+testHilbert genA genV = do
+    a <- forAll genA
+    v1 <- forAll genV
+    v2 <- forAll genV
+    v3 <- forAll genV
+    conj (conj a) === a
+    v1 <.> v2 === conj (v2 <.> v1)
+    (v1 + v2) <.> v3 === (v1 <.> v3) + (v2 <.> v3)
+    (a *| v1) <.> v2 === a * (v1 <.> v2)
+    v1 <.> (a *| v2) === conj a * (v1 <.> v2)
+
+    v1 <.> v2 === riesz v2 |*| v1
+    coriesz (riesz v1) === v1
+    riesz (v1 + v2) === riesz v1 + riesz v2
+    riesz (a *| v1) === conj a *| riesz v1
+
+testVSpace ::
+    ( VSpace v
+    , Show (Scalar v)
+    , Eq (Scalar v)
+    , Show v
+    , Eq v
+    , InnerSpace v
+    , Eq
+        (DualOf v)
+    , Show (DualOf v)
+    ) =>
+    Gen (Scalar v) -> Gen v -> PropertyT IO ()
+testVSpace genA genV = do
+    testPlus genA
+    testMul genA
+    testPlus genV
+    testVector genA genA
+    testVector genA genV
+    testHilbert genA genA
+    testHilbert genA genV
 
 testLinearFun ::
     forall f u v.

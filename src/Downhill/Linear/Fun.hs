@@ -23,6 +23,7 @@ type instance DualOf Double = Double
 type instance DualOf (a, b) = (DualOf a, DualOf b)
 type instance DualOf (a, b, c) = (DualOf a, DualOf b, DualOf c)
 type instance DualOf (Generically v) = Generically (DualOf v)
+type instance DualOf (Complex a) = Complex a
 
 class (a ~ DualOf (DualOf a), b ~ DualOf (DualOf b)) => LinearFun f a b | f a -> b, f b -> a where
   (<*|) :: f -> a -> b

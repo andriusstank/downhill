@@ -2,6 +2,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE UndecidableSuperClasses #-}
 
 module Downhill.Manifold (Tang, Manifold (..), MScalar, Grad, IsScalar, HasGrad)
 where
