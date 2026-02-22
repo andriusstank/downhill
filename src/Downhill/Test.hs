@@ -1,6 +1,12 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module Downhill.Test (testVSpace, testLinearMap, testLinearBFun, testBilinearBFun) where
+module Downhill.Test (
+    testVSpace,
+    testLinearMap,
+    testLinearBFun,
+    testBilinearBFun,
+    testHilbertMap,
+) where
 
 import Control.Monad (when)
 import Downhill.BVar (BVar (bvarValue), DFun (DFun, unDFun), Graph)
@@ -129,6 +135,24 @@ testLinearMap genA genU genDV f = do
         v1 <- forAll genDV
         v2 <- forAll genDV
         (v1 + v2) |*> f === v1 |*> f + v2 |*> f
+
+testHilbertMap ::
+    ( VSpace v
+    , VSpace u
+    , VSpace f
+    , LinearMap f u v
+    , Show u
+    , Eq (DualOf v)
+    , InnerSpace v
+    , Show (DualOf v)
+    , InnerSpace u
+    , LinearMap (DualOf f) v u
+    , InnerSpace f
+    ) =>
+    Gen u -> f -> PropertyT IO ()
+testHilbertMap genU f = do
+    x <- forAll genU
+    riesz (f <*| x) === riesz x |*> riesz f
 
 testLinearBFun ::
     forall u v.
