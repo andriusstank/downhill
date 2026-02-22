@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Main (main) where
@@ -10,15 +11,15 @@ import Test.Hspec (hspec)
 
 import Downhill.BVar (BVar)
 import Downhill.Linear.Fun (LinearMap (..), ScalarMulFun (..))
-import Downhill.Test (testLinearBFun, testVSpace, testLinearMap, testHilbertMap)
-import DownhillTest.V2 (V2 (..), M2(..))
+import Downhill.Test (testHilbertMap, testLinearBFun, testLinearMap, testVSpace)
+import DownhillTest.Transpose (Transpose (..))
+import DownhillTest.V2 (M2 (..), V2 (..))
 import Hedgehog
 import Hedgehog (Gen, Property, property)
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Main (defaultMain)
 import Hedgehog.Range qualified as Range
 import NumHask.Prelude
-import DownhillTest.Transpose (Transpose(..))
 
 testFun :: BVar r Int -> BVar r Int
 testFun x = x
@@ -35,17 +36,45 @@ genCInt = Complex <$> ((,) <$> genInt <*> genInt)
 genM2 :: Gen a -> Gen (M2 a)
 genM2 g = M2 <$> g <*> g <*> g <*> g
 
-mainHg :: Property
-mainHg = property $ do
-    testVSpace genInt (genV2 genInt)
-    testVSpace genCInt (genV2 genCInt)
-    testVSpace genInt (genM2 genInt)
-    testVSpace genCInt (genM2 genCInt)
-    f1 <- forAll (genM2 genInt)
-    testLinearMap genInt (genV2 genInt) (Transpose <$> genV2 genInt) f1
-    f2 <- forAll (genM2 genCInt)
-    testLinearMap genCInt (genV2 genCInt) (Transpose <$> genV2 genCInt) f2
-    testHilbertMap (genV2 genInt) f1
+testM2 :: [(PropertyName, Property)]
+testM2 =
+    [
+        ( "testM2"
+        , property
+            $ do
+                f1 <- forAll (genM2 genInt)
+                testLinearMap genInt (genV2 genInt) (Transpose <$> genV2 genInt) f1
+                testHilbertMap (genV2 genInt) (genM2 genInt)
+        )
+    ]
+
+testM2C :: [(PropertyName, Property)]
+testM2C =
+    [
+        ( "testM2C linear map"
+        , property $ do
+            f2 <- forAll (genM2 genCInt)
+            testLinearMap genCInt (genV2 genCInt) (Transpose <$> genV2 genCInt) f2
+        )
+    ,
+        ( "testM2C hilbert"
+        , property $ do
+            testHilbertMap (genV2 genCInt) (genM2 genCInt)
+        )
+    ]
+
+mainHg :: Hedgehog.Group
+mainHg = Hedgehog.Group "All" props
+  where
+    props :: [(PropertyName, Property)]
+    props =
+        [ ("vspace v2 int", testVSpace genInt (genV2 genInt))
+        , ("vspace v2 cint", testVSpace genCInt (genV2 genCInt))
+        , ("vspace m2 int", testVSpace genInt (genM2 genInt))
+        , ("vspace m2 cint", testVSpace genCInt (genM2 genCInt))
+        ]
+            ++ testM2
+            ++ testM2C
 
 mainSpec :: IO ()
 mainSpec = hspec $ do
@@ -55,4 +84,4 @@ mainSpec = hspec $ do
     treeTests
 
 main :: IO ()
-main = mainSpec >> defaultMain [check mainHg]
+main = mainSpec >> defaultMain [checkSequential mainHg]

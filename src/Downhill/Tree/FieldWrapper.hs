@@ -4,7 +4,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
-{-# LANGUAGE DefaultSignatures #-}
 
 module Downhill.Tree.FieldWrapper (
     FieldWrapper (..),
@@ -33,7 +32,6 @@ import Downhill.Manifold (Manifold, Tang)
 import Downhill.VSpace (VSpace, InnerSpace, CScalar)
 import NumHask.Prelude
 import Prelude.Singletons (ConstSym1)
-import Data.Data (mkRealConstr)
 
 newtype FieldWrapper field sh = FieldWrapper {unFieldWrapper :: field @@ sh}
 

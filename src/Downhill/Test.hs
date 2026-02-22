@@ -8,14 +8,14 @@ module Downhill.Test (
     testHilbertMap,
 ) where
 
-import Control.Monad (when)
-import Downhill.BVar (BVar (bvarValue), DFun (DFun, unDFun), Graph)
+import Downhill.BVar (BVar, DFun (DFun))
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.Builder (HasBuilder)
-import Downhill.Linear.Fun (DualOf, LinearMap ((<*|), (|*>)), ScalarMulFun (ScalarMulFun))
+import Downhill.Linear.Fun (DualOf, LinearMap ((<*|), (|*>)))
 import Downhill.Manifold (Manifold, Tang)
-import Downhill.VSpace (CScalar, InnerSpace (..), VSpace ((|*|)), conj, (*^))
-import Hedgehog (Gen, PropertyT, forAll, (===))
+import Downhill.VSpace (CScalar, InnerSpace (..), VSpace ((|*|)), conj)
+import Hedgehog (Gen, Property, PropertyT, forAll, (===))
+import Hedgehog.Internal.Property (property)
 import NumHask.Prelude
 
 {-# ANN testPlus "HLint: ignore Use -" #-}
@@ -90,12 +90,11 @@ testVSpace ::
     , Show v
     , Eq v
     , InnerSpace v
-    , Eq
-        (DualOf v)
+    , Eq (DualOf v)
     , Show (DualOf v)
     ) =>
-    Gen (Scalar v) -> Gen v -> PropertyT IO ()
-testVSpace genA genV = do
+    Gen (Scalar v) -> Gen v -> Property
+testVSpace genA genV = property $ do
     testPlus genA
     testMul genA
     testPlus genV
@@ -137,21 +136,26 @@ testLinearMap genA genU genDV f = do
         (v1 + v2) |*> f === v1 |*> f + v2 |*> f
 
 testHilbertMap ::
+    forall f u v.
     ( VSpace v
     , VSpace u
     , VSpace f
     , LinearMap f u v
+    , LinearMap (DualOf f) v u
     , Show u
+    , Show v
+    , Eq v
     , Eq (DualOf v)
     , InnerSpace v
     , Show (DualOf v)
     , InnerSpace u
-    , LinearMap (DualOf f) v u
     , InnerSpace f
+    , Show f
     ) =>
-    Gen u -> f -> PropertyT IO ()
-testHilbertMap genU f = do
+    Gen u -> Gen f -> PropertyT IO ()
+testHilbertMap genU genF = do
     x <- forAll genU
+    f <- forAll genF
     riesz (f <*| x) === riesz x |*> riesz f
 
 testLinearBFun ::

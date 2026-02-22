@@ -14,8 +14,7 @@ import Downhill.VSpace (InnerSpace(..), VSpace (..), sqrNorm, RealScalar)
 import NumHask.Prelude
 import Downhill.Linear.Builder (HasBuilder, Dense(..))
 import Downhill.Opt.GD (AccGdProblem (..), accGd)
-import Downhill.BVar (BVar, someDFun, SomeDFun(SomeDFun))
-import Data.Stream.Infinite qualified as Stream
+import Downhill.BVar (BVar, someDFun)
 
 loss1 :: (InnerSpace v, FromRational (Scalar v)) => v -> Scalar v
 loss1 x = 0.5 * sqrNorm x
