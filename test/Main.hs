@@ -7,7 +7,7 @@ import DownhillTest.AD (adTests)
 import DownhillTest.Diff (diffTests)
 import DownhillTest.Record (recordTests)
 import DownhillTest.Tree (treeTests)
-import Test.Hspec (hspec)
+import Test.Hspec (hspec, describe, it)
 
 import Downhill.BVar (BVar)
 import Downhill.Linear.Fun (LinearMap (..), ScalarMulFun (..))
@@ -20,6 +20,7 @@ import Hedgehog.Gen qualified as Gen
 import Hedgehog.Main (defaultMain)
 import Hedgehog.Range qualified as Range
 import NumHask.Prelude
+import Test.HUnit ((@=?), Assertion)
 
 testFun :: BVar r Int -> BVar r Int
 testFun x = x
@@ -63,6 +64,14 @@ testM2C =
         )
     ]
 
+testProp :: [(PropertyName, Property)]
+testProp = [("test", property go)]
+    where
+        go = do
+                x <- forAll genInt
+                y <- forAll genInt
+                assert (x+y<100)
+
 mainHg :: Hedgehog.Group
 mainHg = Hedgehog.Group "All" props
   where
@@ -75,6 +84,7 @@ mainHg = Hedgehog.Group "All" props
         ]
             ++ testM2
             ++ testM2C
+            ++ testProp
 
 mainSpec :: IO ()
 mainSpec = hspec $ do

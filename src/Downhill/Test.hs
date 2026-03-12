@@ -2,37 +2,46 @@
 
 module Downhill.Test (
     testVSpace,
+    testHilbertSpace,
     testLinearMap,
+    {-
     testLinearBFun,
     testBilinearBFun,
-    testHilbertMap,
+    testHilbertMap,-}
 ) where
 
-import Downhill.BVar (BVar, DFun (DFun))
-import Downhill.BVar qualified as BVar
-import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Fun (DualOf, LinearMap ((<*|), (|*>)))
-import Downhill.Manifold (Manifold, Tang)
 import Downhill.VSpace (CScalar, InnerSpace (..), VSpace ((|*|)), conj)
-import Hedgehog (Gen, Property, PropertyT, forAll, (===))
+import Hedgehog (Gen, forAll, (===))
 import Hedgehog.Internal.Property (property)
 import NumHask.Prelude
+import Test.Tasty (TestTree, testGroup)
+import Test.Tasty.Hedgehog (testProperty)
 
-{-# ANN testPlus "HLint: ignore Use -" #-}
-testPlus :: (Show a, Eq a, Subtractive a) => Gen a -> PropertyT IO ()
-testPlus genA = do
+{-# ANN testAdditive "HLint: ignore Use -" #-}
+testAdditive :: (Show a, Eq a, Additive a) => Gen a -> TestTree
+testAdditive genA = testProperty "Additive" . property $ do
     x <- forAll genA
     y <- forAll genA
     z <- forAll genA
     x + zero === x
     zero + x === x
-    x + negate x === zero
     x + y === y + x
     (x + y) + z === x + (y + z)
-    x - y === x + negate y
 
-testMul :: (Show a, Eq a, Subtractive a, Ring a, MultiplicativeAction a) => Gen a -> PropertyT IO ()
-testMul genA = do
+{-# ANN testSubtractive "HLint: ignore Use -" #-}
+{-# ANN testSubtractive "HLint: ignore Redundant negate" #-}
+testSubtractive :: forall a. (Show a, Eq a, Subtractive a) => Gen a -> TestTree
+testSubtractive genA = testProperty "Subtractive" . property $ do
+    x <- forAll genA
+    y <- forAll genA
+    x - y === x + negate y
+    x + negate x === zero
+    negate (negate x) === x
+    negate @a zero === zero
+
+testMultiplicative :: (Show a, Eq a, Multiplicative a) => Gen a -> TestTree
+testMultiplicative genA = testProperty "Multiplicative" . property $ do
     x <- forAll genA
     y <- forAll genA
     z <- forAll genA
@@ -40,22 +49,149 @@ testMul genA = do
     one * x === x
     x * y === y * x
     (x * y) * z === x * (y * z)
-    x * (y + z) === x * y + x * z
 
-testVector :: (VSpace v, Show (Scalar v), Eq (Scalar v), Show v, Eq v) => Gen (Scalar v) -> Gen v -> PropertyT IO ()
-testVector genA genV = do
-    a1 <- forAll genA
-    a2 <- forAll genA
-    v1 <- forAll genV
+testDistributive :: (Show a, Eq a, Additive a, Multiplicative a) => Gen a -> TestTree
+testDistributive genA = testProperty "Distributive" . property $ do
+    x <- forAll genA
+    y <- forAll genA
+    z <- forAll genA
+    x * (y + z) === x * y + y * z
+
+testRing :: (Show a, Eq a, Ring a) => Gen a -> TestTree
+testRing genA =
+    testGroup
+        "Ring"
+        [ testAdditive genA
+        , testSubtractive genA
+        , testMultiplicative genA
+        , testDistributive genA
+        ]
+
+testLinearity ::
+    ( a ~ Scalar u
+    , a ~ Scalar v
+    , Show a
+    , Show u
+    , Eq v
+    , MultiplicativeAction u
+    , Additive u
+    , Show v
+    , MultiplicativeAction v
+    , Additive v
+    ) =>
+    Gen a -> Gen u -> (u -> v) -> TestTree
+testLinearity genA genU f = testProperty "Linearity" . property $ do
+    a <- forAll genA
+    u <- forAll genU
+    f (a *| u) === a *| f u
+    v <- forAll genU
+    f (u + v) === f u + f v
+
+testLeftLinearity ::
+    ( a ~ Scalar u
+    , a ~ Scalar v
+    , a ~ Scalar w
+    , Show a
+    , Show u
+    , Show v
+    , Show w
+    , Eq v
+    , Eq w
+    , Additive u
+    , Additive v
+    , MultiplicativeAction u
+    , MultiplicativeAction v
+    , MultiplicativeAction w, Additive w
+    ) =>
+    Gen a -> Gen u -> Gen v -> (u -> v -> w) -> TestTree
+testLeftLinearity genA genU genV f = testProperty "Left Linearity" . property $ do
+    a <- forAll genA
+    u <- forAll genU
+    v <- forAll genV
+    (a *| u) `f` v === a *| (u `f` v)
+    u2 <- forAll genU
+    (u + u2) `f` v === u `f` v + u2 `f` v
+
+testRightLinearity ::
+    ( a ~ Scalar u
+    , a ~ Scalar v
+    , a ~ Scalar w
+    , Show a
+    , Show u
+    , Show v
+    , Eq v
+    , Eq w
+    , Additive u
+    , Additive v
+    , Show w
+    , MultiplicativeAction u
+    , MultiplicativeAction v
+    , MultiplicativeAction w
+    , Additive w
+    ) =>
+    Gen a -> Gen u -> Gen v -> (u -> v -> w) -> TestTree
+testRightLinearity genA genU genV f = testProperty "Right Linearity" . property $ do
+    a <- forAll genA
+    u <- forAll genU
+    v <- forAll genV
+    u `f` (a *| v) === a *| (u `f` v)
     v2 <- forAll genV
-    v1 |* one === v1
-    v1 |* zero === zero
-    v1 |* a1 === a1 *| v1
-    (a1 * a2) *| v1 === a1 *| (a2 *| v1)
-    a1 *| (v1 + v2) === a1 *| v1 + a1 *| v2
-    a1 |* a2 === a1 * a2
+    u `f` (v + v2) === u `f` v2 + u `f` v
 
-testHilbert ::
+testBilinearity ::
+    ( a ~ Scalar u
+    , a ~ Scalar v
+    , a ~ Scalar w
+    , Show a
+    , Show u
+    , MultiplicativeAction u
+    , Additive u
+    , Additive w
+    , Show v
+    , Show w
+    , Eq v
+    , Eq w
+    , Additive v
+    , MultiplicativeAction v
+    , MultiplicativeAction w
+    ) =>
+    Gen a ->
+    Gen u ->
+    Gen v ->
+    (u -> v -> w) ->
+    TestTree
+testBilinearity genA genU genV f = testGroup "Bilinearity" [testLeftLinearity genA genU genV f, testRightLinearity genA genU genV f]
+
+testScalarVectorMul :: forall v. (VSpace v, Show (Scalar v), Eq (Scalar v), Show v, Eq v) => Gen (Scalar v) -> Gen v -> TestTree
+testScalarVectorMul genA genV =
+    testGroup
+        "Scalar vector multiplication"
+        [ simple
+        , testBilinearity genA genA genA (*|)
+        , testBilinearity genA genA genV (*|)
+        ]
+  where
+    simple = testProperty "Simple checks" . property $ do
+        a <- forAll genA
+        v <- forAll genV
+        v |* one === v
+        v |* zero === zero
+        v |* a === a *| v
+
+testVSpace ::
+    (VSpace v, Show (Scalar v), Eq (Scalar v), Show v, Eq v, Show (DualOf v)) =>
+    Gen (Scalar v) -> Gen v -> Gen (DualOf v) -> TestTree
+testVSpace genA genV genDv =
+    testGroup
+        "VSpace"
+        [ testRing genA
+        , testAdditive genV
+        , testSubtractive genV
+        , testScalarVectorMul genA genV
+        , testBilinearity genA genDv genV (|*|)
+        ]
+
+testInnerProduct ::
     forall v.
     ( InnerSpace v
     , Show (Scalar v)
@@ -66,8 +202,8 @@ testHilbert ::
     , Eq (DualOf v)
     , Show (DualOf v)
     ) =>
-    Gen (Scalar v) -> Gen v -> PropertyT IO ()
-testHilbert genA genV = do
+    Gen (Scalar v) -> Gen v -> TestTree
+testInnerProduct genA genV = testProperty "Inner product" . property $ do
     a <- forAll genA
     v1 <- forAll genV
     v2 <- forAll genV
@@ -77,13 +213,12 @@ testHilbert genA genV = do
     (v1 + v2) <.> v3 === (v1 <.> v3) + (v2 <.> v3)
     (a *| v1) <.> v2 === a * (v1 <.> v2)
     v1 <.> (a *| v2) === conj a * (v1 <.> v2)
-
     v1 <.> v2 === riesz v2 |*| v1
     coriesz (riesz v1) === v1
     riesz (v1 + v2) === riesz v1 + riesz v2
     riesz (a *| v1) === conj a *| riesz v1
 
-testVSpace ::
+testHilbertSpace ::
     ( VSpace v
     , Show (Scalar v)
     , Eq (Scalar v)
@@ -93,15 +228,14 @@ testVSpace ::
     , Eq (DualOf v)
     , Show (DualOf v)
     ) =>
-    Gen (Scalar v) -> Gen v -> Property
-testVSpace genA genV = property $ do
-    testPlus genA
-    testMul genA
-    testPlus genV
-    testVector genA genA
-    testVector genA genV
-    testHilbert genA genA
-    testHilbert genA genV
+    Gen (Scalar v) -> Gen v -> Gen (DualOf v) -> TestTree
+testHilbertSpace genA genV genDv =
+    testGroup
+        "Hilber space"
+        [ testVSpace genA genV genDv
+        , testInnerProduct genA genA
+        , testInnerProduct genA genV
+        ]
 
 testLinearMap ::
     forall f u v.
@@ -118,23 +252,19 @@ testLinearMap ::
     , VSpace v
     , VSpace u
     ) =>
-    Gen (Scalar u) -> Gen u -> Gen (DualOf v) -> f -> PropertyT IO ()
-testLinearMap genA genU genDV f = do
-    do
-        a <- forAll genA
+    Gen (Scalar u) -> Gen u -> Gen (DualOf v) -> f -> TestTree
+testLinearMap genA genU genDV f = testGroup "Linear Map" [
+    testLinearity genA genU (f <*|),
+    testLinearity genA genDV (|*> f),
+    testAdjoint
+  ]
+  where
+    testAdjoint = testProperty "Adjoint" . property $ do
         u <- forAll genU
-        dv <- forAll genDV
-        f <*| (a *| u) === a *| (f <*| u)
-        (a *| dv) |*> f === a *| (dv |*> f)
-        dv |*| (f <*| u) === (dv |*> f) |*| u
-    do
-        u1 <- forAll genU
-        u2 <- forAll genU
-        f <*| (u1 + u2) === f <*| u1 + f <*| u2
-        v1 <- forAll genDV
-        v2 <- forAll genDV
-        (v1 + v2) |*> f === v1 |*> f + v2 |*> f
+        v <- forAll genDV
+        (v |*> f) |*| u === v |*| (f <*| u)
 
+{-
 testHilbertMap ::
     forall f u v.
     ( VSpace v
@@ -235,3 +365,4 @@ testBilinearBFun genScalar genU1 genU2 genDV bf = do
     u2 <- forAll genU2
     testLinearBFun genScalar genU2 genDV (bf (BVar.constant u1))
     testLinearBFun genScalar genU1 genDV (`bf` BVar.constant u2)
+-}

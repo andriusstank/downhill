@@ -50,7 +50,9 @@ library
                       constraints,
                       dlist,
                       streams,
-                      hedgehog
+                      tasty,
+                      hedgehog,
+                      tasty-hedgehog
     hs-source-dirs:   src
     default-language: GHC2024
 
