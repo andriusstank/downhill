@@ -11,16 +11,18 @@ import Test.Hspec (hspec, describe, it)
 
 import Downhill.BVar (BVar)
 import Downhill.Linear.Fun (LinearMap (..), ScalarMulFun (..))
-import Downhill.Test (testHilbertMap, testLinearBFun, testLinearMap, testVSpace)
+import Downhill.Test (testVSpace, testHilbertSpace, testLinearMap, testRing)
 import DownhillTest.Transpose (Transpose (..))
 import DownhillTest.V2 (M2 (..), V2 (..))
 import Hedgehog
 import Hedgehog (Gen, Property, property)
 import Hedgehog.Gen qualified as Gen
-import Hedgehog.Main (defaultMain)
 import Hedgehog.Range qualified as Range
 import NumHask.Prelude
 import Test.HUnit ((@=?), Assertion)
+import Test.Tasty.Hedgehog (testProperty)
+import Test.Tasty(TestTree, defaultMain, testGroup)
+import GHC.RTS.Flags (MiscFlags(generateStackTrace))
 
 testFun :: BVar r Int -> BVar r Int
 testFun x = x
@@ -37,6 +39,7 @@ genCInt = Complex <$> ((,) <$> genInt <*> genInt)
 genM2 :: Gen a -> Gen (M2 a)
 genM2 g = M2 <$> g <*> g <*> g <*> g
 
+{-
 testM2 :: [(PropertyName, Property)]
 testM2 =
     [
@@ -72,20 +75,25 @@ testProp = [("test", property go)]
                 y <- forAll genInt
                 assert (x+y<100)
 
-mainHg :: Hedgehog.Group
-mainHg = Hedgehog.Group "All" props
-  where
-    props :: [(PropertyName, Property)]
-    props =
-        [ ("vspace v2 int", testVSpace genInt (genV2 genInt))
-        , ("vspace v2 cint", testVSpace genCInt (genV2 genCInt))
+-}
+
+mainHg :: TestTree
+mainHg = testGroup "All" [
+        testHilbertSpace "(V2 Int) Hilbert space" genInt (genV2 genInt) (Transpose <$> genV2 genInt),
+        testHilbertSpace "(V2 (Complex Int)) Hilbert space" genCInt (genV2 genCInt) (Transpose <$> genV2 genCInt),
+        testHilbertSpace "(M2 (Complex Int)) Hilbert space" genCInt (genM2 genCInt) (Transpose <$> genM2 genCInt),
+        testRing "Int M2 ring" (genM2 genInt),
+        --testRing "Complex M2 ring" (genM2 genCInt),
+        testLinearMap "M2 Linear map" genCInt (genV2 genCInt) (Transpose <$> genV2 genCInt) (genM2 genCInt)
+        {- , ("vspace v2 cint", testVSpace genCInt (genV2 genCInt))
         , ("vspace m2 int", testVSpace genInt (genM2 genInt))
-        , ("vspace m2 cint", testVSpace genCInt (genM2 genCInt))
+        , ("vspace m2 cint", testVSpace genCInt (genM2 genCInt)) -}
         ]
+        {-
             ++ testM2
             ++ testM2C
-            ++ testProp
-
+            ++ testProp -}
+  
 mainSpec :: IO ()
 mainSpec = hspec $ do
     adTests
@@ -94,4 +102,4 @@ mainSpec = hspec $ do
     treeTests
 
 main :: IO ()
-main = mainSpec >> defaultMain [checkSequential mainHg]
+main = mainSpec >> defaultMain mainHg

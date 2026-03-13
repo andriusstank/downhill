@@ -73,6 +73,7 @@ test-suite downhill-test
     hs-source-dirs:   test
     main-is:          Main.hs
     build-depends:
+        tasty-hedgehog ^>=1.4.0.2,
         base,
         downhill,
         numhask,
@@ -80,4 +81,4 @@ test-suite downhill-test
         hspec, hspec-expectations, HUnit,
         constraints,
         streams,
-        hedgehog
+        hedgehog, tasty, tasty-hedgehog

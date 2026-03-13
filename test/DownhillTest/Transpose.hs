@@ -10,7 +10,7 @@ import NumHask.Prelude
 
 newtype Transpose a = Transpose {transpose :: a}
     deriving (Generic, Show, Eq)
-    deriving (Additive, Subtractive, MultiplicativeAction) via a
+    deriving (Additive, Subtractive, Multiplicative, MultiplicativeAction) via a
 
 type instance DualOf (Transpose a) = a
 
