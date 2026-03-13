@@ -12,8 +12,7 @@ import Test.Hspec (hspec, describe, it)
 import Downhill.BVar (BVar)
 import Downhill.Linear.Fun (LinearMap (..), ScalarMulFun (..))
 import Downhill.Test (testVSpace, testHilbertSpace, testLinearMap, testRing)
-import DownhillTest.Transpose (Transpose (..))
-import DownhillTest.V2 (M2 (..), V2 (..))
+import DownhillTest.V2 (M2 (..), V2 (..), Cov2 (Cov2))
 import Hedgehog
 import Hedgehog (Gen, Property, property)
 import Hedgehog.Gen qualified as Gen
@@ -32,6 +31,9 @@ genInt = Gen.integral (Range.linearFrom 0 (-100) 100)
 
 genV2 :: Gen a -> Gen (V2 a)
 genV2 g = V2 <$> g <*> g
+
+genCov2 :: Gen a -> Gen (Cov2 a)
+genCov2 g = Cov2 <$> g <*> g
 
 genCInt :: Gen (Complex Integer)
 genCInt = Complex <$> ((,) <$> genInt <*> genInt)
@@ -79,12 +81,12 @@ testProp = [("test", property go)]
 
 mainHg :: TestTree
 mainHg = testGroup "All" [
-        testHilbertSpace "(V2 Int) Hilbert space" genInt (genV2 genInt) (Transpose <$> genV2 genInt),
-        testHilbertSpace "(V2 (Complex Int)) Hilbert space" genCInt (genV2 genCInt) (Transpose <$> genV2 genCInt),
-        testHilbertSpace "(M2 (Complex Int)) Hilbert space" genCInt (genM2 genCInt) (Transpose <$> genM2 genCInt),
+        testHilbertSpace "(V2 Int) Hilbert space" genInt (genV2 genInt) (genCov2 genInt),
+        testHilbertSpace "(V2 (Complex Int)) Hilbert space" genCInt (genV2 genCInt) (genCov2 genCInt),
+        testHilbertSpace "(M2 (Complex Int)) Hilbert space" genCInt (genM2 genCInt) (genM2 genCInt),
         testRing "Int M2 ring" (genM2 genInt),
         --testRing "Complex M2 ring" (genM2 genCInt),
-        testLinearMap "M2 Linear map" genCInt (genV2 genCInt) (Transpose <$> genV2 genCInt) (genM2 genCInt)
+        testLinearMap "M2 Linear map" genCInt (genV2 genCInt) (genCov2 genCInt) (genM2 genCInt)
         {- , ("vspace v2 cint", testVSpace genCInt (genV2 genCInt))
         , ("vspace m2 int", testVSpace genInt (genM2 genInt))
         , ("vspace m2 cint", testVSpace genCInt (genM2 genCInt)) -}

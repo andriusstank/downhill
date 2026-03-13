@@ -66,7 +66,6 @@ test-suite downhill-test
         DownhillTest.Record
         DownhillTest.Tree
         DownhillTest.GD
-        DownhillTest.Transpose
         DownhillTest.V2
     -- other-extensions:
     type:             exitcode-stdio-1.0
