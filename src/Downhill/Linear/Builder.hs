@@ -62,7 +62,7 @@ instance (HasBuilder a, HasBuilder b, HasBuilder c) => HasBuilder (a, b, c) wher
   identityBuilder x = (Just (Sum x), Nothing)
 
 newtype Dense a = Dense {unDense :: a}
-  deriving (Additive, Subtractive, Multiplicative, Num, Eq) via a
+  deriving (Additive, Subtractive, Multiplicative, Num, Eq, MultiplicativeAction) via a
   deriving Show
 
 newtype DenseBuilder a = DenseBuilder {unDenseBuilder :: Maybe a}

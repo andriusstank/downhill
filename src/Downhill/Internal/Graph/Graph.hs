@@ -144,11 +144,11 @@ evalGraph3 (UniGraph nodes finalNode) dz = evalNode finalNode
   innerValues = NodeMap.map (CovHolder . evalNode) nodes
 
 instance (a ~ DualOf (DualOf a), z ~ DualOf (DualOf z), a ~ a', z ~ z') => LinearMap (Graph a z) a' z' where
-  Graph fwd' _back <*| x = evalGraph2 fwd' x
-  x |*> Graph _fwd back' = evalGraph3 back' x
+  lmapFwd (Graph fwd' _back) = evalGraph2 fwd'
+  lmapBack (Graph _fwd back') = evalGraph3 back'
 
 newtype DenseBigraph a z = DenseBigraph { unDenseBigraph :: Graph (Dense a) (Dense z) }
 
 instance (a ~ DualOf (DualOf a), z ~ DualOf (DualOf z)) => LinearMap (DenseBigraph a z) a z where
-  DenseBigraph f <*| x = unDense (f <*| Dense x)
-  x |*> DenseBigraph f = unDense (Dense x |*> f)
+  lmapFwd (DenseBigraph f) = unDense . lmapFwd f . Dense
+  lmapBack (DenseBigraph f) = unDense . lmapBack f . Dense

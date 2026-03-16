@@ -22,6 +22,7 @@ import Test.HUnit ((@=?), Assertion)
 import Test.Tasty.Hedgehog (testProperty)
 import Test.Tasty(TestTree, defaultMain, testGroup)
 import GHC.RTS.Flags (MiscFlags(generateStackTrace))
+import Downhill.Test (testHilbertMap)
 
 testFun :: BVar r Int -> BVar r Int
 testFun x = x
@@ -86,7 +87,7 @@ mainHg = testGroup "All" [
         testHilbertSpace "(M2 (Complex Int)) Hilbert space" genCInt (genM2 genCInt) (genM2 genCInt),
         testRing "Int M2 ring" (genM2 genInt),
         --testRing "Complex M2 ring" (genM2 genCInt),
-        testLinearMap "M2 Linear map" genCInt (genV2 genCInt) (genCov2 genCInt) (genM2 genCInt)
+        testHilbertMap genCInt (genV2 genCInt) (genCov2 genCInt) (forAll (genM2 genCInt))
         {- , ("vspace v2 cint", testVSpace genCInt (genV2 genCInt))
         , ("vspace m2 int", testVSpace genInt (genM2 genInt))
         , ("vspace m2 cint", testVSpace genCInt (genM2 genCInt)) -}

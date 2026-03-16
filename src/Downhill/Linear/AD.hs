@@ -27,7 +27,7 @@ where
 import Downhill.Internal.Graph.Graph (DenseBigraph (DenseBigraph), Graph, buildBigraph)
 import Downhill.Linear.Builder (Dense, HasBuilder (..), Sparse (unSparse))
 import Downhill.Linear.Expr (BiFun (BiFun), Expr (ExprSum, ExprVar), GradType, TangType, Term (Term), VecPair (VecPair), idBiFun)
-import Downhill.Linear.Fun (DualOf, IdFun (IdFun), LinearMap ((<*|), (|*>)), NegateFun (NegateFun), ScalarMulFun (ScalarMulFun))
+import Downhill.Linear.Fun (DualOf, IdFun (IdFun), LinearMap (..), (<*|), (|*>), NegateFun (NegateFun), ScalarMulFun (ScalarMulFun))
 import Downhill.VSpace (VSpace)
 import NumHask.Prelude
 
@@ -52,10 +52,12 @@ realNode' ::
   Expr ('VecPair a (DualOf a)) ('VecPair v dv') -> AD a v
 realNode' y = AD (\(BiFun f g) -> Term (BiFun f g) y)
 
-denseTerm ::
+denseTerm :: forall r f u v.
   ( LinearMap f u v
   , HasBuilder v
   , HasBuilder (DualOf u)
+  , DualOf (DualOf v) ~ v
+  , DualOf (DualOf u) ~ u
   ) =>
   f -> AD r u -> Term ('VecPair r (DualOf r)) ('VecPair v (DualOf v))
 denseTerm f (AD x) = x $ BiFun (identityBuilder . (f <*|)) (identityBuilder . (|*> f))
@@ -72,6 +74,8 @@ dense1 ::
   , HasBuilder v
   , HasBuilder (DualOf v)
   , HasBuilder (DualOf u)
+  , DualOf (DualOf u) ~ u
+  , DualOf (DualOf v) ~ v
   ) =>
   f ->
   AD r u ->
@@ -90,6 +94,9 @@ dense2 ::
   , HasBuilder (DualOf v)
   , HasBuilder (DualOf u1)
   , HasBuilder (DualOf u2)
+  , DualOf (DualOf u1) ~ u1
+  , DualOf (DualOf u2) ~ u2
+  , DualOf (DualOf v) ~ v
   ) =>
   f1 ->
   f2 ->
