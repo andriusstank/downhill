@@ -14,7 +14,7 @@ import Data.Tuple.Singletons (STuple0 (STuple0))
 import Downhill.BVar (BVar (..), unDFun)
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.Builder (HasBuilder (..))
-import Downhill.Linear.Fun ((<*|), (|*>))
+import Downhill.Linear.Fun ((<*|), (|*>), (|*>>), (<<*|))
 import Downhill.Manifold (Grad, IsScalar, Manifold (..), Tang)
 import Downhill.Tree.BVar (BVarField (..))
 import Downhill.Tree.FieldWrapper (FieldWrapper (..))
@@ -119,8 +119,8 @@ myBVarFun = myFun . unFieldWrapper . splitMyRecord
 splitBVarTests :: Assertion
 splitBVarTests = do
   y @=? 3 * 7 + 5 * 11
-  13 |*> dy @=? FieldWrapper (MyRecord (13 * 3) (13 * 5))
-  dy <*| FieldWrapper (MyRecord 17 19) @=? 3 * 17 + 5 * 19
+  13 |*>> dy @=? FieldWrapper (MyRecord (13 * 3) (13 * 5))
+  dy <<*| FieldWrapper (MyRecord 17 19) @=? 3 * 17 + 5 * 19
  where
   x :: FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord)
   x = FieldWrapper (MyRecord 7 11)
@@ -144,8 +144,8 @@ joinMyRecord = joinField
 joinBVarTests :: Assertion
 joinBVarTests = do
   y @=? MyRecord (3 * 11) (5 * 11)
-  FieldWrapper (MyRecord 13 17) |*> dy @=? 3 * 13 + 5 * 17
-  dy <*| 19 @=? FieldWrapper (MyRecord (3 * 19) (5 * 19))
+  FieldWrapper (MyRecord 13 17) |*>> dy @=? 3 * 13 + 5 * 17
+  dy <<*| 19 @=? FieldWrapper (MyRecord (3 * 19) (5 * 19))
  where
   x :: Int
   x = 11

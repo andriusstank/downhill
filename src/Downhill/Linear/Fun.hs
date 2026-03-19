@@ -15,6 +15,8 @@ module Downhill.Linear.Fun (
   Fst (..),
   (|*>),
   (<*|),
+  (<<*|), (|*>>),
+  lflip, lfst, lsnd, lid, lzero
 )
 where
 
@@ -60,9 +62,20 @@ data SomeLinearMap (a :: Type) (b :: Type) where
     (LinearMap f a b) =>
     f -> SomeLinearMap a b
 
-instance (a ~ DualOf (DualOf a), b ~ DualOf (DualOf b)) => LinearMap (SomeLinearMap a b) a b where
-  lmapFwd (SomeLinearMap f) x = f <*| x
-  lmapBack (SomeLinearMap f) x = x |*> f
+(<<*|) :: SomeLinearMap a b -> a -> b
+SomeLinearMap f <<*| x = f <*| x
+
+(|*>>) :: (DualOf (DualOf a) ~ a, DualOf (DualOf b) ~ b) => DualOf b -> SomeLinearMap a b -> DualOf a
+x |*>> SomeLinearMap f = x |*> f
+
+
+{-
+instance LinearMap (SomeLinearMap a b) a b where
+  lmapFwd (SomeLinearMap f) = lmapFwd f
+  lmapBack (SomeLinearMap f) = go f
+    where go :: forall f. LinearMap f a b => f -> DualOf b -> DualOf a
+          go = lmapBack @f @a @b
+-}
 
 data IdFun = IdFun
 
@@ -70,9 +83,18 @@ instance LinearMap IdFun a a where
   lmapFwd IdFun x = x
   lmapBack IdFun x = x
 
+data Zero a b = Zero
+
+instance (Additive (DualOf a), Additive b) => LinearMap (Zero a b) a b where
+  lmapFwd = const zero
+  lmapBack = const zero
+
+lflip :: (DualOf (DualOf a) ~ a, DualOf (DualOf b) ~ b) => SomeLinearMap a b -> SomeLinearMap (DualOf b) (DualOf a)
+lflip (SomeLinearMap f) = SomeLinearMap (Flip f)
+
 newtype Flip f = Flip f
 
-instance (LinearMap f a b, a ~ DualOf da, b ~ DualOf db, da ~ DualOf a, db ~ DualOf b, Scalar da ~ Scalar db) => LinearMap (Flip f) db da where
+instance (LinearMap f a b, a ~ DualOf da, b ~ DualOf db, da ~ DualOf a, db ~ DualOf b) => LinearMap (Flip f) db da where
   lmapFwd (Flip f) x = x |*> f
   lmapBack (Flip f) x = f <*| x
 
@@ -114,6 +136,24 @@ instance
 
 data Fst u v = Fst
 
-instance (DualOf (DualOf u) ~ u, DualOf (DualOf v) ~ v, Additive (DualOf v)) => LinearMap (Fst u v) (u, v) u where
+instance (Additive (DualOf v)) => LinearMap (Fst u v) (u, v) u where
   lmapFwd Fst = fst
   lmapBack Fst = (,zero)
+
+data Snd u v = Snd
+
+instance (Additive (DualOf u)) => LinearMap (Snd u v) (u, v) v where
+  lmapFwd Snd = snd
+  lmapBack Snd = (zero,)
+
+lfst :: forall a b. (Additive (DualOf b)) => SomeLinearMap (a, b) a
+lfst = SomeLinearMap (Fst @a @b)
+
+lsnd :: forall a b. (Additive (DualOf a)) => SomeLinearMap (a, b) b
+lsnd = SomeLinearMap (Snd @a @b)
+
+lid :: forall a. SomeLinearMap a a
+lid = SomeLinearMap IdFun
+
+lzero :: forall a b. (Additive b, Additive (DualOf a)) => SomeLinearMap a b
+lzero = SomeLinearMap (Zero @a @b)

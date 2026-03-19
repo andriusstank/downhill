@@ -23,10 +23,10 @@ import Control.Arrow (ArrowChoice (right))
 import Downhill.BVar (BVar, DFun (DFun), Graph)
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.Builder (HasBuilder)
-import Downhill.Linear.Fun (DualOf, LinearMap(..), (<*|), (|*>), SomeLinearMap (SomeLinearMap),  Fst (Fst))
+import Downhill.Linear.Fun (DualOf, Fst (Fst), LinearMap (..), SomeLinearMap (SomeLinearMap), lflip, lfst, lsnd, (<*|), (|*>))
 import Downhill.Manifold (Manifold, Tang)
+import Downhill.Orphans ()
 import Downhill.VSpace (CScalar, InnerSpace (..), VSpace ((|*|)), conj)
-import Downhill.Orphans()
 import Hedgehog (Gen, Group (..), MonadTest, Property, PropertyT, annotateShow, forAll, forAllWith, property, (===))
 import NumHask.Prelude hiding (Group)
 import Test.Tasty (TestName, TestTree, testGroup)
@@ -283,9 +283,8 @@ testHilbertSpace name genA genV genDv =
         ]
 
 testLinearMap ::
-    forall f u v.
-    ( LinearMap f u v
-    , Scalar u ~ Scalar v
+    forall u v.
+    ( Scalar u ~ Scalar v
     , Eq (Scalar v)
     , Show (Scalar v)
     , Show u
@@ -297,7 +296,7 @@ testLinearMap ::
     , VSpace v
     , VSpace u
     ) =>
-    TestName -> Gen (Scalar u) -> Gen u -> Gen (DualOf v) -> PropertyT IO f -> TestTree
+    TestName -> Gen (Scalar u) -> Gen u -> Gen (DualOf v) -> PropertyT IO (SomeLinearMap u v) -> TestTree
 testLinearMap name genA genU genDV genF =
     testGroup
         name
@@ -308,14 +307,14 @@ testLinearMap name genA genU genDV genF =
   where
     leftF :: PropertyT IO (u -> v)
     leftF = do
-        f <- genF
+        SomeLinearMap f <- genF
         return (f <*|)
     rightF :: PropertyT IO (DualOf v -> DualOf u)
     rightF = do
-        f <- genF
+        SomeLinearMap f <- genF
         return (|*> f)
     testAdjoint = testProperty "Adjoint" . property $ do
-        f <- genF
+        SomeLinearMap f <- genF
         u <- forAll genU
         v <- forAll genDV
         (v |*> f) |*| u === v |*| (f <*| u)
@@ -347,7 +346,7 @@ testHilbertMap ::
 testHilbertMap genA genU genDV genF =
     testGroup
         "Hilbert Linear Map"
-        [ testLinearMap "Linear map" genA genU genDV genF
+        [ testLinearMap "Linear map" genA genU genDV (SomeLinearMap <$> genF)
         , testAdjoint
         , testAdjoint'
         ]
@@ -361,12 +360,15 @@ testHilbertMap genA genU genDV genF =
         x <- forAll genDV
         coriesz (x |*> f) === riesz f <*| coriesz x
 
+runSomeLinearMap :: (forall f. (LinearMap f a b) => f -> r) -> SomeLinearMap a b -> r
+runSomeLinearMap f lmap = case lmap of
+    SomeLinearMap lf -> f lf
+
 testLinearDFun ::
-    forall u v f.
+    forall u v.
     ( Eq v
     , Eq (Scalar u)
     , Eq (DualOf u)
-    , LinearMap f u v
     , VSpace u
     , VSpace v
     , Scalar u ~ Scalar v
@@ -375,22 +377,28 @@ testLinearDFun ::
     , Show (Scalar u)
     , Show (DualOf v)
     , Show (DualOf u)
+    , u ~ Tang u
+    , v ~ Tang v
     ) =>
     Gen (Scalar v) ->
     Gen u ->
     Gen (DualOf v) ->
-    DFun u v f ->
+    PropertyT IO (DFun u v) ->
     TestTree
-testLinearDFun genScalar genU genDV (DFun f) = testGroup "Linear DFun" [selfD, linearity]
+testLinearDFun genScalar genU genDV genF = testGroup "Linear DFun" [selfD, linearity]
   where
     selfD = testProperty "f = Df" . property $ do
+        DFun f <- genF
         x <- forAll genU
         let (fx, df) = f x
-        fx === df <*| x
-    derivative :: PropertyT IO f
+        case df of
+            SomeLinearMap df' -> fx === df' <*| x
+    derivative :: PropertyT IO (SomeLinearMap u v)
     derivative = do
+        DFun f <- genF
         x <- forAll genU
         return (snd (f x))
+    --linearity = _ (runSomeLinearMap (testLinearMap "Linearity of derivative" genScalar genU genDV) <$> derivative)
     linearity = testLinearMap "Linearity of derivative" genScalar genU genDV derivative
 
 testLinearBFun ::
@@ -419,7 +427,7 @@ testLinearBFun ::
     , Show (DualOf u)
     ) =>
     Gen (Scalar v) -> Gen u -> Gen (DualOf v) -> (forall r. BVar r u -> BVar r v) -> TestTree
-testLinearBFun genScalar genU genDV bf = testLinearDFun genScalar genU genDV (BVar.ad bf)
+testLinearBFun genScalar genU genDV bf = testLinearDFun genScalar genU genDV (pure (BVar.ad bf))
 
 data BoundLeftLinearMap u v w f = BoundLeftLinearMap u f
 
@@ -427,12 +435,29 @@ instance (LinearMap f (u, v) w, Scalar v ~ Scalar w) => LinearMap (BoundLeftLine
     lmapFwd (BoundLeftLinearMap u f) = lmapFwd f . (u,)
     lmapBack (BoundLeftLinearMap _ f) = snd . lmapBack @f @(u, v) f
 
+constFirst ::
+    forall a b.
+    (DualOf (DualOf (Tang a)) ~ Tang a, DualOf (DualOf (Tang b)) ~ Tang b, Additive (Tang a)) =>
+    a -> DFun b (a, b)
+constFirst x = DFun go
+  where
+    go :: b -> ((a, b), SomeLinearMap (Tang b) (Tang a, Tang b))
+    go y = ((x, y), lflip lsnd)
+
+constSecond ::
+    forall a b.
+    (DualOf (DualOf (Tang a)) ~ Tang a, DualOf (DualOf (Tang b)) ~ Tang b, Additive (Tang b)) =>
+    b -> DFun a (a, b)
+constSecond x = DFun go
+  where
+    go :: a -> ((a, b), SomeLinearMap (Tang a) (Tang a, Tang b))
+    go y = ((y, x), lflip lfst)
+
 testBilinearDFun ::
-    forall u v w f.
+    forall u v w.
     ( Eq v
     , Eq (Scalar u)
     , Eq (DualOf u)
-    , LinearMap f u v
     , VSpace u
     , VSpace v
     , VSpace w
@@ -441,23 +466,34 @@ testBilinearDFun ::
     , Show (Scalar u)
     , Show (DualOf v)
     , Show (DualOf u)
+    , Tang v ~ v
+    , Tang w ~ w
+    , Tang u ~ u
+    , Scalar v ~ Scalar w
+    , Eq w
+    , Eq (Scalar w)
+    , Eq (DualOf v)
+    , Show w
+    , Show (Scalar w)
+    , Show (DualOf w)
+    , Scalar u ~ Scalar w
     ) =>
     Gen (Scalar v) ->
     Gen u ->
-    Gen (DualOf v) ->
-    DFun (u, v) w f ->
+    Gen v ->
+    Gen (DualOf w) ->
+    DFun (u, v) w ->
     TestTree
-testBilinearDFun genScalar genU genDV (DFun f) = testGroup "Bilinear DFun" []
+testBilinearDFun genScalar genU genV genDW f = testGroup "Bilinear DFun" [testLinearDFun genScalar genV genDW bindLeft, testLinearDFun genScalar genU genDW bindRight]
   where
-    bindLeft :: PropertyT IO (DFun v w (SomeLinearMap v w))
+    bindLeft :: PropertyT IO (DFun v w)
     bindLeft = do
         u <- forAll genU
-        let f' :: v -> (w, SomeLinearMap v w)
-            f' v = (y, SomeLinearMap (Fst @v @w <|*|> f))
-                where
-                    (y, dy) = f (u, v)
-        return (DFun f')
-
+        return (f . constFirst u)
+    bindRight :: PropertyT IO (DFun u w)
+    bindRight = do
+        v <- forAll genV
+        return (f . constSecond v)
 
 {-
 

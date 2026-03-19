@@ -43,11 +43,11 @@ instance (Multiplicative a, Additive a) => Multiplicative (M2 a) where
             (a10 * b01 + a11 * b11)
 
 instance (CScalar a) => LinearMap (M2 a) (V2 a) (V2 a) where
-    M2 m00 m01 m10 m11 <*| V2 x y = V2 x' y'
+    lmapFwd (M2 m00 m01 m10 m11) (V2 x y) = V2 x' y'
       where
         x' = m00 * x + m01 * y
         y' = m10 * x + m11 * y
-    Cov2 x y |*> M2 m00 m01 m10 m11 = Cov2 x' y'
+    lmapBack (M2 m00 m01 m10 m11) (Cov2 x y) = Cov2 x' y'
       where
         x' = m00 * x + m10 * y
         y' = m01 * x + m11 * y

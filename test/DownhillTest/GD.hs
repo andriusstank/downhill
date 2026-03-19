@@ -14,7 +14,7 @@ import Downhill.VSpace (InnerSpace(..), VSpace (..), sqrNorm, RealScalar)
 import NumHask.Prelude
 import Downhill.Linear.Builder (HasBuilder, Dense(..))
 import Downhill.Opt.GD (AccGdProblem (..), accGd)
-import Downhill.BVar (BVar, someDFun)
+import Downhill.BVar (BVar)
 
 loss1 :: (InnerSpace v, FromRational (Scalar v)) => v -> Scalar v
 loss1 x = 0.5 * sqrNorm x
@@ -50,7 +50,7 @@ dloss1 :: forall v.
     , FromRational (Scalar v)
     , RealScalar (Scalar v)
     ) =>
-    BVar.DFun v (Scalar v) (BVar.Graph v (Scalar v))
+    BVar.DFun v (Scalar v)
 dloss1 = BVar.ad bvarLoss1
 
 data Vec2 a = Vec2 a a
@@ -85,14 +85,14 @@ instance (IsScalar a) => InnerSpace (Cov2 a) where
 data L2 = L2
 
 instance (v ~ DualOf dv, dv ~ DualOf v, InnerSpace v) => LinearMap L2 v dv where
-  L2 <*| v = riesz v
-  v |*> L2 = riesz v
+  lmapFwd L2 = riesz
+  lmapBack L2 = riesz
 
 instance InnerSpace v => Metric L2 v where
 
 problem :: AccGdProblem (Vec2 Double) Double L2
 problem = AccGdProblem {
-    loss = someDFun (dloss1 @(Vec2 Double)),
+    loss = dloss1 @(Vec2 Double),
     metric = L2,
     momentum = Nothing,
     dy = 1.0

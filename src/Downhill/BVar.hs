@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -6,20 +7,22 @@ module Downhill.BVar (
     BVar (..),
     constant,
     var,
+    buncurry,
     Graph,
-    DFun (..), SomeDFun(..), someDFun,
+    DFun (..),
     backprop,
     ad,
+    dconst,
 )
 where
 
-import Downhill.Linear.AD (Graph, denseTerm', identityAD, realNode, realNode2, AD)
+import Downhill.Linear.AD (AD, Graph, denseTerm', identityAD, realNode, realNode2, pattern T2)
 import Downhill.Linear.AD qualified as AD
 import Downhill.Linear.Builder (HasBuilder)
-import Downhill.Linear.Expr (Expr (ExprSum), VecPair (..), Term)
-import Downhill.Linear.Fun (DualOf, LinearMap(..))
+import Downhill.Linear.Expr (Expr (ExprSum), Term, VecPair (..))
+import Downhill.Linear.Fun (DualOf, LinearMap (..), SomeLinearMap (SomeLinearMap), lid, lzero)
 import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold, Tang)
-import Downhill.VSpace (InnerSpace (..), VSpace ((|*|)), CScalar(..), RealScalar)
+import Downhill.VSpace (CScalar (..), InnerSpace (..), RealScalar, VSpace ((|*|)))
 import NumHask.Prelude
 import Prelude qualified
 
@@ -47,11 +50,11 @@ instance
     (BVar f0 df) - (BVar g0 dg) = BVar (f0 - g0) (df - dg)
 
 instance (HasGrad a, Tang a ~ a, InnerSpace a, Multiplicative a, Multiplicative (DualOf a)) => Multiplicative (BVar r a) where
-    (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (realNode (ExprSum [ term1, term2]))
-        where
-            term1, term2 :: Term ('VecPair r (DualOf r)) ('VecPair (Tang a) (DualOf (Tang a)))
-            term1 = denseTerm' (f0 *) (riesz f0 *) dg
-            term2 = denseTerm' (* g0) ( * riesz g0) df
+    (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (realNode (ExprSum [term1, term2]))
+      where
+        term1, term2 :: Term ('VecPair r (DualOf r)) ('VecPair (Tang a) (DualOf (Tang a)))
+        term1 = denseTerm' (f0 *) (riesz f0 *) dg
+        term2 = denseTerm' (* g0) (* riesz g0) df
     one = BVar one zero
 
 newtype VectorScalarMulFun v = VectorScalarMulFun v
@@ -83,12 +86,12 @@ instance
     BVar v dv |* BVar a da =
         BVar
             (v |* a)
-            --(dense2 (VectorScalarMulFun v) (ScalarMulFun a) da dv)
+            -- (dense2 (VectorScalarMulFun v) (ScalarMulFun a) da dv)
             (realNode2 [t1, t2])
-                where
-                    t1, t2 :: Term ('VecPair r (DualOf r)) ('VecPair v (DualOf v))
-                    t1 = denseTerm' (v |*) (v |*|) da
-                    t2 = denseTerm' (|* a) (|* a) dv
+      where
+        t1, t2 :: Term ('VecPair r (DualOf r)) ('VecPair v (DualOf v))
+        t1 = denseTerm' (v |*) (v |*|) da
+        t2 = denseTerm' (|* a) (|* a) dv
 
 sqr :: (Multiplicative a) => a -> a
 sqr x = x * x
@@ -200,7 +203,7 @@ instance
     , RealScalar (Scalar v)
     ) =>
     InnerSpace (BVar r v)
- where
+    where
     BVar u du <.> BVar v dv = BVar (u <.> v) (realNode (ExprSum [t1, t2]))
       where
         t1 = denseTerm' (u <.>) (riesz u |*) dv
@@ -216,13 +219,14 @@ constant x = BVar x zero
 var :: a -> BVar (Tang a) a
 var x = BVar x identityAD
 
-newtype DFun a b f = DFun { unDFun :: a -> (b, f) }
+buncurry ::
+    (HasBuilder (Tang a), HasBuilder (Tang b), HasBuilder (Grad a), HasBuilder (Grad b)) =>
+    (BVar r a -> BVar r b -> c) -> BVar r (a, b) -> c
+buncurry f (BVar (x1, x2) dx) = f (BVar x1 dx1) (BVar x2 dx2)
+  where
+    T2 dx1 dx2 = dx
 
-data SomeDFun a b where
-    SomeDFun :: (LinearMap f (Tang a) (Tang b)) => (a -> (b, f)) -> SomeDFun a b
-
-someDFun :: LinearMap f (Tang a) (Tang b) => DFun a b f -> SomeDFun a b
-someDFun (DFun f) = SomeDFun f
+newtype DFun a b = DFun {unDFun :: a -> (b, SomeLinearMap (Tang a) (Tang b))}
 
 backprop ::
     forall r a.
@@ -240,10 +244,25 @@ ad ::
     , HasBuilder (Grad a)
     , HasBuilder (Tang b)
     , HasBuilder (Grad b)
+    , DualOf (DualOf (Tang a)) ~ Tang a
+    , DualOf (DualOf (Tang b)) ~ Tang b
     ) =>
     (forall r. BVar r a -> BVar r b) ->
-    DFun a b (Graph (Tang a) (Tang b))
+    DFun a b
 ad f = DFun go
   where
-    go :: a -> (b, Graph (Tang a) (Tang b))
-    go x = backprop (f (var x))
+    go x = (y, SomeLinearMap df)
+      where
+        (y, df) = backprop (f (var x))
+
+instance Category DFun where
+    id = DFun (,lid)
+    DFun f . DFun g = DFun go
+      where
+        go x = (z, df . dg)
+          where
+            (y, dg) = g x
+            (z, df) = f y
+
+dconst :: (Additive (Tang b), Additive (DualOf (Tang a))) => b -> DFun a b
+dconst b = DFun (const (b, lzero))

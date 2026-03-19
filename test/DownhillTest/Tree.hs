@@ -16,7 +16,7 @@ import Downhill.BVar (BVar (..), DFun (unDFun))
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.AD (inlineNode)
 import Downhill.Linear.Builder (HasBuilder (..))
-import Downhill.Linear.Fun (DualOf, LinearMap (..))
+import Downhill.Linear.Fun (DualOf, LinearMap (..), (<<*|), (|*>>))
 import Downhill.Manifold (Grad, IsScalar, Manifold, Tang)
 import Downhill.Tree.FieldWrapper (DenseFieldWrapper (..), FieldWrapper (..))
 import Downhill.Tree.Record (
@@ -137,8 +137,8 @@ myBVarFun = myFun . unFieldWrapper . splitMyTree
 splitBVarTests :: Assertion
 splitBVarTests = do
     y @=? 3 * 23 + 5 * 29 + 7 * 37 + 11 * 41
-    13 |*> dy @=? FieldWrapper (MyBigRecord (MyRecord (13 * 3) (13 * 5)) (MyRecord 0 (13 * 7)) (13 * 11))
-    dy <*| FieldWrapper (MyBigRecord (MyRecord 17 19) (MyRecord 43 47) 53) @=? 3 * 17 + 5 * 19 + 7 * 47 + 11 * 53
+    13 |*>> dy @=? FieldWrapper (MyBigRecord (MyRecord (13 * 3) (13 * 5)) (MyRecord 0 (13 * 7)) (13 * 11))
+    dy <<*| FieldWrapper (MyBigRecord (MyRecord 17 19) (MyRecord 43 47) 53) @=? 3 * 17 + 5 * 19 + 7 * 47 + 11 * 53
   where
     x :: FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord)
     x = FieldWrapper (MyBigRecord (MyRecord 23 29) (MyRecord 31 37) 41)
@@ -162,8 +162,8 @@ myBVarFunT = joinMyTree . FieldWrapper . myFunT
 joinBVarTests :: Assertion
 joinBVarTests = do
     y @=? MyBigRecord (MyRecord (13 * 3) (13 * 5)) (MyRecord (13*7) (13 * 11)) (13 * 17)
-    FieldWrapper (MyBigRecord (MyRecord 19 23) (MyRecord 29 31) 37) |*> dy @=? 3*19 + 5*23 + 7*29 + 11*31 + 17*37
-    dy <*| 41 @=? FieldWrapper (MyBigRecord (MyRecord (41 * 3) (41 * 5)) (MyRecord (41*7) (41 * 11)) (41 * 17))
+    FieldWrapper (MyBigRecord (MyRecord 19 23) (MyRecord 29 31) 37) |*>> dy @=? 3*19 + 5*23 + 7*29 + 11*31 + 17*37
+    dy <<*| 41 @=? FieldWrapper (MyBigRecord (MyRecord (41 * 3) (41 * 5)) (MyRecord (41*7) (41 * 11)) (41 * 17))
   where
     x :: Int
     x = 13

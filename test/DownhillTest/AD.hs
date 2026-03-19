@@ -4,12 +4,13 @@ module DownhillTest.AD (adTests)
 where
 
 import Downhill.Linear.AD (AD, Graph, ad, dense1, identityAD)
-import Downhill.Linear.Fun (LinearMap (..), ScalarMulFun (..))
+import Downhill.Linear.Fun (ScalarMulFun (..), (<*|))
 import Downhill.Orphans ()
 import NumHask.Prelude
 import Test.HUnit ((@=?))
 import Test.Hspec (SpecWith, describe, it)
 import qualified Downhill.Linear.AD as AD
+import Downhill.Linear.Fun ((|*>))
 
 zeroTest :: SpecWith ()
 zeroTest = it "zero" $ do
@@ -18,6 +19,7 @@ zeroTest = it "zero" $ do
         f = ad zero
     f <*| 0 @=? 0
     0 |*> f @=? 0
+    return ()
 
 mulTest :: SpecWith ()
 mulTest = it "mul" $ do
