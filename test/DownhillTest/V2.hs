@@ -8,7 +8,7 @@ where
 
 import Downhill.BVar (buncurry)
 import Downhill.BVar qualified as BVar
-import Downhill.Internal.Test.Linear (testBilinearBFun, testHilbertMap, testHilbertSpace, testLinearMap, testRing)
+import Downhill.Internal.Test.Linear (testBilinearBFun, testHilbertMap, testHilbertSpace, testLinearMap)
 import Downhill.Linear.Builder (Dense (Dense), HasBuilder)
 import Downhill.Linear.Fun (DualOf, LinearMap (..), SomeLinearMap (..), (<*|), (|*>))
 import Downhill.Manifold (Manifold (..), Tang)
@@ -19,6 +19,7 @@ import Hedgehog.Range qualified as Range
 import NumHask.Prelude
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
+import Downhill.Internal.Test.Ring (testRing)
 
 data V2 a = V2 a a
     deriving (Generic, Eq, Show)

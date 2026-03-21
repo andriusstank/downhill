@@ -2,7 +2,6 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Downhill.Internal.Test.Linear (
-    testRing,
     testVSpace,
     testHilbertSpace,
     testLinearMap,
@@ -32,55 +31,8 @@ import Hedgehog (Gen, Group (..), MonadTest, Property, PropertyT, annotateShow, 
 import NumHask.Prelude hiding (Group)
 import Test.Tasty (TestName, TestTree, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
+import Downhill.Internal.Test.Ring (testRing, testAdditive)
 
-{-# ANN testAdditive ("HLint: ignore Use -" :: String) #-}
-testAdditive :: forall a. (Eq a, Additive a, Show a) => Gen a -> TestTree
-testAdditive genA = testProperty "Additive" . property $ do
-    x <- forAll genA
-    y <- forAll genA
-    z <- forAll genA
-    x + zero === x
-    zero + x === x
-    x + y === y + x
-    (x + y) + z === x + (y + z)
-
-{-# ANN testSubtractive ("HLint: ignore Use -" :: String) #-}
-{-# ANN testSubtractive ("HLint: ignore Redundant negate" :: String) #-}
-testSubtractive :: forall a. (Eq a, Subtractive a, Show a) => Gen a -> TestTree
-testSubtractive genA = testProperty "Subtractive" . property $ do
-    x <- forAll genA
-    y <- forAll genA
-    x - y === x + negate y
-    x + negate x === zero
-    negate (negate x) === x
-    negate @a zero === zero
-
-testMultiplicative :: (Show a, Eq a, Multiplicative a, InnerSpace a, Multiplicative (DualOf a)) => Gen a -> TestTree
-testMultiplicative genA = testProperty "Multiplicative" . property $ do
-    x <- forAll genA
-    y <- forAll genA
-    z <- forAll genA
-    x * one === x
-    one * x === x
-    y * x === coriesz (riesz x * riesz y)
-    (x * y) * z === x * (y * z)
-
-testDistributive :: (Show a, Eq a, Additive a, Multiplicative a) => Gen a -> TestTree
-testDistributive genA = testProperty "Distributive" . property $ do
-    x <- forAll genA
-    y <- forAll genA
-    z <- forAll genA
-    x * (y + z) === x * y + x * z
-
-testRing :: (Show a, Eq a, Ring a, Multiplicative (DualOf a), InnerSpace a) => TestName -> Gen a -> TestTree
-testRing name genA =
-    testGroup
-        name
-        [ testAdditive genA
-        , testSubtractive genA
-        , testMultiplicative genA
-        , testDistributive genA
-        ]
 
 testVectorSpace ::
     ( a ~ Scalar v
@@ -101,7 +53,6 @@ testVectorSpace genA genV =
         "VSpace"
         [ testRing "Scalar ring" genA
         , testAdditive genV
-        , testSubtractive genV
         , oneMul
         , scalarVSpace
         , multCompat

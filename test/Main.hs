@@ -11,7 +11,7 @@ import Test.Hspec (describe, hspec, it)
 
 import Downhill.BVar (BVar)
 import Downhill.Linear.Fun (LinearMap (..), ScalarMulFun (..), SomeLinearMap(..))
-import Downhill.Internal.Test.Linear (testHilbertMap, testHilbertSpace, testLinearMap, testRing, testVSpace)
+import Downhill.Internal.Test.Linear (testHilbertMap, testHilbertSpace, testLinearMap, testVSpace)
 import DownhillTest.V2 (Cov2 (Cov2), M2 (..), V2 (..), testM2)
 import GHC.RTS.Flags (MiscFlags (generateStackTrace))
 import Hedgehog

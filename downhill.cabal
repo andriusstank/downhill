@@ -39,6 +39,7 @@ library
         Downhill.BVar
         Downhill.Orphans
         Downhill.Internal.Test.Linear
+        Downhill.Internal.Test.Ring
     -- other-modules:
     -- other-extensions:
     build-depends:    base ^>=4.20.0.0,
