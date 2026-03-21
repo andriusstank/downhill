@@ -78,6 +78,8 @@ instance
 
 type instance Tang (Generically p) = Generically (Tang p)
 
+type instance Tang (Complex a) = Complex (Tang a)
+
 class GManifold f g where
   gmplus :: f p -> g p -> f p
   gmminus :: f p -> g p -> f p

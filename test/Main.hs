@@ -7,22 +7,21 @@ import DownhillTest.AD (adTests)
 import DownhillTest.Diff (diffTests)
 import DownhillTest.Record (recordTests)
 import DownhillTest.Tree (treeTests)
-import Test.Hspec (hspec, describe, it)
+import Test.Hspec (describe, hspec, it)
 
 import Downhill.BVar (BVar)
-import Downhill.Linear.Fun (LinearMap (..), ScalarMulFun (..))
-import Downhill.Test (testVSpace, testHilbertSpace, testLinearMap, testRing)
-import DownhillTest.V2 (M2 (..), V2 (..), Cov2 (Cov2))
+import Downhill.Linear.Fun (LinearMap (..), ScalarMulFun (..), SomeLinearMap(..))
+import Downhill.Internal.Test.Linear (testHilbertMap, testHilbertSpace, testLinearMap, testRing, testVSpace)
+import DownhillTest.V2 (Cov2 (Cov2), M2 (..), V2 (..), testM2)
+import GHC.RTS.Flags (MiscFlags (generateStackTrace))
 import Hedgehog
 import Hedgehog (Gen, Property, property)
 import Hedgehog.Gen qualified as Gen
 import Hedgehog.Range qualified as Range
 import NumHask.Prelude
-import Test.HUnit ((@=?), Assertion)
+import Test.HUnit (Assertion, (@=?))
+import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Hedgehog (testProperty)
-import Test.Tasty(TestTree, defaultMain, testGroup)
-import GHC.RTS.Flags (MiscFlags(generateStackTrace))
-import Downhill.Test (testHilbertMap)
 
 testFun :: BVar r Int -> BVar r Int
 testFun x = x
@@ -42,18 +41,8 @@ genCInt = Complex <$> ((,) <$> genInt <*> genInt)
 genM2 :: Gen a -> Gen (M2 a)
 genM2 g = M2 <$> g <*> g <*> g <*> g
 
+
 {-
-testM2 :: [(PropertyName, Property)]
-testM2 =
-    [
-        ( "testM2"
-        , property
-            $ do
-                f1 <- forAll (genM2 genInt)
-                testLinearMap genInt (genV2 genInt) (Transpose <$> genV2 genInt) f1
-                testHilbertMap (genV2 genInt) (genM2 genInt)
-        )
-    ]
 
 testM2C :: [(PropertyName, Property)]
 testM2C =
@@ -81,22 +70,18 @@ testProp = [("test", property go)]
 -}
 
 mainHg :: TestTree
-mainHg = testGroup "All" [
-        testHilbertSpace "(V2 Int) Hilbert space" genInt (genV2 genInt) (genCov2 genInt),
-        testHilbertSpace "(V2 (Complex Int)) Hilbert space" genCInt (genV2 genCInt) (genCov2 genCInt),
-        testHilbertSpace "(M2 (Complex Int)) Hilbert space" genCInt (genM2 genCInt) (genM2 genCInt),
-        testRing "Int M2 ring" (genM2 genInt),
-        --testRing "Complex M2 ring" (genM2 genCInt),
-        testHilbertMap genCInt (genV2 genCInt) (genCov2 genCInt) (forAll (genM2 genCInt))
-        {- , ("vspace v2 cint", testVSpace genCInt (genV2 genCInt))
-        , ("vspace m2 int", testVSpace genInt (genM2 genInt))
-        , ("vspace m2 cint", testVSpace genCInt (genM2 genCInt)) -}
+mainHg =
+    testGroup
+        "All"
+        [
+         testM2
         ]
-        {-
-            ++ testM2
-            ++ testM2C
-            ++ testProp -}
-  
+
+{-
+    ++ testM2
+    ++ testM2C
+    ++ testProp -}
+
 mainSpec :: IO ()
 mainSpec = hspec $ do
     adTests

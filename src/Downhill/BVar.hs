@@ -49,12 +49,12 @@ instance
     negate (BVar y0 dy) = BVar (negate y0) (negate dy)
     (BVar f0 df) - (BVar g0 dg) = BVar (f0 - g0) (df - dg)
 
-instance (HasGrad a, Tang a ~ a, InnerSpace a, Multiplicative a, Multiplicative (DualOf a)) => Multiplicative (BVar r a) where
+instance (HasGrad a, Tang a ~ a, InnerSpace a, Multiplicative a, DualOf a ~ a) => Multiplicative (BVar r a) where
     (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (realNode (ExprSum [term1, term2]))
       where
         term1, term2 :: Term ('VecPair r (DualOf r)) ('VecPair (Tang a) (DualOf (Tang a)))
-        term1 = denseTerm' (f0 *) (riesz f0 *) dg
-        term2 = denseTerm' (* g0) (* riesz g0) df
+        term1 = denseTerm' (f0 *) (* f0) dg
+        term2 = denseTerm' (* g0) (g0 *) df
     one = BVar one zero
 
 newtype VectorScalarMulFun v = VectorScalarMulFun v

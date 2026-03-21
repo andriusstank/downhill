@@ -1,12 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module Downhill.Test (
+module Downhill.Internal.Test.Linear (
     testRing,
     testVSpace,
     testHilbertSpace,
     testLinearMap,
     testHilbertMap,
+    testBilinearBFun
     {-
     testVSpace,
     testHilbertSpace,
@@ -20,7 +21,7 @@ module Downhill.Test (
 ) where
 
 import Control.Arrow (ArrowChoice (right))
-import Downhill.BVar (BVar, DFun (DFun), Graph)
+import Downhill.BVar (BVar, DFun (DFun), Graph, buncurry)
 import Downhill.BVar qualified as BVar
 import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Fun (DualOf, Fst (Fst), LinearMap (..), SomeLinearMap (SomeLinearMap), lflip, lfst, lsnd, (<*|), (|*>))
@@ -360,9 +361,11 @@ testHilbertMap genA genU genDV genF =
         x <- forAll genDV
         coriesz (x |*> f) === riesz f <*| coriesz x
 
-runSomeLinearMap :: (forall f. (LinearMap f a b) => f -> r) -> SomeLinearMap a b -> r
-runSomeLinearMap f lmap = case lmap of
-    SomeLinearMap lf -> f lf
+testHilberMul :: (Show a, InnerSpace a, Multiplicative a, Multiplicative (DualOf a), Eq a ) => Gen a -> TestTree
+testHilberMul gen = testProperty "???" . property $ do
+    a <- forAll gen
+    b <- forAll gen
+    a * b === coriesz (riesz b * riesz a)
 
 testLinearDFun ::
     forall u v.
@@ -398,7 +401,7 @@ testLinearDFun genScalar genU genDV genF = testGroup "Linear DFun" [selfD, linea
         DFun f <- genF
         x <- forAll genU
         return (snd (f x))
-    --linearity = _ (runSomeLinearMap (testLinearMap "Linearity of derivative" genScalar genU genDV) <$> derivative)
+    -- linearity = _ (runSomeLinearMap (testLinearMap "Linearity of derivative" genScalar genU genDV) <$> derivative)
     linearity = testLinearMap "Linearity of derivative" genScalar genU genDV derivative
 
 testLinearBFun ::
@@ -494,6 +497,43 @@ testBilinearDFun genScalar genU genV genDW f = testGroup "Bilinear DFun" [testLi
     bindRight = do
         v <- forAll genV
         return (f . constSecond v)
+
+testBilinearBFun ::
+    forall u v w.
+    ( VSpace u
+    , VSpace v
+    , VSpace w
+    , Tang v ~ v
+    , Tang w ~ w
+    , Tang u ~ u
+    , Scalar v ~ Scalar w
+    , Scalar u ~ Scalar w
+    , Eq v
+    , Eq w
+    , Eq (Scalar w)
+    , Eq (DualOf u)
+    , Eq (DualOf v)
+    , Show v
+    , Show u
+    , Show w
+    , Show (Scalar w)
+    , Show (DualOf v)
+    , Show (DualOf u)
+    , Show (DualOf w)
+    , HasBuilder u
+    , HasBuilder v
+    , HasBuilder (DualOf u)
+    , HasBuilder (DualOf v)
+    , HasBuilder w
+    , HasBuilder (DualOf w)
+    ) =>
+    Gen (Scalar v) ->
+    Gen u ->
+    Gen v ->
+    Gen (DualOf w) ->
+    (forall r. BVar r u -> BVar r v -> BVar r w) ->
+    TestTree
+testBilinearBFun genScalar genU genV genDW f = testBilinearDFun genScalar genU genV genDW (BVar.ad (buncurry f))
 
 {-
 
