@@ -3,14 +3,15 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE UndecidableSuperClasses #-}
+{-# LANGUAGE DefaultSignatures #-}
 
 module Downhill.Manifold (Tang, Manifold (..), MScalar, Grad, IsScalar, HasGrad)
 where
 
-import Downhill.Linear.Builder (HasBuilder)
+import Downhill.Linear.Builder (HasBuilder, Dense)
 import Downhill.Linear.Fun (DualOf)
 import Downhill.Orphans ()
-import Downhill.VSpace (VSpace)
+import Downhill.VSpace (VSpace, RealScalar)
 import NumHask.Prelude
 
 type MScalar p = Scalar (Tang p)
@@ -20,12 +21,16 @@ class
   ( VSpace (Tang p)
   , Tang (MScalar p) ~ MScalar p
   , Tang (Tang p) ~ Tang p
-  , Tang (DualOf p) ~ DualOf p
+  , Tang (Grad p) ~ Grad p
   ) =>
   Manifold p
   where
   (.+~^) :: p -> Tang p -> p
+  default (.+~^) :: p ~ Tang p => p -> Tang p -> p
+  (.+~^) = (+)
   (.-~^) :: p -> Tang p -> p
+  default (.-~^) :: p ~ Tang p => p -> Tang p -> p
+  (.-~^) = (-)
 
 type Grad p = DualOf (Tang p)
 
@@ -78,7 +83,10 @@ instance
 
 type instance Tang (Generically p) = Generically (Tang p)
 
-type instance Tang (Complex a) = Complex (Tang a)
+type instance Tang (Complex a) = Complex a
+instance RealScalar a => Manifold (Complex a) where
+  (.+~^) = (+)
+  (.-~^) = (-)
 
 class GManifold f g where
   gmplus :: f p -> g p -> f p
@@ -101,7 +109,7 @@ instance GManifold U1 U1 where
   gmminus _ _ = U1
 
 instance
-  ( Tang (DualOf p) ~ DualOf p
+  ( Tang (Grad p) ~ Grad p
   , Tang (Scalar (Tang p)) ~ Scalar (Tang p)
   , Tang (Tang p) ~ Tang p
   , Tang (Scalar (Generically (Tang p))) ~ Scalar (Generically (Tang p))
@@ -114,3 +122,6 @@ instance
   where
   Generically x .+~^ Generically dx = Generically (to (from x `gmplus` from dx))
   Generically x .-~^ Generically dx = Generically (to (from x `gmminus` from dx))
+
+type instance Tang (Dense v) = Dense (Tang v)
+

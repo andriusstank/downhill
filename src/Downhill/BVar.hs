@@ -11,16 +11,18 @@ module Downhill.BVar (
     Graph,
     DFun (..),
     backprop,
+    valueAndDiff,
     ad,
     dconst,
 )
 where
 
+import Downhill.Algebra (FrobeniusAlgebra (..))
 import Downhill.Linear.AD (AD, Graph, denseTerm', identityAD, realNode, realNode2, pattern T2)
 import Downhill.Linear.AD qualified as AD
 import Downhill.Linear.Builder (HasBuilder)
 import Downhill.Linear.Expr (Expr (ExprSum), Term, VecPair (..))
-import Downhill.Linear.Fun (DualOf, LinearMap (..), SomeLinearMap (SomeLinearMap), lid, lzero)
+import Downhill.Linear.Fun (DualOf, AsLinearMap (..), LinearMap (..), lZero, (<*|))
 import Downhill.Manifold (Grad, HasGrad, IsScalar, Manifold, Tang)
 import Downhill.VSpace (CScalar (..), InnerSpace (..), RealScalar, VSpace ((|*|)))
 import NumHask.Prelude
@@ -29,7 +31,7 @@ import Prelude qualified
 -- | Variable is a value paired with derivative.
 data BVar r a = BVar
     { bvarValue :: a
-    , bvarGrad :: AD r (Tang a)
+    , bvarDerivative :: AD r (Tang a)
     }
 
 instance (Additive a, HasBuilder (Tang a), HasBuilder (Grad a), DualOf (DualOf (Tang a)) ~ Tang a) => Additive (BVar r a) where
@@ -49,12 +51,13 @@ instance
     negate (BVar y0 dy) = BVar (negate y0) (negate dy)
     (BVar f0 df) - (BVar g0 dg) = BVar (f0 - g0) (df - dg)
 
-instance (HasGrad a, Tang a ~ a, InnerSpace a, Multiplicative a, DualOf a ~ a) => Multiplicative (BVar r a) where
+instance (HasGrad a, Tang a ~ a, Multiplicative a, FrobeniusAlgebra a) => Multiplicative (BVar r a) where
     (BVar f0 df) * (BVar g0 dg) = BVar (f0 * g0) (realNode (ExprSum [term1, term2]))
       where
         term1, term2 :: Term ('VecPair r (DualOf r)) ('VecPair (Tang a) (DualOf (Tang a)))
-        term1 = denseTerm' (f0 *) (* f0) dg
-        term2 = denseTerm' (* g0) (g0 *) df
+        term1 = denseTerm' (f0 *) (frobenius . (* f0) . cofrobenius) dg
+        term2 = denseTerm' (* g0) (frobenius . (g0 *) . cofrobenius) df
+
     one = BVar one zero
 
 newtype VectorScalarMulFun v = VectorScalarMulFun v
@@ -64,10 +67,9 @@ instance
     , DualOf a ~ a
     , VSpace v
     ) =>
-    LinearMap (VectorScalarMulFun v) a v
+    AsLinearMap (VectorScalarMulFun v) a v
     where
-    lmapFwd (VectorScalarMulFun v) = (*| v)
-    lmapBack (VectorScalarMulFun v) = (|*| v)
+    toLinearMap (VectorScalarMulFun v) = LinearMap (*| v) (|*| v)
 
 instance
     ( IsScalar (Scalar v)
@@ -79,6 +81,7 @@ instance
     , HasBuilder (Scalar v)
     , HasBuilder v
     , HasBuilder (DualOf v)
+    , FrobeniusAlgebra (Scalar v)
     ) =>
     MultiplicativeAction (BVar r v)
     where
@@ -99,13 +102,13 @@ sqr x = x * x
 rsqrt :: (ExpField a) => a -> a
 rsqrt x = recip (sqrt x)
 
-instance (IsScalar a, HasGrad a, Divisive a) => Divisive (BVar r a) where
+instance (IsScalar a, HasGrad a, Divisive a, FrobeniusAlgebra a) => Divisive (BVar r a) where
     recip (BVar x dx) = BVar (recip x) (df *| dx)
       where
         df = negate (recip (sqr x))
     BVar x dx / BVar y dy = BVar (x / y) ((recip y *| dx) - ((x / sqr y) *| dy))
 
-instance (IsScalar a, HasGrad a, ExpField a) => ExpField (BVar r a) where
+instance (IsScalar a, HasGrad a, ExpField a, FrobeniusAlgebra a) => ExpField (BVar r a) where
     exp (BVar x dx) = BVar (exp x) (exp x *| dx)
     log (BVar x dx) = BVar (log x) (recip x *| dx)
 
@@ -115,7 +118,7 @@ instance (FromRational a, HasGrad a) => FromRational (BVar r a) where
 instance (FromInteger a, HasGrad a) => FromInteger (BVar r a) where
     fromInteger x = constant (fromInteger x)
 
-instance (IsScalar a, HasGrad a, ExpField a, TrigField a) => TrigField (BVar r a) where
+instance (IsScalar a, HasGrad a, ExpField a, TrigField a, FrobeniusAlgebra a) => TrigField (BVar r a) where
     pi = BVar pi zero
     sin (BVar x dx) = BVar (sin x) (cos x *| dx)
     cos (BVar x dx) = BVar (cos x) (negate (sin x) *| dx)
@@ -169,7 +172,7 @@ instance (IsScalar a, Floating a, HasGrad a) => Floating (BVar r a) where
 
 type instance DualOf (BVar r v) = BVar r (DualOf v)
 
-instance (RealScalar a, Tang a ~ a, HasBuilder a, Manifold a) => CScalar (BVar r a) where
+instance (RealScalar a, Tang a ~ a, HasBuilder a, Manifold a, FrobeniusAlgebra a) => CScalar (BVar r a) where
     type RealType (BVar r a) = BVar r a
     conj = id
 
@@ -182,7 +185,7 @@ instance
     , HasBuilder v
     , HasBuilder (DualOf v)
     , HasBuilder (Scalar v)
-    , RealScalar (Scalar v)
+    , FrobeniusAlgebra (Scalar v)
     ) =>
     VSpace (BVar r v)
     where
@@ -201,6 +204,7 @@ instance
     , HasBuilder (DualOf v)
     , HasBuilder (Scalar v)
     , RealScalar (Scalar v)
+    , FrobeniusAlgebra (Scalar v)
     ) =>
     InnerSpace (BVar r v)
     where
@@ -210,6 +214,35 @@ instance
         t2 = denseTerm' (<.> v) (*| riesz v) du
     riesz (BVar u du) = BVar (riesz u) (realNode (ExprSum [denseTerm' riesz riesz du]))
     coriesz (BVar u du) = BVar (coriesz u) (realNode (ExprSum [denseTerm' coriesz coriesz du]))
+
+instance
+    ( HasGrad a
+    , Tang a ~ a
+    , Manifold (Scalar a)
+    , HasBuilder (Scalar a)
+    , VSpace (DualOf a)
+    , FrobeniusAlgebra a
+    , FrobeniusAlgebra (Scalar a)
+    ) =>
+    FrobeniusAlgebra (BVar r a)
+    where
+    frobenius (BVar x dx) = BVar (frobenius x) (realNode (ExprSum [denseTerm' frobenius frobenius dx]))
+    cofrobenius (BVar x dx) = BVar (cofrobenius x) (realNode (ExprSum [denseTerm' cofrobenius cofrobenius dx]))
+
+    trace (BVar x dx) = BVar (trace x) (realNode (ExprSum [term1]))
+      where
+        term1 = denseTerm' trace (*| frobenius one) dx
+
+instance (Eq a) => Eq (BVar r a) where
+    BVar x _ == BVar y _ = x == y
+    BVar x _ /= BVar y _ = x /= y
+
+instance (Ord a) => Ord (BVar r a) where
+    compare (BVar x _) (BVar y _) = compare x y
+    BVar x _ < BVar y _ = x < y
+    BVar x _ <= BVar y _ = x <= y
+    BVar x _ > BVar y _ = x > y
+    BVar x _ >= BVar y _ = x >= y
 
 -- | A variable with derivative of zero.
 constant :: forall r a. (HasBuilder (Grad a), HasBuilder (Tang a), DualOf (DualOf (Tang a)) ~ Tang a) => a -> BVar r a
@@ -226,7 +259,7 @@ buncurry f (BVar (x1, x2) dx) = f (BVar x1 dx1) (BVar x2 dx2)
   where
     T2 dx1 dx2 = dx
 
-newtype DFun a b = DFun {unDFun :: a -> (b, SomeLinearMap (Tang a) (Tang b))}
+newtype DFun a b = DFun {unDFun :: a -> (b, LinearMap (Tang a) (Tang b))}
 
 backprop ::
     forall r a.
@@ -237,6 +270,21 @@ backprop ::
     ) =>
     BVar r a -> (a, Graph r (Tang a))
 backprop (BVar x dx) = (x, AD.ad dx)
+
+valueAndDiff ::
+    forall a b.
+    ( HasBuilder (Tang a)
+    , HasBuilder (Grad a)
+    , HasBuilder (Tang b)
+    , HasBuilder (Grad b)
+    , Manifold a
+    , Manifold b
+    , Multiplicative (Tang a)
+    ) =>
+    (forall r. BVar r a -> BVar r b) -> a -> (b, Tang b)
+valueAndDiff f x = (y, dy <*| one)
+  where
+    (y, dy) = backprop . f . var $ x
 
 ad ::
     forall a b.
@@ -251,12 +299,12 @@ ad ::
     DFun a b
 ad f = DFun go
   where
-    go x = (y, SomeLinearMap df)
+    go x = (y, toLinearMap df)
       where
         (y, df) = backprop (f (var x))
 
 instance Category DFun where
-    id = DFun (,lid)
+    id = DFun (,id)
     DFun f . DFun g = DFun go
       where
         go x = (z, df . dg)
@@ -265,4 +313,4 @@ instance Category DFun where
             (z, df) = f y
 
 dconst :: (Additive (Tang b), Additive (DualOf (Tang a))) => b -> DFun a b
-dconst b = DFun (const (b, lzero))
+dconst b = DFun (const (b, lZero))

@@ -9,13 +9,13 @@ module Downhill.VSpace (
   (*^),
   (^*),
   InnerSpace (..),
-  sqrNorm,
   CScalar (..),
   RealScalar,
+  InnerSpaceMetric(..)
 )
 where
 
-import Downhill.Linear.Fun (DualOf)
+import Downhill.Linear.Fun (DualOf, AsLinearMap (toLinearMap), Metric, LinearMap (..))
 import Downhill.Orphans ()
 import NumHask.Prelude
 
@@ -25,16 +25,16 @@ class
   , Scalar (Scalar v) ~ Scalar v
   , Scalar v ~ Scalar (DualOf v)
   , Scalar v ~ DualOf (Scalar v)
+  , FromInteger (Scalar v) -- TODO: maybe FromInteger should be a superclass of Multiplicative (and Ring)
   , Ring (Scalar v)
-  , InnerSpace (Scalar v)
   , Multiplicative (Scalar v)
   , MultiplicativeAction v
   , MultiplicativeAction (DualOf v)
   , v ~ DualOf (DualOf v)
-  , CScalar (Scalar v)
   ) =>
   VSpace v
   where
+  infix 7 |*|
   (|*|) :: DualOf v -> v -> Scalar v
   default (|*|) :: (GDual (Scalar v) (Rep v) (Rep (DualOf v)), Generic (DualOf v), Generic v) => DualOf v -> v -> Scalar v
   dv |*| v = gevalGrad (from dv) (from v)
@@ -55,9 +55,8 @@ class (VSpace v) => InnerSpace v where
   riesz :: v -> DualOf v
   coriesz :: DualOf v -> v
   (<.>) :: v -> v -> Scalar v
-
-sqrNorm :: (InnerSpace v) => v -> Scalar v
-sqrNorm x = x <.> x
+  sqrNorm :: (InnerSpace v) => v -> Scalar v
+  sqrNorm x = x <.> x
 
 class GDual s v dv where
   gevalGrad :: dv p -> v p -> s
@@ -94,13 +93,21 @@ instance InnerSpace Integer where
   coriesz = id
   (<.>) = (*)
 
-instance RealScalar a => VSpace (Complex a) where
+instance (Ring a, FromInteger a) => VSpace (Complex a) where
   (|*|) = (*)
 
-instance RealScalar a => InnerSpace (Complex a) where
+instance VSpace (Ratio Integer) where
+  (|*|) = (*)
+
+instance (RealScalar a) => InnerSpace (Complex a) where
   riesz = conj
   coriesz = conj
   x <.> y = x * conj y
+
+instance InnerSpace (Ratio Integer) where
+  riesz = id
+  coriesz = id
+  (<.>) = (*)
 
 instance VSpace Float where
   (|*|) = (*)
@@ -116,6 +123,7 @@ instance
   , Scalar (Generically v) ~ DualOf (Scalar (Generically v))
   , Scalar (Generically v) ~ Scalar (Scalar (Generically v))
   , Multiplicative (Scalar (Generically v))
+  , FromInteger (Scalar (Generically v))
   , DualOf (DualOf v) ~ v
   , Generic v
   , Generic (DualOf v)
@@ -124,9 +132,7 @@ instance
   , Subtractive (Scalar (Generically v))
   , MultiplicativeAction (Generically v)
   , MultiplicativeAction (Generically (DualOf v))
-  , InnerSpace (Scalar (Generically v))
   , GVSpace (Rep (DualOf v)) (Rep v) (Scalar (Generically v))
-  , CScalar (Scalar (Generically v))
   ) =>
   VSpace (Generically v)
   where
@@ -154,6 +160,7 @@ class
   , MultiplicativeAction a
   , InnerSpace a
   , RealType (RealType a) ~ RealType a
+  , FromInteger a
   ) =>
   CScalar a
   where
@@ -180,3 +187,13 @@ instance (RealScalar a) => CScalar (Complex a) where
   type RealType (Complex a) = a
   conj (Complex (x, y)) = Complex (x, negate y)
   sqnorm (Complex (x, y)) = sqnorm x + sqnorm y
+
+instance CScalar (Ratio Integer) where
+  type RealType (Ratio Integer) = Ratio Integer
+
+data InnerSpaceMetric = InnerSpaceMetric
+
+instance (v ~ DualOf dv, dv ~ DualOf v, InnerSpace v) => AsLinearMap InnerSpaceMetric v dv where
+    toLinearMap InnerSpaceMetric = LinearMap riesz riesz
+
+instance (InnerSpace v) => Metric InnerSpaceMetric v

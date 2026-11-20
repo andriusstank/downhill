@@ -46,9 +46,10 @@ import Downhill.Linear.Expr (
   Term,
   VecPair (VecPair),
  )
-import Downhill.Linear.Fun (DualOf, LinearMap (..))
+import Downhill.Linear.Fun (DualOf, AsLinearMap (..), LinearMap (LinearMap))
 import GHC.IO.Unsafe (unsafePerformIO)
-import Prelude hiding (tail)
+import Prelude hiding (tail, (.))
+import Control.Category (Category(..))
 
 buildGraph ::
   forall (a :: VecPair) (v :: VecPair).
@@ -143,12 +144,15 @@ evalGraph3 (UniGraph nodes finalNode) dz = evalNode finalNode
   innerValues :: NodeMap s CovHolder
   innerValues = NodeMap.map (CovHolder . evalNode) nodes
 
-instance (a ~ DualOf (DualOf a), z ~ DualOf (DualOf z), a ~ a', z ~ z') => LinearMap (Graph a z) a' z' where
-  lmapFwd (Graph fwd' _back) = evalGraph2 fwd'
-  lmapBack (Graph _fwd back') = evalGraph3 back'
+instance (a ~ a', z ~ z') => AsLinearMap (Graph a z) a' z' where
+  toLinearMap (Graph fwd' back') = LinearMap (evalGraph2 fwd') (evalGraph3 back')
 
 newtype DenseBigraph a z = DenseBigraph { unDenseBigraph :: Graph (Dense a) (Dense z) }
 
-instance (a ~ DualOf (DualOf a), z ~ DualOf (DualOf z)) => LinearMap (DenseBigraph a z) a z where
-  lmapFwd (DenseBigraph f) = unDense . lmapFwd f . Dense
-  lmapBack (DenseBigraph f) = unDense . lmapBack f . Dense
+instance AsLinearMap (DenseBigraph a z) a z where
+  toLinearMap (DenseBigraph f) = unpack .  toLinearMap f . pack
+    where
+       pack ::  LinearMap a (Dense a)
+       unpack :: LinearMap (Dense z) z
+       pack = LinearMap Dense unDense
+       unpack = LinearMap unDense Dense

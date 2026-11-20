@@ -1,5 +1,4 @@
 {-# LANGUAGE GHC2024 #-}
-{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -12,29 +11,28 @@ where
 
 import Data.Singletons (Apply, SingI (sing), TyCon1, type (@@), type (~>))
 import Data.Tuple.Singletons (STuple0 (STuple0))
-import Downhill.BVar (BVar (..), DFun (unDFun))
+import Downhill.BVar (BVar, DFun)
 import Downhill.BVar qualified as BVar
-import Downhill.Linear.AD (inlineNode)
 import Downhill.Linear.Builder (HasBuilder (..))
-import Downhill.Linear.Fun (DualOf, LinearMap (..), (<<*|), (|*>>))
-import Downhill.Manifold (Grad, IsScalar, Manifold, Tang)
-import Downhill.Tree.FieldWrapper (DenseFieldWrapper (..), FieldWrapper (..))
-import Downhill.Tree.Record (
-    FieldGetter (FieldGetter),
-    IsRecord (..),
-    Record,
-    RecordBuilder,
-    ShR (..),
-    fieldBuilder,
-    recordField,
+import Downhill.Linear.Fun ((|*>), (<*|))
+import Downhill.Tree.BVar (BVarRepr (joinBVarField))
+import Downhill.Tree.Record (IsRecord)
+import Downhill.Tree.Tree (
+    Tree (..),
+    TreeOf,
+    TreeShape (TreeShapeLeaf, TreeShapeRecord),
+    adTree,
+    adTreeRecord,
+    fillTreeEx,
+    foldTreeEx,
+    mapTreeEx,
+    zipTreeEx,
  )
-import Downhill.Tree.Tree (TreeOf, TreeShape (TreeShapeLeaf, TreeShapeRecord), fillTree)
-import DownhillTest.MonoLeaf (Field, MonoLeaf)
+import DownhillTest.MonoLeaf (MonoLeaf)
 import GHC.Records (getField)
 import NumHask.Prelude hiding (Field)
-import Test.HUnit (Assertion, assert, (@=?))
+import Test.HUnit (Assertion, (@=?))
 import Test.Hspec (SpecWith, describe, it)
-import Downhill.Tree.BVar (BVarField(..))
 
 type Leaf f = f @@ 'TreeShapeLeaf '()
 type Subtree f record = f @@ 'TreeShapeRecord record
@@ -58,123 +56,92 @@ deriving instance (Show a) => Show (MyRecord (TreeOf (MonoLeaf a)))
 instance IsRecord MyBigRecord
 deriving instance (Eq a) => Eq (MyBigRecord (TreeOf (MonoLeaf a)))
 deriving instance (Show a) => Show (MyBigRecord (TreeOf (MonoLeaf a)))
-deriving instance Show (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyRecord))
-deriving instance Show (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord))
 
-type MyTree = FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord)
+type MyTreeValue = MyBigRecord (TreeOf (MonoLeaf Int))
 
 testFill1 :: Assertion
 testFill1 = myTree @=? expected
   where
-    myTree, expected :: MyTree
-    myTree = fillTree 4
-    expected = FieldWrapper (MyBigRecord (MyRecord 4 4) (MyRecord 4 4) 4)
+    myTree, expected :: MyTreeValue
+    myTree = fillTreeEx (\STuple0 -> 4) (sing @('TreeShapeRecord MyBigRecord))
+    expected = MyBigRecord (MyRecord 4 4) (MyRecord 4 4) 4
 
-testEq :: Assertion
-testEq = do
-    assert (x == x)
-    assert (x /= y)
+testExplicitOperations :: Assertion
+testExplicitOperations = do
+    mapTreeEx @(MonoLeaf Int) @(MonoLeaf Int) (\STuple0 n -> n + 1) treeShape x
+        @=? MyBigRecord (MyRecord 2 3) (MyRecord 4 5) 6
+    zipTreeEx @(MonoLeaf Int) @(MonoLeaf Int) @(MonoLeaf Int) (\STuple0 a b -> a + b) treeShape x y
+        @=? MyBigRecord (MyRecord 8 10) (MyRecord 12 14) 16
+    foldTreeEx @(MonoLeaf Int) @Int (\STuple0 n total -> n + total) treeShape 0 x @=? 15
   where
-    x, y :: MyTree
-    x = FieldWrapper (MyBigRecord (MyRecord 4 4) (MyRecord 4 4) 4)
-    y = FieldWrapper (MyBigRecord (MyRecord 4 4) (MyRecord 4 3) 4)
-
-smallBuilderTest :: Assertion
-smallBuilderTest = do
-    let mkRecord :: Int -> Int -> FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyRecord)
-        mkRecord x y = FieldWrapper (MyRecord x y)
-        fs :: MyRecord (TyCon1 (FieldGetter MyRecord))
-        fs = recordGettersEx
-        mkBuilder :: FieldGetter MyRecord ('TreeShapeLeaf '()) -> Int -> VecBuilder (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyRecord))
-        mkBuilder field value = FieldWrapper (fieldBuilder field (FieldWrapper (identityBuilder value)))
-    sumBuilder mempty @=? mkRecord 0 0
-    sumBuilder (identityBuilder (mkRecord 3 4)) @=? mkRecord 3 4
-    sumBuilder (mkBuilder fs.fieldA 5) @=? mkRecord 5 0
-    sumBuilder (mkBuilder fs.fieldB 6) @=? mkRecord 0 6
-    sumBuilder (mkBuilder fs.fieldA 5 <> mkBuilder fs.fieldA 6) @=? mkRecord 11 0
-    sumBuilder (identityBuilder (mkRecord 7 8) <> mkBuilder fs.fieldA 5 <> mkBuilder fs.fieldA 6) @=? mkRecord 18 8
-    sumBuilder (mkBuilder fs.fieldB 9) @=? mkRecord 0 9
-    sumBuilder (mkBuilder fs.fieldB 9 <> mkBuilder fs.fieldA 10) @=? mkRecord 10 9
-    sumBuilder (mkBuilder fs.fieldB 9 <> mkBuilder fs.fieldA 10 <> identityBuilder (mkRecord 10 20)) @=? mkRecord 20 29
-
-bigBuilderTest :: Assertion
-bigBuilderTest = do
-    let mkSmallRecord :: Int -> Int -> FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyRecord)
-        mkSmallRecord x y = FieldWrapper (MyRecord x y)
-        mkBuilder :: FieldGetter MyBigRecord ('TreeShapeLeaf '()) -> Int -> VecBuilder (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord))
-        mkBuilder field value = FieldWrapper (fieldBuilder field (FieldWrapper (identityBuilder value)))
-        mkSmallBuilder :: FieldGetter MyRecord ('TreeShapeLeaf '()) -> Int -> VecBuilder (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyRecord))
-        mkSmallBuilder field value = FieldWrapper (fieldBuilder field (FieldWrapper (identityBuilder value)))
-        wrap :: MyBigRecord (TreeOf (MonoLeaf Int)) -> FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord)
-        wrap = FieldWrapper
-        fs :: MyBigRecord (TyCon1 (FieldGetter MyBigRecord))
-        fs = recordGettersEx
-        fsSmall :: MyRecord (TyCon1 (FieldGetter MyRecord))
-        fsSmall = recordGettersEx
-        mkRBuilder :: FieldGetter MyBigRecord ('TreeShapeRecord MyRecord) -> VecBuilder (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyRecord)) -> VecBuilder (FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord))
-        mkRBuilder field value = FieldWrapper (fieldBuilder field value)
-    sumBuilder mempty @=? wrap (MyBigRecord (MyRecord 0 0) (MyRecord 0 0) 0)
-    sumBuilder (mkRBuilder fs.subrA (identityBuilder (mkSmallRecord 31 37))) @=? wrap (MyBigRecord (MyRecord 31 37) (MyRecord 0 0) 0)
-    sumBuilder (mkRBuilder fs.subrB (mkSmallBuilder fsSmall.fieldA 41)) @=? wrap (MyBigRecord (MyRecord 0 0) (MyRecord 41 0) 0)
-    sumBuilder (mkBuilder fs.fieldC 43) @=? wrap (MyBigRecord (MyRecord 0 0) (MyRecord 0 0) 43)
-    return ()
-
-splitMyTree ::
-    forall r a.
-    (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
-    BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord)) ->
-    FieldWrapper (TreeOf (MonoLeaf (BVar r a))) ('TreeShapeRecord MyBigRecord)
-splitMyTree = splitField
+    treeShape = sing @('TreeShapeRecord MyBigRecord)
+    x, y :: MyTreeValue
+    x = MyBigRecord (MyRecord 1 2) (MyRecord 3 4) 5
+    y = MyBigRecord (MyRecord 7 8) (MyRecord 9 10) 11
 
 myFun :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => MyBigRecord (TreeOf (MonoLeaf a)) -> a
 myFun x = (x.subrA.fieldA |* 3) + (x.subrA.fieldB |* 5) + (x.subrB.fieldB |* 7) + (x.fieldC |* 11)
 
-myBVarFun ::
-    (IsScalar a, HasBuilder a, FromInteger a) =>
-    BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord)) -> BVar r a
-myBVarFun = myFun . unFieldWrapper . splitMyTree
-
-splitBVarTests :: Assertion
-splitBVarTests = do
-    y @=? 3 * 23 + 5 * 29 + 7 * 37 + 11 * 41
-    13 |*>> dy @=? FieldWrapper (MyBigRecord (MyRecord (13 * 3) (13 * 5)) (MyRecord 0 (13 * 7)) (13 * 11))
-    dy <<*| FieldWrapper (MyBigRecord (MyRecord 17 19) (MyRecord 43 47) 53) @=? 3 * 17 + 5 * 19 + 7 * 47 + 11 * 53
-  where
-    x :: FieldWrapper (TreeOf (MonoLeaf Int)) ('TreeShapeRecord MyBigRecord)
-    x = FieldWrapper (MyBigRecord (MyRecord 23 29) (MyRecord 31 37) 41)
-    (y, dy) = unDFun (BVar.ad myBVarFun) x
-
-joinMyTree ::
-    forall r a.
-    (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
-    FieldWrapper (TreeOf (MonoLeaf (BVar r a))) ('TreeShapeRecord MyBigRecord) ->
-    BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord))
-joinMyTree = joinField
-
 myFunT :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => a -> MyBigRecord (TreeOf (MonoLeaf a))
 myFunT x = MyBigRecord (MyRecord (x |* 3) (x |* 5)) (MyRecord (x |* 7) (x |* 11)) (x |* 17)
 
-myBVarFunT ::
-    (IsScalar a, HasBuilder a, FromInteger a) =>
-    BVar r a -> BVar r (FieldWrapper (TreeOf (MonoLeaf a)) ('TreeShapeRecord MyBigRecord))
-myBVarFunT = joinMyTree . FieldWrapper . myFunT
+type NewTree = Tree (MonoLeaf Int) ('TreeShapeRecord MyBigRecord)
 
-joinBVarTests :: Assertion
-joinBVarTests = do
-    y @=? MyBigRecord (MyRecord (13 * 3) (13 * 5)) (MyRecord (13*7) (13 * 11)) (13 * 17)
-    FieldWrapper (MyBigRecord (MyRecord 19 23) (MyRecord 29 31) 37) |*>> dy @=? 3*19 + 5*23 + 7*29 + 11*31 + 17*37
-    dy <<*| 41 @=? FieldWrapper (MyBigRecord (MyRecord (41 * 3) (41 * 5)) (MyRecord (41*7) (41 * 11)) (41 * 17))
+newTreeInstancesTest :: Assertion
+newTreeInstancesTest = do
+    unTree (x + y) @=? MyBigRecord (MyRecord 8 10) (MyRecord 12 14) 16
+    unTree (sumBuilder (identityBuilder x)) @=? unTree x
+    unTree (sumBuilder (identityBuilder x <> identityBuilder y)) @=? unTree (x + y)
   where
-    x :: Int
-    x = 13
-    (FieldWrapper y, dy) = unDFun (BVar.ad myBVarFunT) x
+    x, y :: NewTree
+    x = Tree (MyBigRecord (MyRecord 1 2) (MyRecord 3 4) 5)
+    y = Tree (MyBigRecord (MyRecord 7 8) (MyRecord 9 10) 11)
+
+joinNewTree :: Tree (MonoLeaf (BVar r Int)) ('TreeShapeRecord MyBigRecord) -> BVar r NewTree
+joinNewTree = joinBVarField @(TyCon1 (Tree (MonoLeaf Int))) sing
+
+newTreeSplitTest :: Assertion
+newTreeSplitTest = do
+    value @=? 3 * 23 + 5 * 29 + 7 * 37 + 11 * 41
+    unTree (13 |*> derivative)
+        @=? MyBigRecord (MyRecord (13 * 3) (13 * 5)) (MyRecord 0 (13 * 7)) (13 * 11)
+    derivative <*| Tree (MyBigRecord (MyRecord 17 19) (MyRecord 43 47) 53)
+        @=? 3 * 17 + 5 * 19 + 7 * 47 + 11 * 53
+  where
+    objective :: DFun NewTree Int
+    objective = adTreeRecord myFun
+    input = Tree (MyBigRecord (MyRecord 23 29) (MyRecord 31 37) 41)
+    (value, derivative) = BVar.unDFun objective input
+
+newLeafTreeAdTest :: Assertion
+newLeafTreeAdTest = do
+    value @=? 49
+    unTree (13 |*> derivative) @=? 182
+    derivative <*| Tree 11 @=? 154
+  where
+    objective :: DFun (Tree (MonoLeaf Int) ('TreeShapeLeaf '())) Int
+    objective = adTree (\(Tree x) -> x * x)
+    (value, derivative) = BVar.unDFun objective (Tree 7)
+
+newTreeJoinTest :: Assertion
+newTreeJoinTest = do
+    unTree value
+        @=? MyBigRecord (MyRecord (13 * 3) (13 * 5)) (MyRecord (13 * 7) (13 * 11)) (13 * 17)
+    unTree (derivative <*| 41)
+        @=? MyBigRecord (MyRecord (41 * 3) (41 * 5)) (MyRecord (41 * 7) (41 * 11)) (41 * 17)
+    Tree (MyBigRecord (MyRecord 19 23) (MyRecord 29 31) 37) |*> derivative
+        @=? 3 * 19 + 5 * 23 + 7 * 29 + 11 * 31 + 17 * 37
+  where
+    objective :: BVar r Int -> BVar r NewTree
+    objective = joinNewTree . Tree . myFunT
+    (value, derivative) = BVar.unDFun (BVar.ad objective) 13
 
 treeTests :: SpecWith ()
 treeTests = describe "Tree" $ do
     it "fill" testFill1
-    it "eq" testEq
-    it "small builder" smallBuilderTest
-    it "big builder" bigBuilderTest
-    it "split" splitBVarTests
-    it "join" joinBVarTests
+    it "supports explicit structural operations" testExplicitOperations
+    it "supports algebra and builders through Tree" newTreeInstancesTest
+    it "differentiates a leaf-root Tree" newLeafTreeAdTest
+    it "splits Tree variables" newTreeSplitTest
+    it "joins Tree variables" newTreeJoinTest
     return ()

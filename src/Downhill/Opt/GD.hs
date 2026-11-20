@@ -9,7 +9,7 @@ where
 import Data.Stream.Infinite (Stream (..))
 import Data.Stream.Infinite qualified as Stream
 import Downhill.BVar (DFun (DFun))
-import Downhill.Linear.Fun (DualOf, LinearMap (..), Metric, SomeLinearMap (SomeLinearMap), (|*>))
+import Downhill.Linear.Fun (DualOf, Metric, (|*>))
 import Downhill.Manifold (Grad, MScalar, Manifold (..), Tang)
 import NumHask.Prelude
 
@@ -27,8 +27,7 @@ gdStep dy (DFun loss) metric x =
   y :: z
   (y, f) = loss x
   step :: Tang p
-  step = case f of
-    SomeLinearMap f' -> dy |*> f' |*> metric
+  step = dy |*> f |*> metric
 
 data GDState p = GDState
   { x :: p
@@ -44,8 +43,7 @@ gdmStep dy momentum (DFun loss) metric state = (GDState x2 v2, y)
   y :: z
   (y, f) = loss state.x
   step :: Tang p
-  step = case f of
-    SomeLinearMap f' -> dy |*> f' |*> metric
+  step = dy |*> f |*> metric
   x2 = state.x .-~^ v2
   v2 = momentum *| state.v + (one - momentum) *| step
 

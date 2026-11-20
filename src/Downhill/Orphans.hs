@@ -18,7 +18,9 @@ module Downhill.Orphans (
 
 import GHC.Generics (Generic (from, to))
 import GHC.TypeError (ErrorMessage (Text))
-import GHC.TypeLits (TypeError)
+import GHC.TypeLits (KnownNat, TypeError)
+import Data.Vector.Sized (Vector)
+import Data.Vector.Sized qualified as Vector
 import NumHask.Prelude hiding (from, to)
 
 class GAdditive f where
@@ -65,6 +67,10 @@ instance (Generic a, GAdditive (Rep a)) => Additive (Generically a) where
     zero = Generically (to gzero)
 
     Generically x + Generically y = Generically (GHC.Generics.to (gplus (from x) (from y)))
+
+instance (KnownNat n, Additive a) => Additive (Vector n a) where
+    zero = Vector.replicate zero
+    (+) = Vector.zipWith (+)
 
 instance (Generic a, GSubtractive (Rep a)) => Subtractive (Generically a) where
     negate (Generically x) = Generically (to (gnegate (from x)))
@@ -180,3 +186,10 @@ instance MultiplicativeAction Double where
 instance Ring a => MultiplicativeAction (Complex a) where
     type Scalar (Complex a) = Complex a
     (|*) = (*)
+
+instance (Ord a, EndoBased a, Integral a, Ring a) => MultiplicativeAction (Ratio a) where
+    type Scalar (Ratio a) = Ratio a
+    (|*) = (*)
+
+instance (FromInteger a, Additive a) => FromInteger (Complex a) where
+    fromInteger x = Complex (fromInteger x, zero)

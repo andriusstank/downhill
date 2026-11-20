@@ -4,13 +4,16 @@ module DownhillTest.AD (adTests)
 where
 
 import Downhill.Linear.AD (AD, Graph, ad, dense1, identityAD)
-import Downhill.Linear.Fun (ScalarMulFun (..), (<*|))
+import Downhill.Linear.Fun ( (<*|), (|*>), LinearMap(..))
+import Downhill.VSpace(VSpace)
 import Downhill.Orphans ()
 import NumHask.Prelude
 import Test.HUnit ((@=?))
 import Test.Hspec (SpecWith, describe, it)
 import qualified Downhill.Linear.AD as AD
-import Downhill.Linear.Fun ((|*>))
+
+scalarMulFun :: VSpace v => Scalar v -> LinearMap v v
+scalarMulFun x = LinearMap (|*x) (|*x)
 
 zeroTest :: SpecWith ()
 zeroTest = it "zero" $ do
@@ -25,7 +28,7 @@ mulTest :: SpecWith ()
 mulTest = it "mul" $ do
     let
         f :: Graph Int Int
-        f = ad (dense1 (ScalarMulFun 2) identityAD)
+        f = ad (dense1 (scalarMulFun 2) identityAD)
     f <*| 3 @=? 6
     3 |*> f @=? 6
 
@@ -33,8 +36,8 @@ sumTest :: SpecWith ()
 sumTest = it "sum" $ do
     let
         f1, f2 :: AD Int Int
-        f1 = dense1 (ScalarMulFun 2) identityAD
-        f2 = dense1 (ScalarMulFun 3) identityAD
+        f1 = dense1 (scalarMulFun 2) identityAD
+        f2 = dense1 (scalarMulFun 3) identityAD
         f :: Graph Int Int
         f = ad (f1 + f2)
     f <*| 7 @=? 35
@@ -45,8 +48,8 @@ minusTest :: SpecWith ()
 minusTest = it "minus" $ do
     let
         f1, f2 :: AD Int Int
-        f1 = dense1 (ScalarMulFun 5) identityAD
-        f2 = dense1 (ScalarMulFun 3) identityAD
+        f1 = dense1 (scalarMulFun 5) identityAD
+        f2 = dense1 (scalarMulFun 3) identityAD
         f :: Graph Int Int
         f = ad (f1 - f2)
     f <*| 7 @=? 14
@@ -57,8 +60,8 @@ pairTest1 :: SpecWith ()
 pairTest1 = it "join pair" $ do
     let
         f1, f2 :: AD Int Int
-        f1 = dense1 (ScalarMulFun 2) identityAD
-        f2 = dense1 (ScalarMulFun 3) identityAD
+        f1 = dense1 (scalarMulFun 2) identityAD
+        f2 = dense1 (scalarMulFun 3) identityAD
         f3 :: AD Int (Int, Int)
         f3 = AD.T2 f1 f2
         f :: Graph Int (Int, Int)

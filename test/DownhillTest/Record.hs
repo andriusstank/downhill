@@ -1,5 +1,4 @@
 {-# LANGUAGE GHC2024 #-}
-{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE RebindableSyntax #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -9,31 +8,36 @@
 module DownhillTest.Record (recordTests)
 where
 
-import Data.Singletons (TyCon1, type (@@), type (~>))
+import Data.Singletons (TyCon1, type (@@), type (~>), SingI (sing))
+import Data.Text qualified as Text
 import Data.Tuple.Singletons (STuple0 (STuple0))
 import Downhill.BVar (BVar (..), unDFun)
 import Downhill.BVar qualified as BVar
+import Downhill.Algebra (FrobeniusAlgebra)
 import Downhill.Linear.Builder (HasBuilder (..))
-import Downhill.Linear.Fun ((<*|), (|*>), (|*>>), (<<*|))
-import Downhill.Manifold (Grad, IsScalar, Manifold (..), Tang)
-import Downhill.Tree.BVar (BVarField (..))
-import Downhill.Tree.FieldWrapper (FieldWrapper (..))
+import Downhill.Manifold (IsScalar)
 import Downhill.Tree.Record (
   FieldGetter,
   IsRecord (..),
+  NamedFields (..),
   Record,
-  RecordBuilder,
+  RecordValue (..),
+  RecordValueBuilder,
   ShR (..),
-  fieldBuilder,
+  joinBVarRecord,
   recordField,
-  toListRecord,
+  recordValueFieldBuilder,
+  splitBVarRecord,
+  toListRecordEx,
  )
+import Downhill.Tree.Representation (HasGradRepr)
 import DownhillTest.MonoLeaf (Field, MonoLeaf)
 import GHC.Records (getField)
 import NumHask.Prelude hiding (Field)
 import Prelude.Singletons (ConstSym1)
-import Test.HUnit (Assertion, (@=?))
+import Test.HUnit (Assertion, assertFailure, (@=?))
 import Test.Hspec (SpecWith, describe, it)
+import Downhill.Linear.Fun ((<*|), (|*>))
 
 data MyRecord (f :: () ~> Type) = MyRecord
   { fieldA :: Field f
@@ -42,6 +46,12 @@ data MyRecord (f :: () ~> Type) = MyRecord
   deriving (Generic)
 
 instance IsRecord MyRecord
+
+data MyTupleRecord (f :: () ~> Type) = MyTupleRecord (Field f) (Field f)
+  deriving (Generic)
+
+instance IsRecord MyTupleRecord
+
 deriving instance (Eq a) => Eq (MyRecord (MonoLeaf a))
 deriving instance (Eq a) => Eq (MyRecord (ConstSym1 a))
 deriving instance (Show a) => Show (MyRecord (MonoLeaf a))
@@ -59,17 +69,23 @@ testFill2 = fillRecordEx f @=? (MyRecord 1 1 :: MyRecord (ConstSym1 Int))
   f :: STuple0 sh -> ConstSym1 Int @@ sh
   f STuple0 = one
 
-deriving instance Show (FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord))
-deriving instance Eq (FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord))
-deriving instance Show (FieldWrapper (Record (ConstSym1 Int)) ('ShR MyRecord))
-deriving instance Eq (FieldWrapper (Record (ConstSym1 Int)) ('ShR MyRecord))
+testFieldNames :: Assertion
+testFieldNames = do
+  case fieldNames @MyRecord of
+    Just (NamedFields (MyRecord nameA nameB)) ->
+      ["fieldA", "fieldB"] @=? fmap Text.unpack [nameA, nameB]
+    Nothing -> assertFailure "generic record field names are missing"
+
+  case fieldNames @MyTupleRecord of
+    Nothing -> pure ()
+    Just _ -> assertFailure "positional constructor unexpectedly has field names"
 
 testPlus :: Assertion
-testPlus = FieldWrapper (MyRecord 8 10) @=? (x + y)
+testPlus = RecordValue (MyRecord 8 10) @=? (x + y)
  where
-  x, y :: FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord)
-  x = FieldWrapper (MyRecord 3 4)
-  y = FieldWrapper (MyRecord 5 6)
+  x, y :: RecordValue MyRecord (MonoLeaf Int)
+  x = RecordValue (MyRecord 3 4)
+  y = RecordValue (MyRecord 5 6)
 
 testField :: Assertion
 testField =
@@ -85,13 +101,12 @@ testField =
 
 builderTests :: SpecWith ()
 builderTests = it "builderTests" $ do
-  let mkRecord :: Int -> Int -> FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord)
-      mkRecord x y = FieldWrapper (MyRecord x y)
+  let mkRecord :: Int -> Int -> RecordValue MyRecord (MonoLeaf Int)
+      mkRecord x y = RecordValue (MyRecord x y)
       fs :: MyRecord (TyCon1 (FieldGetter MyRecord))
       fs = recordGettersEx
-      mkBuilder :: FieldGetter MyRecord '() -> Int -> RecordBuilder ('ShR MyRecord) (MonoLeaf Int)
-      -- mkBuilder field value = fieldBuilder field (Just (Sum (FieldWrapper value)))
-      mkBuilder field value = fieldBuilder field (identityBuilder value)
+      mkBuilder :: FieldGetter MyRecord '() -> Int -> RecordValueBuilder MyRecord (MonoLeaf Int)
+      mkBuilder field value = recordValueFieldBuilder field (identityBuilder value)
   sumBuilder mempty @=? mkRecord 0 0
   sumBuilder (identityBuilder (mkRecord 3 4)) @=? mkRecord 3 4
   sumBuilder (mkBuilder fs.fieldA 5) @=? mkRecord 5 0
@@ -103,62 +118,63 @@ builderTests = it "builderTests" $ do
 
 splitMyRecord ::
   forall r a.
-  (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
-  BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord)) ->
-  FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord)
-splitMyRecord = splitField
+  (HasGradRepr (MonoLeaf a)) =>
+  BVar r (RecordValue MyRecord (MonoLeaf a)) ->
+  MyRecord (MonoLeaf (BVar r a))
+splitMyRecord = splitBVarRecord
 
 myFun :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => MyRecord (MonoLeaf a) -> a
 myFun x = (x.fieldA |* 3) + (x.fieldB |* 5)
 
 myBVarFun ::
-  (IsScalar a, HasBuilder a, FromInteger a) =>
-  BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord)) -> BVar r a
-myBVarFun = myFun . unFieldWrapper . splitMyRecord
+  (IsScalar a, HasBuilder a, FrobeniusAlgebra a, HasGradRepr (MonoLeaf a)) =>
+  BVar r (RecordValue MyRecord (MonoLeaf a)) -> BVar r a
+myBVarFun = myFun . splitMyRecord
 
 splitBVarTests :: Assertion
 splitBVarTests = do
   y @=? 3 * 7 + 5 * 11
-  13 |*>> dy @=? FieldWrapper (MyRecord (13 * 3) (13 * 5))
-  dy <<*| FieldWrapper (MyRecord 17 19) @=? 3 * 17 + 5 * 19
+  13 |*> dy @=? RecordValue (MyRecord (13 * 3) (13 * 5))
+  dy <*| RecordValue (MyRecord 17 19) @=? 3 * 17 + 5 * 19
  where
-  x :: FieldWrapper (Record (MonoLeaf Int)) ('ShR MyRecord)
-  x = FieldWrapper (MyRecord 7 11)
+  x :: RecordValue MyRecord (MonoLeaf Int)
+  x = RecordValue (MyRecord 7 11)
   (y, dy) = unDFun (BVar.ad myBVarFun) x
 
 myFunT :: (MultiplicativeAction a, FromInteger (Scalar a), Additive a) => a -> MyRecord (MonoLeaf a)
 myFunT x = MyRecord (x |* 3) (x |* 5)
 
 myBVarFunT ::
-  (IsScalar a, HasBuilder a, FromInteger a) =>
-  BVar r a -> BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord))
-myBVarFunT = joinMyRecord . FieldWrapper . myFunT
+  (IsScalar a, HasBuilder a, FrobeniusAlgebra a, HasGradRepr (MonoLeaf a)) =>
+  BVar r a -> BVar r (RecordValue MyRecord (MonoLeaf a))
+myBVarFunT = joinMyRecord . myFunT
 
 joinMyRecord ::
   forall r a.
-  (Manifold a, HasBuilder (Grad a), HasBuilder (Tang a)) =>
-  FieldWrapper (Record (MonoLeaf (BVar r a))) ('ShR MyRecord) ->
-  BVar r (FieldWrapper (Record (MonoLeaf a)) ('ShR MyRecord))
-joinMyRecord = joinField
+  (HasGradRepr (MonoLeaf a)) =>
+  MyRecord (MonoLeaf (BVar r a)) ->
+  BVar r (RecordValue MyRecord (MonoLeaf a))
+joinMyRecord = joinBVarRecord
 
 joinBVarTests :: Assertion
 joinBVarTests = do
   y @=? MyRecord (3 * 11) (5 * 11)
-  FieldWrapper (MyRecord 13 17) |*>> dy @=? 3 * 13 + 5 * 17
-  dy <<*| 19 @=? FieldWrapper (MyRecord (3 * 19) (5 * 19))
+  RecordValue (MyRecord 13 17) |*> dy @=? 3 * 13 + 5 * 17
+  dy <*| 19 @=? RecordValue (MyRecord (3 * 19) (5 * 19))
  where
   x :: Int
   x = 11
-  (FieldWrapper y, dy) = unDFun (BVar.ad myBVarFunT) x
+  (RecordValue y, dy) = unDFun (BVar.ad myBVarFunT) x
 
 toListTest :: Assertion
 toListTest = do
-  let x :: FieldWrapper (Record (ConstSym1 Int)) ('ShR MyRecord)
-      x = FieldWrapper (MyRecord 3 4)
-  toListRecord x @=? [3, 4]
+  let x :: Record (ConstSym1 Int) @@ 'ShR MyRecord
+      x = MyRecord 3 4
+  toListRecordEx (sing @('ShR MyRecord)) x @=? [3, 4]
 
 recordTests :: SpecWith ()
 recordTests = describe "Record" $ do
+  it "derives optional field names" testFieldNames
   it "fill" (testFill1 >> testFill2)
   it "plus" testPlus
   it "getter" testField

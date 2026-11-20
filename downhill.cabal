@@ -29,8 +29,18 @@ library
         Downhill.Linear.Expr
         Downhill.Linear.Fun
         Downhill.Linear.AD
-        Downhill.Tree.FieldWrapper
+        Downhill.Tree.At
+        Downhill.Tree.Array
+        Downhill.Tree.FieldNaming
         Downhill.Tree.Record
+        Downhill.Tree.Rec
+        Downhill.Tree.HListOf
+        Downhill.Tree.RegularRecord
+        Downhill.Tree.RTree
+        Downhill.Tree.RegularTree
+        Downhill.Tree.Representation
+        Downhill.Tree.Vector
+        Downhill.Tree.PrintRTree
         Downhill.Tree.Tree
         Downhill.Tree.BVar
         Downhill.Opt.GD
@@ -38,22 +48,28 @@ library
         Downhill.Manifold
         Downhill.BVar
         Downhill.Orphans
-        Downhill.Internal.Test.Linear
         Downhill.Internal.Test.Ring
+        Downhill.Internal.Test.VSpace
+        Downhill.Internal.Test.Linear
+        Downhill.Algebra
     -- other-modules:
     -- other-extensions:
-    build-depends:    base ^>=4.20.0.0,
+    build-depends:    base >=4.20 && <4.23,
                       numhask,
+                      template-haskell,
                       transformers,
                       unordered-containers,
                       reflection,
                       singletons, singletons-base,
                       constraints,
+                      HList,
                       dlist,
                       streams,
                       tasty,
                       hedgehog,
-                      tasty-hedgehog
+                      tasty-hedgehog,
+                      HUnit, hspec, hspec-core, hspec-hedgehog,
+                      vector-sized, finite-typelits, text, vinyl, primitive
     hs-source-dirs:   src
     default-language: GHC2024
 
@@ -64,10 +80,21 @@ test-suite downhill-test
         DownhillTest.AD
         DownhillTest.Diff
         DownhillTest.MonoLeaf
+        DownhillTest.Rec
         DownhillTest.Record
+        DownhillTest.RegularRecord
+        DownhillTest.RegularRecord.Fixtures
+        DownhillTest.RegularRecord.Fields
+        DownhillTest.RegularRecord.Structure
+        DownhillTest.RegularRecord.BVar
+        DownhillTest.RegularRecord.Workflow1
+        DownhillTest.RegularRecord.Workflow2
         DownhillTest.Tree
+        DownhillTest.Tree.Workflow2
         DownhillTest.GD
-        DownhillTest.V2
+        DownhillTest.VSpace.Scalar
+        DownhillTest.VSpace.V2
+        DownhillTest.VSpace.M2
     -- other-extensions:
     type:             exitcode-stdio-1.0
     hs-source-dirs:   test
@@ -78,7 +105,13 @@ test-suite downhill-test
         downhill,
         numhask,
         singletons, singletons-base,
-        hspec, hspec-expectations, HUnit,
+        hspec, hspec-core, hspec-expectations, HUnit,
         constraints,
         streams,
-        hedgehog, tasty, tasty-hedgehog
+        text,
+        hedgehog, tasty, tasty-hedgehog,
+        reflection, tasty-hunit,
+        hspec-hedgehog,
+        vinyl,
+        vector-sized,
+        finite-typelits

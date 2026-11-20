@@ -13,7 +13,7 @@ where
 import Control.Monad (unless)
 import Downhill.BVar qualified as BVar
 import Downhill.BVar (BVar, DFun(..))
-import Downhill.Linear.Fun ((<<*|), (|*>>))
+import Downhill.Linear.Fun ((<*|), (|*>))
 import Downhill.Manifold (HasGrad)
 import NumHask.Prelude
 import Test.HUnit (Assertion, assertString)
@@ -35,8 +35,8 @@ testFun opts f = traverse_ testAt opts.args
         bvarF = f
     testAt :: Double -> Assertion
     testAt x0 = do
-        checkDy (df <<*| 1)
-        checkDy (1 |*>> df)
+        checkDy (df <*| 1)
+        checkDy (1 |*> df)
       where
         (_, df) = f' x0
         checkDy :: Double -> Assertion
